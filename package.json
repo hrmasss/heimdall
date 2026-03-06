@@ -1,0 +1,26 @@
+{
+  "name": "heimdall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Centralized Social Media Management Platform",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "cd apps/api && go run ./cmd/server",
+    "dev:web": "cd apps/web && npm run dev",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "cd apps/api && go build -o ../../bin/api ./cmd/server",
+    "build:web": "cd apps/web && npm run build",
+    "lint": "npm run lint:web",
+    "lint:web": "cd apps/web && npm run lint",
+    "format": "cd apps/web && npm run format",
+    "typecheck": "cd apps/web && npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.8.0"
+}
