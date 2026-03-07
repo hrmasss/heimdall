@@ -1,333 +1,268 @@
-import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
 import {
-  ArrowRight,
-  Calendar,
-  BarChart3,
-  Zap,
-  Shield,
-  Users,
-  Sparkles,
-  Globe,
-  Clock,
-  MessageSquare,
-  Layers,
-  Target,
-  RefreshCw,
-  Bell,
-  Palette,
-  Code,
-  Check,
+	ArrowRight,
+	BarChart3,
+	CalendarDays,
+	Filter,
+	GripVertical,
+	LayoutGrid,
+	MessageCircleMore,
+	MoveHorizontal,
+	ShieldCheck,
+	Sparkles,
+	WandSparkles,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Link } from "react-router";
 
-// Feature categories
-const featureCategories = [
-  {
-    id: "scheduling",
-    title: "Smart Scheduling",
-    description: "Optimize your posting times with intelligent scheduling",
-    icon: Calendar,
-    features: [
-      {
-        title: "Optimal Time Suggestions",
-        description: "AI analyzes your audience activity to suggest the best posting times for maximum engagement.",
-        icon: Clock,
-      },
-      {
-        title: "Visual Calendar",
-        description: "See all your scheduled content across platforms in one beautiful calendar view.",
-        icon: Calendar,
-      },
-      {
-        title: "Queue Management",
-        description: "Organize your content queue with drag-and-drop simplicity and bulk scheduling.",
-        icon: Layers,
-      },
-      {
-        title: "Time Zone Intelligence",
-        description: "Automatically adjust posting times for different audience time zones.",
-        icon: Globe,
-      },
-    ],
-  },
-  {
-    id: "analytics",
-    title: "Deep Analytics",
-    description: "Understand your performance with actionable insights",
-    icon: BarChart3,
-    features: [
-      {
-        title: "Unified Dashboard",
-        description: "See metrics from all platforms in a single, comprehensive dashboard.",
-        icon: BarChart3,
-      },
-      {
-        title: "Engagement Tracking",
-        description: "Monitor likes, comments, shares, and saves across all your content.",
-        icon: MessageSquare,
-      },
-      {
-        title: "Audience Insights",
-        description: "Understand who your audience is with demographic and behavioral data.",
-        icon: Users,
-      },
-      {
-        title: "Competitor Analysis",
-        description: "Benchmark your performance against competitors in your industry.",
-        icon: Target,
-      },
-    ],
-  },
-  {
-    id: "automation",
-    title: "Automation",
-    description: "Save time with powerful workflow automation",
-    icon: Zap,
-    features: [
-      {
-        title: "Auto-Publishing",
-        description: "Set it and forget it - your content publishes automatically when scheduled.",
-        icon: RefreshCw,
-      },
-      {
-        title: "Smart Notifications",
-        description: "Get alerted about important events, mentions, and engagement milestones.",
-        icon: Bell,
-      },
-      {
-        title: "Content Recycling",
-        description: "Automatically reshare your best-performing content at optimal intervals.",
-        icon: RefreshCw,
-      },
-      {
-        title: "Workflow Triggers",
-        description: "Create custom automation rules based on engagement and time triggers.",
-        icon: Zap,
-      },
-    ],
-  },
-  {
-    id: "collaboration",
-    title: "Team Collaboration",
-    description: "Work together seamlessly with your team",
-    icon: Users,
-    features: [
-      {
-        title: "Approval Workflows",
-        description: "Set up review and approval processes before content goes live.",
-        icon: Check,
-      },
-      {
-        title: "Role-Based Access",
-        description: "Control who can publish, edit, or view content with granular permissions.",
-        icon: Shield,
-      },
-      {
-        title: "Content Library",
-        description: "Share assets, templates, and approved content across your team.",
-        icon: Layers,
-      },
-      {
-        title: "Comments & Notes",
-        description: "Leave feedback directly on posts with threaded conversations.",
-        icon: MessageSquare,
-      },
-    ],
-  },
-  {
-    id: "ai",
-    title: "AI Assistant",
-    description: "Supercharge your content with AI",
-    icon: Sparkles,
-    features: [
-      {
-        title: "Caption Generation",
-        description: "Get AI-powered caption suggestions tailored to your brand voice.",
-        icon: Sparkles,
-      },
-      {
-        title: "Hashtag Research",
-        description: "Discover trending and relevant hashtags to maximize reach.",
-        icon: Target,
-      },
-      {
-        title: "Content Ideas",
-        description: "Never run out of ideas with AI-generated content suggestions.",
-        icon: Palette,
-      },
-      {
-        title: "Auto-Translation",
-        description: "Reach global audiences with automatic content translation.",
-        icon: Globe,
-      },
-    ],
-  },
-  {
-    id: "integrations",
-    title: "Integrations",
-    description: "Connect with the tools you already use",
-    icon: Code,
-    features: [
-      {
-        title: "Platform Connections",
-        description: "Connect Instagram, Twitter, LinkedIn, Facebook, TikTok, and more.",
-        icon: Globe,
-      },
-      {
-        title: "Design Tools",
-        description: "Import directly from Canva, Figma, and other design platforms.",
-        icon: Palette,
-      },
-      {
-        title: "CRM Integration",
-        description: "Sync with Salesforce, HubSpot, and other CRM tools.",
-        icon: Users,
-      },
-      {
-        title: "API Access",
-        description: "Build custom integrations with our comprehensive REST API.",
-        icon: Code,
-      },
-    ],
-  },
+import {
+	SectionHeading,
+	SectionTag,
+	SurfaceCard,
+} from "@/components/app/brand";
+import { Button } from "@/components/ui/button";
+
+const productLanes = [
+	{
+		icon: CalendarDays,
+		title: "Plan and sequence",
+		description:
+			"Map launches against dates, owners, dependencies, and campaign narratives. The calendar and list views stay in sync so no one is forced into one mode.",
+	},
+	{
+		icon: MoveHorizontal,
+		title: "Shape the table around the work",
+		description:
+			"Resize, reorder, and sort columns so each workspace reflects the way your team thinks about operations instead of the way a vendor guessed.",
+	},
+	{
+		icon: Filter,
+		title: "Filter with intent",
+		description:
+			"Quick filters, global search, and per-status views make it easy to isolate launches, bottlenecks, or underperforming segments without creating new spreadsheets.",
+	},
+	{
+		icon: LayoutGrid,
+		title: "Switch from rows to cards",
+		description:
+			"Move from a dense operator table to a visual grid for review meetings, asset QA, or mobile triage without losing actions or pagination.",
+	},
+];
+
+const systemBlocks = [
+	{
+		icon: BarChart3,
+		title: "Performance that stays contextual",
+		copy: "See campaign output, channel health, and delivery trendlines in the same environment where scheduling decisions are made.",
+	},
+	{
+		icon: ShieldCheck,
+		title: "Governance that doesn’t slow the room",
+		copy: "Approval tiers, workspace roles, and audit trails are integrated into the product surface instead of bolted on after the fact.",
+	},
+	{
+		icon: MessageCircleMore,
+		title: "Communication attached to objects",
+		copy: "Feedback and next steps stay connected to campaigns, rows, and assets, so there is less off-platform context to reconstruct later.",
+	},
+	{
+		icon: WandSparkles,
+		title: "AI where it actually helps",
+		copy: "Generate caption variants, summarize comments, and surface patterns without drowning the interface in novelty features.",
+	},
 ];
 
 function HeroSection() {
-  return (
-    <section className="relative pt-32 pb-20 overflow-hidden">
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-gradient-to-br from-primary/20 via-primary/5 to-transparent rounded-full blur-3xl -translate-y-1/2" />
-      
-      <div className="page-container relative">
-        <div className="max-w-3xl mx-auto text-center stagger-children">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-muted text-sm text-muted-foreground mb-6">
-            Features
-          </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
-            Powerful features for{" "}
-            <span className="text-gradient-brand">modern teams</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-muted-foreground mb-10">
-            Everything you need to manage, analyze, and grow your social media presence in one platform.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" asChild className="h-12 px-8 bg-gradient-brand text-white border-0 glow">
-              <Link to="/dashboard">
-                Start Free Trial
-                <ArrowRight className="size-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 px-8">
-              <Link to="/pricing">View Pricing</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+	return (
+		<section className="pt-32">
+			<div className="page-container section-spacing">
+				<SectionHeading
+					align="center"
+					badge={
+						<SectionTag className="mx-auto">
+							<Sparkles className="size-3.5" />
+							Product depth
+						</SectionTag>
+					}
+					title={
+						<>
+							A richer workspace for the teams who need{" "}
+							<span className="text-gradient-brand">more than a scheduler</span>
+							.
+						</>
+					}
+					description="Heimdall brings planning, approvals, publishing, reporting, and asset operations into one consistent interface designed for modern social teams."
+				/>
+			</div>
+		</section>
+	);
 }
 
-function FeatureCategorySection({ category, index }: { category: typeof featureCategories[0]; index: number }) {
-  const isReversed = index % 2 === 1;
-  
-  return (
-    <section className={cn("section-spacing-sm", index % 2 === 1 && "bg-muted/30")}>
-      <div className="page-container">
-        <div className={cn(
-          "grid gap-12 lg:gap-16 items-center",
-          "lg:grid-cols-2",
-          isReversed && "lg:[direction:rtl] lg:*:[direction:ltr]"
-        )}>
-          {/* Content */}
-          <div className="space-y-6">
-            <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <category.icon className="size-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight mb-3">{category.title}</h2>
-              <p className="text-lg text-muted-foreground">{category.description}</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {category.features.map((feature) => (
-                <div key={feature.title} className="flex gap-3">
-                  <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <feature.icon className="size-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-sm mb-0.5">{feature.title}</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+function WorkflowSection() {
+	return (
+		<section className="section-spacing-sm">
+			<div className="page-container grid gap-6 lg:grid-cols-[1fr_1.05fr]">
+				<SurfaceCard tone="strong" className="p-6 md:p-8">
+					<SectionHeading
+						badge={<SectionTag>Workflow surface</SectionTag>}
+						title="The table is now a first-class interface."
+						description="It behaves like a real operations surface: reconfigurable, dense when needed, and still readable when the team is moving quickly."
+					/>
+					<div className="mt-8 grid gap-4">
+						{productLanes.map((lane) => (
+							<div
+								key={lane.title}
+								className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
+							>
+								<div className="flex items-center gap-3 text-primary">
+									<lane.icon className="size-5" />
+									<div className="font-medium text-foreground">
+										{lane.title}
+									</div>
+								</div>
+								<p className="mt-3 text-sm leading-6 text-muted-foreground">
+									{lane.description}
+								</p>
+							</div>
+						))}
+					</div>
+				</SurfaceCard>
 
-          {/* Visual */}
-          <div className="relative">
-            <div className="aspect-[4/3] rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-              <div className="p-6 h-full flex flex-col">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="size-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs text-muted-foreground">{category.title}</span>
-                </div>
-                <div className="flex-1 grid grid-cols-2 gap-3">
-                  {category.features.map((feature, i) => (
-                    <div 
-                      key={feature.title}
-                      className="rounded-lg bg-muted/50 p-4 animate-pulse"
-                      style={{ animationDelay: `${i * 200}ms` }}
-                    >
-                      <feature.icon className="size-5 text-primary/60 mb-2" />
-                      <div className="h-2 w-3/4 rounded bg-muted" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+				<SurfaceCard className="overflow-hidden p-4 md:p-6">
+					<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75 p-4">
+						<div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--brand-border-soft)] pb-4">
+							<div>
+								<div className="text-sm font-medium">
+									Launch operations table
+								</div>
+								<div className="text-xs text-muted-foreground">
+									Drag columns, resize widths, and filter on the fly
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<div className="pill pill-muted">
+									<GripVertical className="size-3.5" />
+									Reorder columns
+								</div>
+								<div className="pill pill-info">List / grid</div>
+							</div>
+						</div>
+
+						<div className="mt-4 space-y-3">
+							<div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.3fr] gap-3 rounded-2xl bg-muted/50 px-3 py-3 text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground">
+								{["Campaign", "Channel", "Status", "Owner", ""].map((label) => (
+									<div
+										key={label || "action"}
+										className="flex items-center gap-2"
+									>
+										{label}
+										{label ? <MoveHorizontal className="size-3" /> : null}
+									</div>
+								))}
+							</div>
+							{[
+								["Narrative launch", "LinkedIn", "Scheduled", "Maya"],
+								["Analyst thread", "X", "Review", "Jon"],
+								["Influencer kit", "Instagram", "Draft", "Pia"],
+								["Quarterly recap", "YouTube", "Blocked", "Leo"],
+							].map((row, index) => (
+								<div
+									key={row[0]}
+									className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.3fr] gap-3 rounded-2xl border border-[var(--brand-border-soft)] bg-card px-3 py-3 text-sm"
+								>
+									<div className="font-medium">{row[0]}</div>
+									<div className="text-muted-foreground">{row[1]}</div>
+									<div
+										className={
+											index === 1
+												? "text-[var(--brand-warning)]"
+												: "text-muted-foreground"
+										}
+									>
+										{row[2]}
+									</div>
+									<div className="text-muted-foreground">{row[3]}</div>
+									<div className="text-right text-muted-foreground">•••</div>
+								</div>
+							))}
+						</div>
+					</div>
+				</SurfaceCard>
+			</div>
+		</section>
+	);
+}
+
+function SystemSection() {
+	return (
+		<section className="section-spacing-sm">
+			<div className="page-container">
+				<SectionHeading
+					align="center"
+					badge={<SectionTag className="mx-auto">System design</SectionTag>}
+					title="One design language across every critical surface."
+					description="Marketing and product now share the same warm palette, panel structure, typography rhythm, and interaction model, so the experience feels like one product from the first visit."
+				/>
+				<div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+					{systemBlocks.map((block) => (
+						<SurfaceCard key={block.title} className="p-6">
+							<div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+								<block.icon className="size-5" />
+							</div>
+							<div className="mt-5 text-lg font-medium tracking-tight">
+								{block.title}
+							</div>
+							<p className="mt-3 text-sm leading-6 text-muted-foreground">
+								{block.copy}
+							</p>
+						</SurfaceCard>
+					))}
+				</div>
+			</div>
+		</section>
+	);
 }
 
 function CTASection() {
-  return (
-    <section className="section-spacing">
-      <div className="page-container">
-        <div className="text-center max-w-2xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-            Ready to get started?
-          </h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Start your free trial today and see how Heimdall can transform your social media strategy.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" asChild className="h-12 px-8 bg-gradient-brand text-white border-0 glow">
-              <Link to="/dashboard">
-                Start Free Trial
-                <ArrowRight className="size-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 px-8">
-              Contact Sales
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+	return (
+		<section className="section-spacing">
+			<div className="page-container">
+				<SurfaceCard
+					tone="strong"
+					className="flex flex-col gap-6 p-8 md:flex-row md:items-center md:justify-between md:p-10"
+				>
+					<div className="max-w-2xl space-y-3">
+						<SectionTag>See it live</SectionTag>
+						<h2 className="text-3xl font-semibold tracking-tight">
+							Open the dashboard and inspect the new table directly.
+						</h2>
+						<p className="text-muted-foreground">
+							The dashboard routes are no longer placeholders. Posts, analytics,
+							calendar, library, team, automations, and settings all now follow
+							the same product language.
+						</p>
+					</div>
+					<Button
+						size="lg"
+						className="rounded-full bg-gradient-brand px-6 text-white border-0"
+						asChild
+					>
+						<Link to="/dashboard/posts">
+							Open posts workspace
+							<ArrowRight className="size-4" />
+						</Link>
+					</Button>
+				</SurfaceCard>
+			</div>
+		</section>
+	);
 }
 
 export function FeaturesPage() {
-  return (
-    <>
-      <HeroSection />
-      {featureCategories.map((category, index) => (
-        <FeatureCategorySection key={category.id} category={category} index={index} />
-      ))}
-      <CTASection />
-    </>
-  );
+	return (
+		<>
+			<HeroSection />
+			<WorkflowSection />
+			<SystemSection />
+			<CTASection />
+		</>
+	);
 }

@@ -8,64 +8,62 @@ interface LogoProps {
 
 export function Logo({ className, showText = true, size = "md" }: LogoProps) {
 	const sizes = {
-		sm: { icon: 24, text: "text-lg" },
-		md: { icon: 32, text: "text-xl" },
-		lg: { icon: 40, text: "text-2xl" },
+		sm: { icon: 28, text: "text-lg" },
+		md: { icon: 34, text: "text-xl" },
+		lg: { icon: 42, text: "text-2xl" },
 	};
 
 	const { icon, text } = sizes[size];
 
 	return (
-		<div className={cn("flex items-center gap-2", className)}>
-			{/* Heimdall Eye Icon - Abstract all-seeing eye */}
+		<div className={cn("flex items-center gap-2.5", className)}>
 			<svg
 				width={icon}
 				height={icon}
-				viewBox="0 0 40 40"
+				viewBox="0 0 44 44"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
-				className="flex-shrink-0"
+				className="shrink-0"
 			>
-				{/* Outer ring */}
-				<circle
-					cx="20"
-					cy="20"
-					r="18"
-					stroke="currentColor"
-					strokeWidth="1.5"
-					className="text-[var(--color-border)]"
+				<rect
+					x="2"
+					y="2"
+					width="40"
+					height="40"
+					rx="14"
+					fill="color-mix(in srgb, var(--card) 88%, transparent)"
+					stroke="var(--brand-border-strong)"
 				/>
-				{/* Eye shape */}
 				<path
-					d="M6 20C6 20 12 10 20 10C28 10 34 20 34 20C34 20 28 30 20 30C12 30 6 20 6 20Z"
-					stroke="currentColor"
+					d="M10 22C12.8 16.9 17 14.4 22 14.4C27 14.4 31.2 16.9 34 22C31.2 27.1 27 29.6 22 29.6C17 29.6 12.8 27.1 10 22Z"
+					stroke="var(--brand-primary)"
+					strokeWidth="1.8"
+				/>
+				<circle cx="22" cy="22" r="5.8" fill="var(--brand-primary)" />
+				<circle cx="22" cy="22" r="2.4" fill="var(--background)" />
+				<path
+					d="M11 11.5H18.5"
+					stroke="var(--brand-secondary)"
 					strokeWidth="1.5"
-					fill="none"
-					className="text-[var(--color-text)]"
+					strokeLinecap="round"
 				/>
-				{/* Iris */}
-				<circle
-					cx="20"
-					cy="20"
-					r="6"
-					fill="currentColor"
-					className="text-[var(--color-accent)]"
+				<path
+					d="M25.5 32.5H33"
+					stroke="var(--brand-secondary)"
+					strokeWidth="1.5"
+					strokeLinecap="round"
 				/>
-				{/* Pupil */}
-				<circle cx="20" cy="20" r="2.5" fill="currentColor" className="text-[var(--color-bg)]" />
-				{/* Highlight */}
-				<circle cx="22" cy="18" r="1.5" fill="currentColor" className="text-white opacity-60" />
 			</svg>
-			{showText && (
+			{showText ? (
 				<span
 					className={cn(
-						"font-semibold tracking-tight text-[var(--color-text)]",
+						"font-semibold tracking-[-0.03em] text-[var(--brand-ink)]",
 						text,
 					)}
 				>
 					Heimdall
 				</span>
-			)}
+			) : null}
 		</div>
 	);
 }

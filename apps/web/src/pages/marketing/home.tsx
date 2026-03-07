@@ -1,482 +1,479 @@
-import { Link } from "react-router";
-import { Button } from "@/components/ui/button";
-import { Marquee } from "@/components/ui/marquee";
-import { Spotlight, SpotLightItem } from "@/components/ui/spotlight";
 import {
-  ArrowRight,
-  Play,
-  Sparkles,
-  Calendar,
-  BarChart3,
-  Zap,
-  Shield,
-  Users,
-  Check,
-  ArrowUpRight,
-  Star,
+	ArrowRight,
+	BarChart3,
+	CalendarRange,
+	Check,
+	Eye,
+	Layers3,
+	MessageSquareShare,
+	ShieldCheck,
+	Sparkles,
+	Table2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Link } from "react-router";
 
-// =============================================================================
-// HERO SECTION
-// =============================================================================
+import {
+	SectionHeading,
+	SectionTag,
+	StatChip,
+	SurfaceCard,
+} from "@/components/app/brand";
+import { Button } from "@/components/ui/button";
 
-function HeroSection() {
-  return (
-    <section className="relative pt-32 pb-20 overflow-hidden">
-      {/* Background gradient orbs */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-gradient-to-br from-primary/20 via-primary/5 to-transparent rounded-full blur-3xl -translate-y-1/2" />
-      <div className="absolute top-1/3 right-0 w-[500px] h-[300px] bg-gradient-to-bl from-primary/15 via-transparent to-transparent rounded-full blur-3xl translate-x-1/3" />
-      
-      <div className="page-container relative">
-        <div className="max-w-4xl mx-auto text-center stagger-children">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-sm text-primary mb-6">
-            <Sparkles className="size-3.5" />
-            <span>Now with AI-powered content generation</span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
-            Your all-seeing eye for{" "}
-            <span className="text-gradient-brand">social media</span>
-          </h1>
-
-          {/* Subheadline */}
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Heimdall gives you complete oversight of your social presence. Create, schedule, 
-            and analyze across all platforms from one powerful dashboard.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <Button size="lg" asChild className="h-12 px-8 text-base bg-gradient-brand text-white border-0 glow">
-              <Link to="/dashboard">
-                Start Free Trial
-                <ArrowRight className="size-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-              <Play className="size-4 mr-2" />
-              Watch Demo
-            </Button>
-          </div>
-
-          {/* Dashboard Preview */}
-          <div className="relative mx-auto max-w-5xl">
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="rounded-xl border bg-card/50 backdrop-blur-sm shadow-2xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
-                <div className="flex gap-1.5">
-                  <div className="size-3 rounded-full bg-red-500/60" />
-                  <div className="size-3 rounded-full bg-amber-500/60" />
-                  <div className="size-3 rounded-full bg-emerald-500/60" />
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="px-4 py-1 rounded-md bg-muted text-xs text-muted-foreground">
-                    app.heimdall.io/dashboard
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 grid grid-cols-4 gap-4">
-                <div className="col-span-1 space-y-3">
-                  <div className="h-8 w-3/4 rounded bg-muted animate-pulse" />
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="h-6 rounded bg-muted/50 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-                    ))}
-                  </div>
-                </div>
-                <div className="col-span-3 space-y-4">
-                  <div className="grid grid-cols-4 gap-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-20 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2 h-48 rounded-lg bg-muted/50 animate-pulse" />
-                    <div className="h-48 rounded-lg bg-muted/30 animate-pulse" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// =============================================================================
-// LOGO CLOUD SECTION
-// =============================================================================
-
-const brands = [
-  { name: "Vercel", logo: "V" },
-  { name: "Stripe", logo: "S" },
-  { name: "Notion", logo: "N" },
-  { name: "Linear", logo: "L" },
-  { name: "Figma", logo: "F" },
-  { name: "Framer", logo: "Fr" },
-  { name: "Webflow", logo: "W" },
-  { name: "Supabase", logo: "Sb" },
+const commandMetrics = [
+	{
+		label: "Approval time",
+		value: "-38%",
+		detail: "fewer bottlenecks on publish day",
+	},
+	{
+		label: "Assets reused",
+		value: "4.2x",
+		detail: "from shared campaign modules",
+	},
+	{
+		label: "Ops visibility",
+		value: "24/7",
+		detail: "performance and publishing health",
+	},
 ];
 
-function LogoCloudSection() {
-  return (
-    <section className="section-spacing-sm border-y border-border/50 bg-muted/30">
-      <div className="page-container text-center mb-8">
-        <p className="text-sm text-muted-foreground">
-          Trusted by teams at leading companies
-        </p>
-      </div>
-      <Marquee pauseOnHover className="[--duration:30s]">
-        {brands.map((brand) => (
-          <div
-            key={brand.name}
-            className="flex items-center gap-2 px-8 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-          >
-            <span className="text-2xl font-bold">{brand.logo}</span>
-            <span className="text-lg font-medium">{brand.name}</span>
-          </div>
-        ))}
-      </Marquee>
-    </section>
-  );
-}
-
-// =============================================================================
-// FEATURES SECTION
-// =============================================================================
-
-const features = [
-  {
-    icon: Calendar,
-    title: "Smart Scheduling",
-    description: "AI-powered optimal timing suggestions for maximum engagement across all platforms.",
-  },
-  {
-    icon: BarChart3,
-    title: "Deep Analytics",
-    description: "Comprehensive insights with actionable metrics to understand your audience.",
-  },
-  {
-    icon: Zap,
-    title: "Automation",
-    description: "Set up workflows and let Heimdall handle repetitive tasks automatically.",
-  },
-  {
-    icon: Shield,
-    title: "Team Permissions",
-    description: "Granular access control to keep your brand voice consistent and secure.",
-  },
-  {
-    icon: Users,
-    title: "Collaboration",
-    description: "Work together seamlessly with approval workflows and shared content libraries.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Assistant",
-    description: "Generate captions, hashtags, and content ideas powered by advanced AI.",
-  },
+const featureCards = [
+	{
+		icon: CalendarRange,
+		title: "Editorial planning with real constraints",
+		description:
+			"Build campaigns around approvals, market launches, and channel-specific timing instead of flat posting queues.",
+	},
+	{
+		icon: Table2,
+		title: "A control table that behaves like software",
+		description:
+			"Resize, reorder, filter, paginate, and switch into a card grid without losing row actions or bulk workflows.",
+	},
+	{
+		icon: BarChart3,
+		title: "Signals that stay close to the work",
+		description:
+			"Performance, spend, sentiment, and velocity sit next to drafts and assets so decisions happen in context.",
+	},
+	{
+		icon: ShieldCheck,
+		title: "Review paths that keep teams aligned",
+		description:
+			"Approval ladders, role scopes, and audit trails keep campaign quality consistent across brands and regions.",
+	},
 ];
 
-function FeaturesSection() {
-  return (
-    <section className="section-spacing" id="features">
-      <div className="page-container">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-muted text-sm text-muted-foreground mb-4">
-            Features
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-            Everything you need to dominate social
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            From scheduling to analytics, Heimdall provides all the tools you need in one unified platform.
-          </p>
-        </div>
-
-        <Spotlight className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <SpotLightItem key={feature.title}>
-              <div className="h-full p-6 rounded-xl bg-card">
-                <div className="size-11 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <feature.icon className="size-5 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            </SpotLightItem>
-          ))}
-        </Spotlight>
-      </div>
-    </section>
-  );
-}
-
-// =============================================================================
-// STATS SECTION
-// =============================================================================
-
-const stats = [
-  { value: "10K+", label: "Active Teams" },
-  { value: "50M+", label: "Posts Scheduled" },
-  { value: "99.9%", label: "Uptime" },
-  { value: "4.9/5", label: "User Rating" },
+const operatorMoments = [
+	{
+		title: "Morning standup",
+		detail:
+			"See slippage, overloaded reviewers, and at-risk launches before the team starts executing.",
+	},
+	{
+		title: "Campaign review",
+		detail:
+			"Jump from a strategy brief to rows, assets, and channel versions without breaking focus.",
+	},
+	{
+		title: "Weekly reporting",
+		detail:
+			"Share polished snapshots that explain movement, not just a collection of vanity metrics.",
+	},
 ];
-
-function StatsSection() {
-  return (
-    <section className="section-spacing-sm bg-muted/30 border-y border-border/50">
-      <div className="page-container">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-gradient-brand mb-1">
-                {stat.value}
-              </div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// =============================================================================
-// TESTIMONIALS SECTION
-// =============================================================================
 
 const testimonials = [
-  {
-    quote: "Heimdall has transformed how we manage our social presence. The analytics alone are worth it.",
-    author: "Sarah Chen",
-    role: "Marketing Director",
-    company: "TechFlow",
-    rating: 5,
-  },
-  {
-    quote: "The AI suggestions save us hours every week. It's like having an extra team member.",
-    author: "Marcus Rodriguez",
-    role: "Social Media Manager",
-    company: "GrowthLab",
-    rating: 5,
-  },
-  {
-    quote: "Finally, a tool that actually understands the complexity of multi-platform publishing.",
-    author: "Emily Watson",
-    role: "Content Strategist",
-    company: "BrandScale",
-    rating: 5,
-  },
+	{
+		quote:
+			"Heimdall replaced three tools and the messy spreadsheet that lived between them. It finally feels like one operating system.",
+		author: "Rina Morales",
+		role: "VP Marketing, Northset",
+	},
+	{
+		quote:
+			"The table alone changed our workflow. We can sort and reshape a launch room in real time without punting to ops.",
+		author: "Daniel Osei",
+		role: "Social Operations Lead, Cedar Labs",
+	},
 ];
 
-function TestimonialsSection() {
-  return (
-    <section className="section-spacing" id="testimonials">
-      <div className="page-container">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-muted text-sm text-muted-foreground mb-4">
-            Testimonials
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-            Loved by teams worldwide
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            See what our customers have to say about their experience with Heimdall.
-          </p>
-        </div>
+function HeroSection() {
+	return (
+		<section className="relative overflow-hidden pt-32">
+			<div className="page-container section-spacing">
+				<div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+					<div className="stagger-children max-w-2xl space-y-6">
+						<SectionTag>
+							<Sparkles className="size-3.5" />
+							Rust-toned social command center
+						</SectionTag>
+						<h1 className="text-5xl font-semibold tracking-[-0.05em] sm:text-6xl lg:text-7xl">
+							Social operations with{" "}
+							<span className="text-gradient-brand">
+								clarity, structure, and taste
+							</span>
+							.
+						</h1>
+						<p className="max-w-xl text-lg leading-8 text-muted-foreground md:text-xl">
+							Heimdall brings strategy, approvals, publishing, and measurement
+							into one calm system so marketing teams can move faster without
+							losing rigor.
+						</p>
+						<div className="flex flex-col gap-3 sm:flex-row">
+							<Button
+								size="lg"
+								className="rounded-full bg-gradient-brand px-6 text-white border-0"
+								asChild
+							>
+								<Link to="/dashboard/posts">
+									Explore the workspace
+									<ArrowRight className="size-4" />
+								</Link>
+							</Button>
+							<Button
+								size="lg"
+								variant="outline"
+								className="rounded-full px-6"
+								asChild
+							>
+								<Link to="/pricing">See pricing</Link>
+							</Button>
+						</div>
+						<div className="grid gap-3 sm:grid-cols-3">
+							{commandMetrics.map((metric) => (
+								<StatChip
+									key={metric.label}
+									label={metric.label}
+									value={metric.value}
+									detail={metric.detail}
+								/>
+							))}
+						</div>
+					</div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {testimonials.map((testimonial) => (
-            <div
-              key={testimonial.author}
-              className="p-6 rounded-xl border bg-card hover:shadow-lg transition-shadow"
-            >
-              <div className="flex gap-1 mb-4">
-                {Array.from({ length: testimonial.rating }).map((_, i) => (
-                  <Star key={i} className="size-4 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="text-foreground mb-6 leading-relaxed">"{testimonial.quote}"</p>
-              <div className="flex items-center gap-3">
-                <div className="size-10 rounded-full bg-gradient-brand flex items-center justify-center text-white font-semibold text-sm">
-                  {testimonial.author.split(" ").map((n) => n[0]).join("")}
-                </div>
-                <div>
-                  <div className="font-medium text-sm">{testimonial.author}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {testimonial.role} at {testimonial.company}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+					<SurfaceCard
+						tone="strong"
+						className="relative overflow-hidden p-4 md:p-6"
+					>
+						<div className="brand-grid absolute inset-0 opacity-25" />
+						<div className="relative space-y-4">
+							<div className="flex items-center justify-between rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3">
+								<div>
+									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+										Campaign room
+									</div>
+									<div className="mt-1 text-sm font-medium">
+										Q2 Product Launch
+									</div>
+								</div>
+								<div className="pill pill-success">18 items ready</div>
+							</div>
+
+							<div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+								<div className="space-y-3">
+									{[
+										"Strategy brief",
+										"Approval queue",
+										"Launch calendar",
+										"Asset vault",
+									].map((item, index) => (
+										<div
+											key={item}
+											className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 p-4"
+										>
+											<div className="text-sm font-medium">{item}</div>
+											<div className="mt-2 h-2 rounded-full bg-muted">
+												<div
+													className="h-full rounded-full bg-gradient-brand"
+													style={{ width: `${70 - index * 10}%` }}
+												/>
+											</div>
+										</div>
+									))}
+								</div>
+
+								<div className="space-y-4">
+									<div className="grid gap-3 sm:grid-cols-3">
+										{[
+											{ label: "Reach", value: "2.4M" },
+											{ label: "Approval SLA", value: "7h" },
+											{ label: "Channels", value: "12" },
+										].map((item) => (
+											<div
+												key={item.label}
+												className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 p-4"
+											>
+												<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+													{item.label}
+												</div>
+												<div className="mt-2 text-2xl font-semibold tracking-tight">
+													{item.value}
+												</div>
+											</div>
+										))}
+									</div>
+
+									<div className="rounded-[26px] border border-[var(--brand-border-soft)] bg-background/78 p-4">
+										<div className="mb-4 flex items-center justify-between">
+											<div>
+												<div className="text-sm font-medium">
+													Publishing table
+												</div>
+												<div className="text-xs text-muted-foreground">
+													Reorder columns, sort, and take row action inline
+												</div>
+											</div>
+											<div className="pill pill-info">Table + grid</div>
+										</div>
+										<div className="space-y-3">
+											<div className="grid grid-cols-[1.2fr_0.7fr_0.6fr_0.6fr] gap-3 px-2 text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground">
+												<span>Campaign</span>
+												<span>Channel</span>
+												<span>Status</span>
+												<span>Owner</span>
+											</div>
+											{[
+												[
+													"Spring narrative refresh",
+													"LinkedIn",
+													"Review",
+													"Rina",
+												],
+												["Founder memo", "X", "Scheduled", "Imran"],
+												["Launch teaser reel", "Instagram", "Draft", "Noa"],
+											].map((row) => (
+												<div
+													key={row[0]}
+													className="grid grid-cols-[1.2fr_0.7fr_0.6fr_0.6fr] gap-3 rounded-2xl border border-[var(--brand-border-soft)] bg-card px-3 py-3 text-sm"
+												>
+													<span className="font-medium">{row[0]}</span>
+													<span className="text-muted-foreground">
+														{row[1]}
+													</span>
+													<span className="text-muted-foreground">
+														{row[2]}
+													</span>
+													<span className="text-muted-foreground">
+														{row[3]}
+													</span>
+												</div>
+											))}
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</SurfaceCard>
+				</div>
+			</div>
+		</section>
+	);
 }
 
-// =============================================================================
-// PRICING PREVIEW SECTION
-// =============================================================================
-
-const plans = [
-  {
-    name: "Starter",
-    price: "Free",
-    description: "Perfect for individuals getting started",
-    features: ["3 social accounts", "30 scheduled posts/month", "Basic analytics", "1 user"],
-    cta: "Get Started",
-    popular: false,
-  },
-  {
-    name: "Pro",
-    price: "$29",
-    period: "/month",
-    description: "For growing teams and businesses",
-    features: ["15 social accounts", "Unlimited posts", "Advanced analytics", "5 users", "AI assistant", "Priority support"],
-    cta: "Start Free Trial",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    description: "For large organizations",
-    features: ["Unlimited accounts", "Custom integrations", "Dedicated support", "SSO & SAML", "Custom training", "SLA"],
-    cta: "Contact Sales",
-    popular: false,
-  },
-];
-
-function PricingPreviewSection() {
-  return (
-    <section className="section-spacing bg-muted/30 border-y border-border/50" id="pricing">
-      <div className="page-container">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background text-sm text-muted-foreground mb-4">
-            Pricing
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-            Simple, transparent pricing
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            Start free and scale as you grow. No hidden fees.
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={cn(
-                "relative p-6 rounded-xl border bg-card",
-                plan.popular && "border-primary shadow-lg ring-1 ring-primary/20"
-              )}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-brand text-white text-xs font-medium">
-                  Most Popular
-                </div>
-              )}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-1">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-3xl font-bold">{plan.price}</span>
-                  {plan.period && <span className="text-muted-foreground">{plan.period}</span>}
-                </div>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
-              </div>
-              <ul className="space-y-3 mb-6">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
-                    <Check className="size-4 text-primary shrink-0" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                className={cn(
-                  "w-full",
-                  plan.popular && "bg-gradient-brand text-white border-0"
-                )}
-                variant={plan.popular ? "default" : "outline"}
-                asChild
-              >
-                <Link to="/pricing">
-                  {plan.cta}
-                  <ArrowRight className="size-4 ml-1" />
-                </Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+function ProofSection() {
+	return (
+		<section className="section-spacing-sm">
+			<div className="page-container">
+				<SurfaceCard className="overflow-hidden p-6 md:p-8">
+					<div className="grid gap-6 md:grid-cols-[0.85fr_1.15fr] md:items-center">
+						<SectionHeading
+							badge={<SectionTag>Why teams switch</SectionTag>}
+							title="The tooling gets quieter, so the work gets better."
+							description="Heimdall is designed to feel intentional rather than crowded. Fewer scattered views, fewer loose ends, more connected decisions."
+						/>
+						<div className="grid gap-4 sm:grid-cols-2">
+							{featureCards.map((feature) => (
+								<div
+									key={feature.title}
+									className="rounded-[26px] border border-[var(--brand-border-soft)] bg-background/72 p-5"
+								>
+									<div className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+										<feature.icon className="size-5" />
+									</div>
+									<div className="text-lg font-medium tracking-tight">
+										{feature.title}
+									</div>
+									<p className="mt-2 text-sm leading-6 text-muted-foreground">
+										{feature.description}
+									</p>
+								</div>
+							))}
+						</div>
+					</div>
+				</SurfaceCard>
+			</div>
+		</section>
+	);
 }
 
-// =============================================================================
-// CTA SECTION
-// =============================================================================
+function OperatorSection() {
+	return (
+		<section className="section-spacing-sm">
+			<div className="page-container grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+				<SurfaceCard tone="muted" className="p-6 md:p-8">
+					<SectionHeading
+						badge={<SectionTag>Operating rhythm</SectionTag>}
+						title="Made for the moments where social work actually gets messy."
+						description="A shared workspace only matters if it survives approvals, launch week, and the week after."
+					/>
+					<div className="mt-8 space-y-4">
+						{operatorMoments.map((moment, index) => (
+							<div
+								key={moment.title}
+								className="flex gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4"
+							>
+								<div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+									0{index + 1}
+								</div>
+								<div>
+									<div className="font-medium">{moment.title}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{moment.detail}
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+				</SurfaceCard>
+
+				<SurfaceCard tone="strong" className="p-6 md:p-8">
+					<div className="grid gap-4 md:grid-cols-2">
+						<div className="rounded-[26px] border border-[var(--brand-border-soft)] bg-background/70 p-5">
+							<div className="flex items-center gap-3 text-primary">
+								<Eye className="size-5" />
+								<span className="font-medium">Cross-team visibility</span>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-muted-foreground">
+								Brand, demand, and community teams can work from the same source
+								of truth without forcing one workflow on everyone.
+							</p>
+						</div>
+						<div className="rounded-[26px] border border-[var(--brand-border-soft)] bg-background/70 p-5">
+							<div className="flex items-center gap-3 text-primary">
+								<MessageSquareShare className="size-5" />
+								<span className="font-medium">Inline discussion</span>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-muted-foreground">
+								Feedback stays attached to the row, asset, or campaign it
+								affects, which reduces hidden context and duplicate review
+								cycles.
+							</p>
+						</div>
+						<div className="rounded-[26px] border border-[var(--brand-border-soft)] bg-background/70 p-5 md:col-span-2">
+							<div className="flex items-center gap-3 text-primary">
+								<Layers3 className="size-5" />
+								<span className="font-medium">
+									A model that scales from one brand to many
+								</span>
+							</div>
+							<div className="mt-4 grid gap-4 sm:grid-cols-3">
+								{[
+									"Shared asset kits",
+									"Workspace-level permissions",
+									"Regional campaign variants",
+								].map((item) => (
+									<div
+										key={item}
+										className="rounded-2xl border border-[var(--brand-border-soft)] bg-card/85 px-4 py-4 text-sm"
+									>
+										{item}
+									</div>
+								))}
+							</div>
+						</div>
+					</div>
+				</SurfaceCard>
+			</div>
+		</section>
+	);
+}
+
+function SocialProofSection() {
+	return (
+		<section className="section-spacing-sm">
+			<div className="page-container">
+				<SectionHeading
+					align="center"
+					badge={<SectionTag>Customer signal</SectionTag>}
+					title="Trusted by teams that care about design and process."
+					description="Not just a place to schedule posts. A place to run the system around them."
+				/>
+				<div className="mt-10 grid gap-6 lg:grid-cols-2">
+					{testimonials.map((testimonial) => (
+						<SurfaceCard key={testimonial.author} className="p-6 md:p-7">
+							<div className="flex gap-1 text-primary">
+								{Array.from({ length: 5 }).map((_, index) => (
+									<Check
+										key={`${testimonial.author}-${index}`}
+										className="size-4"
+									/>
+								))}
+							</div>
+							<p className="mt-5 text-lg leading-8">{testimonial.quote}</p>
+							<div className="mt-6 border-t border-[var(--brand-border-soft)] pt-5">
+								<div className="font-medium">{testimonial.author}</div>
+								<div className="text-sm text-muted-foreground">
+									{testimonial.role}
+								</div>
+							</div>
+						</SurfaceCard>
+					))}
+				</div>
+			</div>
+		</section>
+	);
+}
 
 function CTASection() {
-  return (
-    <section className="section-spacing">
-      <div className="page-container">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-brand p-8 md:p-12 text-center">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-white rounded-full blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-white rounded-full blur-3xl" />
-          </div>
-          
-          <div className="relative">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4">
-              Ready to take control of your social presence?
-            </h2>
-            <p className="text-white/80 text-lg max-w-2xl mx-auto mb-8">
-              Join thousands of teams who trust Heimdall to manage their social media strategy.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="h-12 px-8 bg-white text-primary hover:bg-white/90" asChild>
-                <Link to="/dashboard">
-                  Start Free Trial
-                  <ArrowRight className="size-4 ml-2" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="h-12 px-8 border-white/30 text-white hover:bg-white/10">
-                Schedule a Demo
-                <ArrowUpRight className="size-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+	return (
+		<section className="section-spacing">
+			<div className="page-container">
+				<SurfaceCard
+					tone="strong"
+					className="overflow-hidden px-6 py-8 md:px-10 md:py-10"
+				>
+					<div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+						<SectionHeading
+							badge={<SectionTag>Start here</SectionTag>}
+							title="See the same system across the marketing site and the app."
+							description="The product now carries the same visual language end to end, from the first landing view through the working dashboard."
+						/>
+						<div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+							<Button
+								size="lg"
+								className="rounded-full bg-gradient-brand px-6 text-white border-0"
+								asChild
+							>
+								<Link to="/dashboard">
+									Enter dashboard
+									<ArrowRight className="size-4" />
+								</Link>
+							</Button>
+							<Button
+								size="lg"
+								variant="outline"
+								className="rounded-full px-6"
+								asChild
+							>
+								<Link to="/features">Explore feature detail</Link>
+							</Button>
+						</div>
+					</div>
+				</SurfaceCard>
+			</div>
+		</section>
+	);
 }
 
-// =============================================================================
-// HOME PAGE EXPORT
-// =============================================================================
-
 export function HomePage() {
-  return (
-    <>
-      <HeroSection />
-      <LogoCloudSection />
-      <FeaturesSection />
-      <StatsSection />
-      <TestimonialsSection />
-      <PricingPreviewSection />
-      <CTASection />
-    </>
-  );
+	return (
+		<>
+			<HeroSection />
+			<ProofSection />
+			<OperatorSection />
+			<SocialProofSection />
+			<CTASection />
+		</>
+	);
 }
