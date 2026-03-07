@@ -1,11 +1,11 @@
 /**
- * Marketing Page Export
+ * Marketing Pages Export
  * 
- * FINAL: Aurora-based marketing page with light/dark mode support.
- * Design tokens centralized in @/lib/design-tokens
- * Theme context in @/lib/theme-context
- * 
- * Archived drafts available in /docs/design-drafts/
+ * Multi-page marketing site with unified design language.
  */
 
-export { MarketingPage } from "./marketing";
+export { MarketingLayout } from "./layout";
+export { HomePage } from "./home";
+export { FeaturesPage } from "./features";
+export { PricingPage } from "./pricing";
+export { AboutPage } from "./about";
