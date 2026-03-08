@@ -18,12 +18,19 @@ import {
 import {
 	RiDiscordFill,
 	RiDribbbleFill,
+	RiFacebookCircleFill,
 	RiFigmaFill,
 	RiGithubFill,
+	RiInstagramFill,
 	RiLinkedinFill,
 	RiNotionFill,
+	RiPinterestFill,
 	RiSlackFill,
+	RiThreadsFill,
+	RiTiktokFill,
+	RiTwitterXFill,
 	RiVercelFill,
+	RiYoutubeFill,
 } from "@remixicon/react";
 import {
 	type MouseEvent as ReactMouseEvent,
@@ -150,7 +157,7 @@ const features = [
 		title: "Campaign Calendar",
 		description:
 			"Map multi-channel campaigns against real deadlines, team capacity, and market windows. Visual timelines keep everyone aligned from brief to launch.",
-		wide: true,
+		wide: false,
 	},
 	{
 		icon: MessageSquareShare,
@@ -185,7 +192,7 @@ const features = [
 		title: "Multi-Brand Workspaces",
 		description:
 			"Manage multiple brands from a single command center. Shared asset libraries, workspace-level permissions, and regional campaign variants keep everything organized.",
-		wide: true,
+		wide: false,
 	},
 ];
 
@@ -272,18 +279,14 @@ const testimonials = [
 ];
 
 const integrations = [
-	{ name: "Instagram", color: "#E1306C" },
-	{ name: "X / Twitter", color: "#1DA1F2" },
-	{ name: "LinkedIn", color: "#0A66C2" },
-	{ name: "TikTok", color: "#ff0050" },
-	{ name: "YouTube", color: "#FF0000" },
-	{ name: "Facebook", color: "#1877F2" },
-	{ name: "Pinterest", color: "#E60023" },
-	{ name: "Threads", color: "#888" },
-	{ name: "Slack", color: "#4A154B" },
-	{ name: "Notion", color: "#787774" },
-	{ name: "Google Analytics", color: "#E37400" },
-	{ name: "HubSpot", color: "#FF7A59" },
+	{ name: "Instagram", color: "#E1306C", icon: RiInstagramFill },
+	{ name: "X", color: "#94A3B8", icon: RiTwitterXFill },
+	{ name: "LinkedIn", color: "#0A66C2", icon: RiLinkedinFill },
+	{ name: "TikTok", color: "#FF0050", icon: RiTiktokFill },
+	{ name: "YouTube", color: "#FF0000", icon: RiYoutubeFill },
+	{ name: "Facebook", color: "#1877F2", icon: RiFacebookCircleFill },
+	{ name: "Pinterest", color: "#E60023", icon: RiPinterestFill },
+	{ name: "Threads", color: "#888888", icon: RiThreadsFill },
 ];
 
 const faqs = [
@@ -425,13 +428,20 @@ function HeroSection() {
 					{/* Trust badge */}
 					<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-strong)] bg-background/60 px-4 py-2 text-sm backdrop-blur-sm">
 						<div className="flex -space-x-1.5">
-							{[0, 1, 2, 3].map((i) => (
-								<div
-									key={i}
-									className="size-6 rounded-full border-2 border-background bg-gradient-brand"
-									style={{ opacity: 1 - i * 0.15 }}
-								/>
-							))}
+							{logoCompanies
+								.slice(0, 4)
+								.map(({ name, icon: Icon, color }, i) => (
+									<div
+										key={name}
+										className="flex size-6 items-center justify-center rounded-full border-2 border-background bg-background/95 shadow-sm"
+										style={{
+											color: `color-mix(in srgb, ${color} 58%, var(--foreground) 42%)`,
+											opacity: 1 - i * 0.08,
+										}}
+									>
+										<Icon aria-hidden="true" className="size-3.5" />
+									</div>
+								))}
 						</div>
 						<span className="text-muted-foreground">
 							Trusted by{" "}
@@ -441,7 +451,7 @@ function HeroSection() {
 					</div>
 
 					{/* Headline */}
-					<h1 className="mx-auto mt-8 max-w-[11.5ch] text-balance text-[2.75rem] font-semibold leading-[1] tracking-[-0.04em] sm:max-w-[13.5ch] sm:text-6xl md:max-w-none lg:text-[4.5rem]">
+					<h1 className="mx-auto mt-5 max-w-[11.5ch] text-balance text-[2.75rem] font-semibold leading-[1] tracking-[-0.04em] sm:max-w-[13.5ch] sm:text-6xl md:max-w-none lg:text-[4.5rem]">
 						The marketing{" "}
 						<span className="text-gradient-brand">command center</span>
 						<br className="hidden md:block" /> your team deserves
@@ -696,6 +706,7 @@ function FeaturesSection() {
 			<div className="page-container">
 				<SectionHeading
 					align="center"
+					className="max-w-6xl"
 					badge={
 						<SectionTag className="mx-auto">
 							<Sparkles className="size-3.5" />
@@ -704,8 +715,8 @@ function FeaturesSection() {
 					}
 					title={
 						<>
-							One platform to{" "}
-							<span className="text-gradient-brand">
+							<span className="lg:whitespace-nowrap">One platform to </span>
+							<span className="text-gradient-brand lg:whitespace-nowrap">
 								plan, publish, and grow
 							</span>
 						</>
@@ -942,27 +953,30 @@ function IntegrationsSection() {
 				<div
 					ref={ref}
 					className={cn(
-						"mt-12 grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6 stagger-reveal",
+						"mx-auto mt-12 grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4 md:gap-5 stagger-reveal",
 						visible && "is-visible",
 					)}
 				>
 					{integrations.map((item) => (
 						<div
 							key={item.name}
-							className="integration-icon flex flex-col items-center gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 p-5 backdrop-blur-sm text-center"
+							className="integration-icon flex min-h-40 flex-col items-center justify-center gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 px-6 py-7 text-center backdrop-blur-sm"
 						>
 							<div
-								className="flex size-10 items-center justify-center rounded-xl"
+								className="flex size-14 items-center justify-center rounded-2xl"
 								style={{
-									background: `color-mix(in srgb, ${item.color} 12%, transparent)`,
+									background: `color-mix(in srgb, ${item.color} 12%, white 88%)`,
 								}}
 							>
-								<div
-									className="size-4 rounded-sm"
-									style={{ background: item.color }}
+								<item.icon
+									aria-hidden="true"
+									className="size-7"
+									style={{
+										color: `color-mix(in srgb, ${item.color} 72%, #2a211c 28%)`,
+									}}
 								/>
 							</div>
-							<span className="text-xs font-medium text-muted-foreground">
+							<span className="text-sm font-semibold tracking-tight text-foreground/70">
 								{item.name}
 							</span>
 						</div>

@@ -179,9 +179,9 @@ function Footer() {
 							<input
 								type="email"
 								placeholder="you@company.com"
-								className="flex-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-4 py-2.5 text-sm backdrop-blur-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+								className="h-12 flex-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-4 text-sm backdrop-blur-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
-							<Button className="rounded-full bg-gradient-brand px-6 text-white border-0 shrink-0">
+							<Button className="h-12 rounded-full bg-gradient-brand px-6 text-white border-0 shrink-0">
 								Subscribe
 							</Button>
 						</form>
