@@ -1,5 +1,4 @@
 import {
-	Bell,
 	CalendarRange,
 	ChevronDown,
 	ChevronLeft,
@@ -20,6 +19,10 @@ import {
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 
+import { AlertInbox } from "@/components/app/alert-inbox";
+import { getDashboardBreadcrumbs } from "@/components/app/dashboard-context";
+import { MiraAssistant } from "@/components/app/mira-assistant";
+import { SearchCommand } from "@/components/app/search-command";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import {
@@ -37,7 +40,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
@@ -58,40 +60,6 @@ const currentUser = {
 	email: "ava@northset.co",
 	role: "Operations lead",
 };
-const dashboardLabels: Record<string, string> = {
-	"/dashboard": "Overview",
-	"/dashboard/posts": "Posts",
-	"/dashboard/posts/new": "Create post",
-	"/dashboard/calendar": "Calendar",
-	"/dashboard/analytics": "Analytics",
-	"/dashboard/automations": "Automations",
-	"/dashboard/library": "Library",
-	"/dashboard/team": "Team",
-	"/dashboard/settings": "Settings",
-};
-
-function formatBreadcrumbLabel(segment: string) {
-	return segment
-		.split("-")
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
-}
-
-function getDashboardBreadcrumbs(pathname: string) {
-	const segments = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
-
-	return segments
-		.map((_, index) => `/${segments.slice(0, index + 1).join("/")}`)
-		.filter((path) => path.startsWith("/dashboard"))
-		.map((path) => ({
-			href: path,
-			label:
-				dashboardLabels[path] ??
-				formatBreadcrumbLabel(
-					path.split("/").filter(Boolean).at(-1) ?? "Overview",
-				),
-		}));
-}
 
 function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 	const [activeWorkspace, setActiveWorkspace] = useState(workspaces[0]);
@@ -307,10 +275,12 @@ function TopBar({
 	collapsed,
 	onOpenMobile,
 	onToggleSidebar,
+	onOpenAssistant,
 }: {
 	collapsed: boolean;
 	onOpenMobile: () => void;
 	onToggleSidebar: () => void;
+	onOpenAssistant: () => void;
 }) {
 	const location = useLocation();
 	const breadcrumbs = getDashboardBreadcrumbs(location.pathname);
@@ -397,18 +367,24 @@ function TopBar({
 					</Breadcrumb>
 				</div>
 
-				<div className="ml-auto hidden max-w-md flex-1 md:block">
-					<Input
-						className="h-10 rounded-full border-[color-mix(in_srgb,var(--brand-border-strong)_82%,transparent)] bg-background/42 backdrop-blur-sm"
-						placeholder="Search campaigns, files, or teammates"
-					/>
+				<div className="ml-auto flex items-center gap-2 sm:gap-3">
+					<div className="hidden w-[min(38vw,420px)] md:block">
+						<SearchCommand
+							onOpenAssistant={onOpenAssistant}
+							className="w-full"
+						/>
+					</div>
+					<ThemeToggle compact className="size-10" />
+					<AlertInbox />
+					<Button
+						type="button"
+						className="assistant-launch h-10 rounded-full px-4"
+						onClick={onOpenAssistant}
+					>
+						<WandSparkles className="assistant-launch__icon size-4" />
+						<span className="assistant-launch__title">Mira</span>
+					</Button>
 				</div>
-
-				<Button variant="outline" className="rounded-full">
-					<Bell className="size-4" />
-					Alerts
-				</Button>
-				<ThemeToggle compact />
 			</div>
 		</header>
 	);
@@ -417,6 +393,7 @@ function TopBar({
 export function DashboardLayout() {
 	const [collapsed, setCollapsed] = useState(false);
 	const [mobileOpen, setMobileOpen] = useState(false);
+	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
 
 	useEffect(() => {
@@ -438,6 +415,7 @@ export function DashboardLayout() {
 						collapsed={collapsed}
 						onOpenMobile={() => setMobileOpen(true)}
 						onToggleSidebar={() => setCollapsed((value) => !value)}
+						onOpenAssistant={() => setAssistantOpen(true)}
 					/>
 					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
 						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
@@ -456,6 +434,12 @@ export function DashboardLayout() {
 					</main>
 				</div>
 			</div>
+			<MiraAssistant
+				open={assistantOpen}
+				onOpenChange={setAssistantOpen}
+				workspaceName={workspaces[0]}
+				currentUserName={currentUser.name}
+			/>
 		</div>
 	);
 }

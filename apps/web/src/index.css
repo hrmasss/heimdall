@@ -218,6 +218,32 @@ body {
 	background-clip: padding-box;
 }
 
+.alert-inbox-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in srgb, var(--foreground) 14%, transparent)
+		transparent;
+}
+
+.alert-inbox-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+
+.alert-inbox-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.alert-inbox-scroll::-webkit-scrollbar-thumb {
+	border: 2px solid transparent;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--foreground) 14%, transparent);
+	background-clip: padding-box;
+}
+
+.alert-inbox-scroll::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--foreground) 22%, transparent);
+	background-clip: padding-box;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
@@ -1053,4 +1079,85 @@ body {
 	border: 2px solid var(--brand-primary);
 	animation: pulse-ring 2.5s ease-out infinite;
 	pointer-events: none;
+}
+
+.assistant-launch {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	gap: 0.55rem;
+	border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, var(--border));
+	color: color-mix(in srgb, var(--foreground) 78%, var(--brand-primary) 22%);
+	background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--brand-highlight) 26%, var(--background) 74%) 0%,
+			color-mix(in srgb, var(--brand-primary) 10%, var(--background) 90%) 100%
+		), var(--background);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 32px -24px
+		color-mix(in srgb, var(--brand-primary) 42%, transparent);
+	transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms
+		ease, background-color 220ms ease;
+}
+
+.assistant-launch::before {
+	position: absolute;
+	inset: 0;
+	content: "";
+	background: linear-gradient(
+		110deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.18) 34%,
+		transparent 58%
+	);
+	transform: translateX(-120%);
+	transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+	pointer-events: none;
+}
+
+.assistant-launch::after {
+	position: absolute;
+	inset: 1px;
+	border-radius: 999px;
+	content: "";
+	border: 1px solid color-mix(in srgb, white 12%, transparent);
+	opacity: 0.65;
+	pointer-events: none;
+}
+
+.assistant-launch:hover {
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--brand-primary) 32%, var(--border));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 18px 38px -24px
+		color-mix(in srgb, var(--brand-primary) 54%, transparent);
+}
+
+.assistant-launch:hover::before {
+	transform: translateX(115%);
+}
+
+.assistant-launch:active {
+	transform: translateY(0);
+}
+
+.assistant-launch__icon {
+	position: relative;
+	z-index: 1;
+	color: color-mix(in srgb, var(--brand-primary) 68%, var(--foreground) 32%);
+	filter: drop-shadow(
+		0 3px 10px color-mix(in srgb, var(--brand-primary) 22%, transparent)
+	);
+	transition: transform 220ms ease, color 220ms ease;
+}
+
+.assistant-launch:hover .assistant-launch__icon {
+	transform: rotate(8deg) scale(1.04);
+	color: color-mix(in srgb, var(--brand-primary) 82%, var(--foreground) 18%);
+}
+
+.assistant-launch__title {
+	position: relative;
+	z-index: 1;
+	font-size: 0.9rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
 }
