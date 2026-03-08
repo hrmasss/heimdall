@@ -16,7 +16,19 @@ import {
 	Zap,
 } from "lucide-react";
 import {
+	RiDiscordFill,
+	RiDribbbleFill,
+	RiFigmaFill,
+	RiGithubFill,
+	RiLinkedinFill,
+	RiNotionFill,
+	RiSlackFill,
+	RiVercelFill,
+} from "@remixicon/react";
+import {
 	type MouseEvent as ReactMouseEvent,
+	type CSSProperties,
+	type ComponentType,
 	type ReactNode,
 	useCallback,
 	useEffect,
@@ -122,18 +134,14 @@ function AnimatedCounter({
    ================================================================ */
 
 const logoCompanies = [
-	"Stripe",
-	"Vercel",
-	"Linear",
-	"Notion",
-	"Figma",
-	"Shopify",
-	"Webflow",
-	"Loom",
-	"Pitch",
-	"Arc",
-	"Framer",
-	"Raycast",
+	{ name: "Vercel", icon: RiVercelFill, color: "#ffffff" },
+	{ name: "Notion", icon: RiNotionFill, color: "#f5f1ed" },
+	{ name: "Figma", icon: RiFigmaFill, color: "#f24e1e" },
+	{ name: "GitHub", icon: RiGithubFill, color: "#c9d1d9" },
+	{ name: "Slack", icon: RiSlackFill, color: "#e01e5a" },
+	{ name: "Discord", icon: RiDiscordFill, color: "#5865f2" },
+	{ name: "LinkedIn", icon: RiLinkedinFill, color: "#0a66c2" },
+	{ name: "Dribbble", icon: RiDribbbleFill, color: "#ea4c89" },
 ];
 
 const features = [
@@ -376,13 +384,37 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 	);
 }
 
+function BrandLogo({
+	icon,
+	name,
+	color,
+}: {
+	icon: ComponentType<{ className?: string }>;
+	name: string;
+	color: string;
+}) {
+	const Icon = icon;
+
+	return (
+		<div
+			className="brand-logo-item"
+			style={{ "--brand-logo-color": color } as CSSProperties}
+		>
+			<Icon aria-hidden="true" className="brand-logo-mark size-7 shrink-0" />
+			<span className="brand-logo-label text-xl font-semibold tracking-tight">
+				{name}
+			</span>
+		</div>
+	);
+}
+
 /* ================================================================
    SECTION: HERO
    ================================================================ */
 
 function HeroSection() {
 	return (
-		<section className="relative overflow-hidden pt-28 md:pt-36">
+		<section className="relative overflow-hidden pt-28 pb-10 md:pt-36 md:pb-14">
 			{/* Decorative orbs */}
 			<div className="hero-gradient-orb -top-40 left-1/4 h-[500px] w-[500px] bg-[var(--brand-glow-strong)] opacity-60" />
 			<div className="hero-gradient-orb -top-20 right-0 h-[400px] w-[400px] bg-[var(--brand-glow)] opacity-40" />
@@ -485,7 +517,7 @@ function HeroSection() {
 					{/* Main dashboard mockup */}
 					<SurfaceCard
 						tone="strong"
-						className="relative overflow-hidden p-3 md:p-5 cta-glow"
+						className="relative overflow-hidden p-3 pb-4 md:p-5 md:pb-6 cta-glow"
 					>
 						<div className="brand-grid absolute inset-0 opacity-15" />
 						<div className="relative space-y-4">
@@ -614,10 +646,13 @@ function HeroSection() {
    ================================================================ */
 
 function LogoCloudSection() {
-	const logos = [
-		...logoCompanies.map((name) => ({ id: `${name}-primary`, name })),
-		...logoCompanies.map((name) => ({ id: `${name}-secondary`, name })),
-	];
+	const logoGroups = Array.from({ length: 3 }, (_, groupIndex) =>
+		logoCompanies.map((logo) => ({
+			id: `${logo.name}-${groupIndex + 1}`,
+			...logo,
+		})),
+	);
+
 	return (
 		<section className="section-spacing-sm overflow-hidden">
 			<div className="page-container">
@@ -625,21 +660,22 @@ function LogoCloudSection() {
 					Trusted by forward-thinking marketing teams
 				</p>
 			</div>
-			<div className="relative">
-				{/* Fade masks */}
-				<div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-background to-transparent" />
-				<div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-background to-transparent" />
-
+			<div className="logo-marquee-shell">
 				<div className="marquee-track">
-					{logos.map((logo) => (
+					{logoGroups.map((group, groupIndex) => (
 						<div
-							key={logo.id}
-							className="mx-8 flex items-center gap-2 text-muted-foreground/50 transition-colors hover:text-muted-foreground/80"
+							key={`logo-group-${groupIndex + 1}`}
+							aria-hidden={groupIndex > 0}
+							className="marquee-group"
 						>
-							<div className="size-6 rounded-lg bg-muted/50" />
-							<span className="whitespace-nowrap text-lg font-medium tracking-tight">
-								{logo.name}
-							</span>
+							{group.map((logo) => (
+								<BrandLogo
+									key={logo.id}
+									color={logo.color}
+									icon={logo.icon}
+									name={logo.name}
+								/>
+							))}
 						</div>
 					))}
 				</div>

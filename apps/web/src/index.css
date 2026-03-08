@@ -775,18 +775,76 @@ body {
 		transform: translateX(0);
 	}
 	100% {
-		transform: translateX(-50%);
+		transform: translateX(-33.333333%);
 	}
 }
 
 .marquee-track {
 	display: flex;
 	width: max-content;
-	animation: marquee-scroll 40s linear infinite;
+	will-change: transform;
+	animation: marquee-scroll 26s linear infinite;
 }
 
 .marquee-track:hover {
 	animation-play-state: paused;
+}
+
+.marquee-group {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: clamp(2rem, 3vw, 3rem);
+	padding-inline-end: clamp(2rem, 3vw, 3rem);
+	min-width: max-content;
+}
+
+.logo-marquee-shell {
+	position: relative;
+	overflow: hidden;
+	padding-block: 0.5rem;
+	-webkit-mask-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		#000 8%,
+		#000 92%,
+		transparent 100%
+	);
+	mask-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		#000 8%,
+		#000 92%,
+		transparent 100%
+	);
+}
+
+.brand-logo-item {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 1rem;
+	white-space: nowrap;
+	padding-inline: 0.65rem;
+	transition: transform 0.25s ease, filter 0.25s ease, opacity 0.25s ease;
+}
+
+.brand-logo-item:hover {
+	transform: translateY(-2px);
+	filter: saturate(0.92);
+	opacity: 1;
+}
+
+.brand-logo-mark {
+	color: color-mix(in srgb, var(--brand-logo-color) 42%, var(--foreground) 58%);
+}
+
+.brand-logo-label {
+	color: color-mix(in srgb, var(--brand-logo-color) 28%, var(--foreground) 72%);
+}
+
+.brand-logo-item {
+	opacity: 0.8;
 }
 
 /* Spotlight card hover glow */
