@@ -16,7 +16,7 @@ import {
 	WandSparkles,
 	X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { AlertInbox } from "@/components/app/alert-inbox";
@@ -62,6 +62,70 @@ const currentUser = {
 	role: "Operations lead",
 };
 
+const sidebarTransitionClass =
+	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
+
+function SidebarBrand({ collapsed }: { collapsed: boolean }) {
+	return (
+		<div
+			className={cn(
+				"relative h-7 overflow-hidden transition-[width]",
+				sidebarTransitionClass,
+				collapsed ? "h-[34px] lg:w-[34px]" : "w-[132px]",
+			)}
+		>
+			<span
+				className={cn(
+					"absolute inset-y-0 left-0 flex items-center transition-[opacity,transform]",
+					sidebarTransitionClass,
+					collapsed
+						? "lg:-translate-x-3 lg:opacity-0"
+						: "opacity-100 translate-x-0",
+				)}
+				aria-hidden={collapsed ? true : undefined}
+			>
+				<Logo size="sm" />
+			</span>
+			<span
+				className={cn(
+					"absolute inset-0 flex items-center justify-center transition-[opacity,transform]",
+					sidebarTransitionClass,
+					collapsed ? "opacity-100" : "lg:translate-x-2 lg:opacity-0",
+				)}
+				aria-hidden={collapsed ? undefined : true}
+			>
+				<Logo size="md" showText={false} />
+			</span>
+		</div>
+	);
+}
+
+function SidebarCopy({
+	collapsed,
+	className,
+	children,
+}: {
+	collapsed: boolean;
+	className?: string;
+	children: ReactNode;
+}) {
+	return (
+		<div
+			className={cn(
+				"min-w-0 overflow-hidden transition-[max-width,opacity,transform]",
+				sidebarTransitionClass,
+				collapsed
+					? "lg:max-w-0 lg:flex-none lg:opacity-0 lg:-translate-x-2"
+					: "max-w-[14rem] opacity-100 translate-x-0",
+				className,
+			)}
+			aria-hidden={collapsed ? true : undefined}
+		>
+			{children}
+		</div>
+	);
+}
+
 function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 	const [activeWorkspace, setActiveWorkspace] = useState(workspaces[0]);
 
@@ -71,26 +135,36 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 				<button
 					type="button"
 					className={cn(
-						"flex w-full items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 p-3 text-left transition-colors hover:bg-accent/60",
-						compact && "justify-center px-2.5",
+						"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
+						sidebarTransitionClass,
+						compact && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 					)}
+					aria-label={compact ? activeWorkspace : undefined}
 				>
 					<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 						{activeWorkspace[0]}
 					</div>
-					{!compact ? (
-						<>
-							<div className="min-w-0 flex-1">
-								<div className="truncate text-sm font-medium">
-									{activeWorkspace}
-								</div>
-								<div className="text-xs text-muted-foreground">
-									Operations workspace
-								</div>
-							</div>
-							<ChevronDown className="size-4 text-muted-foreground" />
-						</>
-					) : null}
+					<SidebarCopy
+						collapsed={Boolean(compact)}
+						className={compact ? undefined : "flex-1"}
+					>
+						<div className="truncate text-sm font-medium">
+							{activeWorkspace}
+						</div>
+						<div className="text-xs text-muted-foreground">
+							Operations workspace
+						</div>
+					</SidebarCopy>
+					<ChevronDown
+						className={cn(
+							"h-4 shrink-0 overflow-hidden text-muted-foreground transition-[width,opacity,transform]",
+							sidebarTransitionClass,
+							compact
+								? "lg:w-0 lg:scale-90 lg:opacity-0"
+								: "w-4 opacity-100 scale-100",
+						)}
+						aria-hidden={compact ? true : undefined}
+					/>
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
@@ -141,7 +215,8 @@ function Sidebar({
 
 			<aside
 				className={cn(
-					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[286px] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-4 py-4 backdrop-blur-[30px] transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-4 lg:py-4 lg:backdrop-blur-none",
+					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[286px] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-4 py-4 backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-4 lg:py-4 lg:backdrop-blur-none",
+					sidebarTransitionClass,
 					collapsed && "lg:w-[92px]",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
 					"lg:translate-x-0",
@@ -152,11 +227,12 @@ function Sidebar({
 						<Link
 							to="/dashboard"
 							className={cn(
-								"flex min-w-0 items-center py-2",
-								collapsed && "lg:w-full lg:justify-center",
+								"flex min-w-0 items-center py-2 transition-[padding,width]",
+								sidebarTransitionClass,
+								collapsed && "lg:mx-auto lg:w-10 lg:justify-center",
 							)}
 						>
-							<Logo size={collapsed ? "md" : "sm"} showText={!collapsed} />
+							<SidebarBrand collapsed={collapsed} />
 						</Link>
 						<Button
 							variant="ghost"
@@ -184,16 +260,24 @@ function Sidebar({
 									key={item.href}
 									to={item.href}
 									onClick={onClose}
+									aria-label={collapsed ? item.label : undefined}
 									className={cn(
-										"group flex w-full items-center gap-3 rounded-[22px] px-3 py-3 text-sm transition-colors",
+										"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+										sidebarTransitionClass,
 										active
 											? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
 											: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-										collapsed && "lg:justify-center lg:px-0",
+										collapsed &&
+											"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
 									)}
 								>
 									<item.icon className="size-5 shrink-0" />
-									{!collapsed ? <span>{item.label}</span> : null}
+									<SidebarCopy
+										collapsed={collapsed}
+										className="whitespace-nowrap"
+									>
+										<span>{item.label}</span>
+									</SidebarCopy>
 								</Link>
 							);
 						})}
@@ -205,9 +289,12 @@ function Sidebar({
 								<button
 									type="button"
 									className={cn(
-										"flex w-full items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-3 text-left transition-colors hover:bg-accent/60",
-										collapsed && "justify-center px-2.5",
+										"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
+										sidebarTransitionClass,
+										collapsed &&
+											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
+									aria-label={collapsed ? currentUser.name : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 										{currentUser.name
@@ -216,19 +303,27 @@ function Sidebar({
 											.join("")
 											.slice(0, 2)}
 									</div>
-									{!collapsed ? (
-										<>
-											<div className="min-w-0 flex-1">
-												<div className="truncate text-sm font-medium">
-													{currentUser.name}
-												</div>
-												<div className="text-xs text-muted-foreground">
-													{currentUser.role}
-												</div>
-											</div>
-											<ChevronDown className="size-4 text-muted-foreground" />
-										</>
-									) : null}
+									<SidebarCopy
+										collapsed={collapsed}
+										className={collapsed ? undefined : "flex-1"}
+									>
+										<div className="truncate text-sm font-medium">
+											{currentUser.name}
+										</div>
+										<div className="text-xs text-muted-foreground">
+											{currentUser.role}
+										</div>
+									</SidebarCopy>
+									<ChevronDown
+										className={cn(
+											"h-4 shrink-0 overflow-hidden text-muted-foreground transition-[width,opacity,transform]",
+											sidebarTransitionClass,
+											collapsed
+												? "lg:w-0 lg:scale-90 lg:opacity-0"
+												: "w-4 opacity-100 scale-100",
+										)}
+										aria-hidden={collapsed ? true : undefined}
+									/>
 								</button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent
