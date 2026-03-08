@@ -6,6 +6,10 @@ import { BrandBackdrop } from "@/components/app/brand";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import {
+	isMarketingUserSignedIn,
+	subscribeToMarketingAuth,
+} from "@/lib/marketing-auth";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -17,6 +21,7 @@ const navLinks = [
 function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [scrolled, setScrolled] = useState(false);
+	const [signedIn, setSignedIn] = useState(isMarketingUserSignedIn);
 	const location = useLocation();
 
 	useEffect(() => {
@@ -29,6 +34,12 @@ function Navbar() {
 	useEffect(() => {
 		setMenuOpen(false);
 	}, [location.pathname]);
+
+	useEffect(() => {
+		return subscribeToMarketingAuth(() => {
+			setSignedIn(isMarketingUserSignedIn());
+		});
+	}, []);
 
 	return (
 		<header className="fixed inset-x-0 top-0 z-50">
@@ -64,27 +75,33 @@ function Navbar() {
 						</nav>
 
 						<div className="hidden items-center gap-2 md:flex">
-							<ThemeToggle compact />
-							<Button variant="ghost" size="sm" asChild>
-								<Link to="/login">Sign in</Link>
-							</Button>
-							<Button
-								size="sm"
-								className="rounded-full px-4 bg-gradient-brand text-white border-0"
-								asChild
-							>
-								<Link to="/dashboard">
-									Open app
-									<ArrowRight className="size-4" />
-								</Link>
-							</Button>
+							<ThemeToggle compact className="size-10" />
+							{signedIn ? (
+								<Button
+									className="h-10 rounded-full bg-gradient-brand px-5 text-white border-0"
+									asChild
+								>
+									<Link to="/dashboard">
+										Open app
+										<ArrowRight className="size-4" />
+									</Link>
+								</Button>
+							) : (
+								<Button
+									variant="outline"
+									className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/40 px-5 backdrop-blur-sm"
+									asChild
+								>
+									<Link to="/login">Sign in</Link>
+								</Button>
+							)}
 						</div>
 
 						<div className="flex items-center gap-2 md:hidden">
-							<ThemeToggle compact />
+							<ThemeToggle compact className="size-10" />
 							<Button
 								variant="ghost"
-								size="icon-sm"
+								className="size-10 rounded-full"
 								onClick={() => setMenuOpen((value) => !value)}
 							>
 								{menuOpen ? (
@@ -111,22 +128,25 @@ function Navbar() {
 							))}
 						</div>
 						<div className="mt-4 flex flex-col gap-2">
-							<Button
-								variant="outline"
-								className="justify-center rounded-full"
-								asChild
-							>
-								<Link to="/login">Sign in</Link>
-							</Button>
-							<Button
-								className="justify-center rounded-full bg-gradient-brand text-white border-0"
-								asChild
-							>
-								<Link to="/dashboard">
-									Open app
-									<ArrowRight className="size-4" />
-								</Link>
-							</Button>
+							{signedIn ? (
+								<Button
+									className="h-10 justify-center rounded-full bg-gradient-brand text-white border-0"
+									asChild
+								>
+									<Link to="/dashboard">
+										Open app
+										<ArrowRight className="size-4" />
+									</Link>
+								</Button>
+							) : (
+								<Button
+									variant="outline"
+									className="h-10 justify-center rounded-full border-[var(--brand-border-soft)] bg-background/40"
+									asChild
+								>
+									<Link to="/login">Sign in</Link>
+								</Button>
+							)}
 						</div>
 					</div>
 				) : null}
@@ -183,21 +203,56 @@ function Footer() {
 									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
 									aria-label="X (Twitter)"
 								>
-									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16h-4.267z" /><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" /></svg>
+									<svg
+										className="size-4"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M4 4l11.733 16h4.267l-11.733 -16h-4.267z" />
+										<path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+									</svg>
 								</a>
 								<a
 									href="https://linkedin.com"
 									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
 									aria-label="LinkedIn"
 								>
-									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 11l0 5" /><path d="M8 8l0 .01" /><path d="M12 16l0 -5" /><path d="M16 16v-3a2 2 0 0 0 -4 0" /></svg>
+									<svg
+										className="size-4"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
+										<path d="M8 11l0 5" />
+										<path d="M8 8l0 .01" />
+										<path d="M12 16l0 -5" />
+										<path d="M16 16v-3a2 2 0 0 0 -4 0" />
+									</svg>
 								</a>
 								<a
 									href="https://github.com"
 									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
 									aria-label="GitHub"
 								>
-									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /></svg>
+									<svg
+										className="size-4"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+									>
+										<path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+									</svg>
 								</a>
 							</div>
 						</div>

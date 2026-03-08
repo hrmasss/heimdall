@@ -389,7 +389,7 @@ function HeroSection() {
 			<div className="hero-noise absolute inset-0 pointer-events-none" />
 
 			<div className="page-container relative z-10">
-				<div className="mx-auto max-w-4xl text-center stagger-children">
+				<div className="mx-auto max-w-5xl text-center stagger-children">
 					{/* Trust badge */}
 					<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-strong)] bg-background/60 px-4 py-2 text-sm backdrop-blur-sm">
 						<div className="flex -space-x-1.5">
@@ -409,10 +409,10 @@ function HeroSection() {
 					</div>
 
 					{/* Headline */}
-					<h1 className="mt-8 text-[2.75rem] font-semibold leading-[1.08] tracking-[-0.04em] sm:text-6xl lg:text-[4.5rem]">
+					<h1 className="mx-auto mt-8 max-w-[11.5ch] text-balance text-[2.75rem] font-semibold leading-[1] tracking-[-0.04em] sm:max-w-[13.5ch] sm:text-6xl md:max-w-none lg:text-[4.5rem]">
 						The marketing{" "}
 						<span className="text-gradient-brand">command center</span>
-						<br className="hidden sm:block" /> your team deserves
+						<br className="hidden md:block" /> your team deserves
 					</h1>
 
 					{/* Subheading */}

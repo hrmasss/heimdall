@@ -17,7 +17,7 @@ import {
 	X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { AlertInbox } from "@/components/app/alert-inbox";
 import { getDashboardBreadcrumbs } from "@/components/app/dashboard-context";
@@ -41,6 +41,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { setMarketingUserSignedIn } from "@/lib/marketing-auth";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -125,6 +126,7 @@ function Sidebar({
 	onClose: () => void;
 }) {
 	const location = useLocation();
+	const navigate = useNavigate();
 
 	return (
 		<>
@@ -258,7 +260,14 @@ function Sidebar({
 									<Command className="size-4" />
 									Command menu
 								</DropdownMenuItem>
-								<DropdownMenuItem className="rounded-[18px] px-3 py-2.5">
+								<DropdownMenuItem
+									className="rounded-[18px] px-3 py-2.5"
+									onSelect={() => {
+										setMarketingUserSignedIn(false);
+										onClose();
+										navigate("/");
+									}}
+								>
 									<LogOut className="size-4" />
 									Sign out
 								</DropdownMenuItem>
@@ -402,6 +411,10 @@ export function DashboardLayout() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
+
+	useEffect(() => {
+		setMarketingUserSignedIn(true);
+	}, []);
 
 	useEffect(() => {
 		if (location.pathname) {

@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { setMarketingUserSignedIn } from "@/lib/marketing-auth";
 
 export function LoginPage() {
 	return (
@@ -58,7 +59,10 @@ export function LoginPage() {
 							className="mt-6 w-full rounded-full bg-gradient-brand text-white border-0"
 							asChild
 						>
-							<Link to="/dashboard">
+							<Link
+								to="/dashboard"
+								onClick={() => setMarketingUserSignedIn(true)}
+							>
 								Continue to dashboard
 								<ArrowRight className="size-4" />
 							</Link>
