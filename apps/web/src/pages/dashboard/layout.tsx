@@ -154,7 +154,7 @@ function Sidebar({
 								collapsed && "lg:w-full lg:justify-center",
 							)}
 						>
-							<Logo size="sm" showText={!collapsed} />
+							<Logo size={collapsed ? "md" : "sm"} showText={!collapsed} />
 						</Link>
 						<Button
 							variant="ghost"
@@ -316,6 +316,13 @@ function TopBar({
 							<PanelLeftClose className="size-4" />
 						)}
 					</Button>
+					<Link
+						to="/dashboard"
+						className="inline-flex shrink-0 lg:hidden"
+						aria-label="Heimdall dashboard home"
+					>
+						<Logo size="sm" showText={false} />
+					</Link>
 					{atDashboardRoot ? (
 						<Button
 							variant="ghost"

@@ -30,6 +30,7 @@ import {
 	SectionTag,
 	SurfaceCard,
 } from "@/components/app/brand";
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -491,6 +492,8 @@ function HeroSection() {
 							{/* Top bar */}
 							<div className="flex items-center justify-between rounded-2xl border border-[var(--brand-border-soft)] bg-background/80 px-5 py-3.5 backdrop-blur-sm">
 								<div className="flex items-center gap-4">
+									<Logo size="sm" showText={false} />
+									<div className="hidden h-4 w-px bg-border sm:block" />
 									<div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
 										Campaign Hub
 									</div>
