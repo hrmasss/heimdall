@@ -8,17 +8,12 @@ import {
 	MoreHorizontal,
 	Send,
 } from "lucide-react";
-import { useState } from "react";
 import { Link } from "react-router";
 
-import { DataTable, type DataTableColumn } from "@/components/app/data-table";
-import { DashboardPageHeader } from "@/components/app/dashboard";
 import { SurfaceCard } from "@/components/app/brand";
+import { DashboardPageHeader } from "@/components/app/dashboard";
+import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@/components/ui/native-select";
 
 type PostRecord = {
 	id: string;
@@ -204,34 +199,14 @@ const columns: DataTableColumn<PostRecord>[] = [
 ];
 
 export function DashboardPosts() {
-	const [previewState, setPreviewState] = useState<
-		"ready" | "loading" | "error"
-	>("ready");
-
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Operations table"
+				eyebrow="Publishing queue"
 				title="Posts"
-				description="A reusable data table for dense social operations work. Resize columns, reorder structure, switch to grid, and paginate from either edge."
+				description="Track scheduled, in-review, and blocked posts from one queue so the team can spot risks and keep launches moving."
 				actions={
 					<>
-						<NativeSelect
-							value={previewState}
-							onChange={(event) =>
-								setPreviewState(event.target.value as typeof previewState)
-							}
-						>
-							<NativeSelectOption value="ready">
-								Preview: Ready
-							</NativeSelectOption>
-							<NativeSelectOption value="loading">
-								Preview: Loading
-							</NativeSelectOption>
-							<NativeSelectOption value="error">
-								Preview: Error
-							</NativeSelectOption>
-						</NativeSelect>
 						<Button variant="outline" className="rounded-full">
 							<Download className="size-4" />
 							Export
@@ -249,37 +224,10 @@ export function DashboardPosts() {
 				}
 			/>
 
-			<SurfaceCard tone="muted" className="grid gap-4 p-5 md:grid-cols-3">
-				{[
-					[
-						"Rows can be reordered and resized",
-						"Built into the header interactions for real operator workflows.",
-					],
-					[
-						"Pagination lives top and bottom",
-						"Page sizing stays accessible when the table is long or horizontally scrolled.",
-					],
-					[
-						"List and grid use the same actions",
-						"Responsive mode changes do not strip bulk actions or row controls.",
-					],
-				].map((item) => (
-					<div
-						key={item[0]}
-						className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
-					>
-						<div className="font-medium">{item[0]}</div>
-						<p className="mt-2 text-sm leading-6 text-muted-foreground">
-							{item[1]}
-						</p>
-					</div>
-				))}
-			</SurfaceCard>
-
 			<SurfaceCard className="p-5 md:p-6">
 				<DataTable
 					title="Publishing queue"
-					description="Use filters to isolate a launch, sort by risk, or switch to cards for visual review on smaller screens."
+					description="Filter by platform or status, scan what needs approval, and jump straight into the next action."
 					rows={rows}
 					columns={columns}
 					getRowId={(row) => row.id}
@@ -314,26 +262,18 @@ export function DashboardPosts() {
 					]}
 					globalActions={[
 						{ label: "Sort presets", icon: ArrowUpDown, variant: "outline" },
-						{ label: "Preview", icon: Eye, variant: "ghost" },
+						{ label: "Open review", icon: Eye, variant: "ghost" },
 						{ label: "Bulk send", icon: Send, variant: "default" },
 					]}
 					rowActions={[
-						{ label: "Preview post", icon: Eye },
+						{ label: "Open post", icon: Eye },
 						{ label: "Duplicate", icon: Copy },
 						{ label: "Archive", icon: Archive, destructive: true },
 					]}
-					loading={previewState === "loading"}
-					error={
-						previewState === "error"
-							? "The publishing queue could not be synced. Retry after the upstream content service responds."
-							: null
-					}
 					emptyState={{
 						title: "No posts match the current view",
 						description:
-							"Adjust filters, search terms, or table state to bring rows back into focus.",
-						actionLabel: "Clear preview filters",
-						onAction: () => setPreviewState("ready"),
+							"Adjust filters or search terms to bring the right campaigns back into focus.",
 					}}
 					renderGridCard={(row) => (
 						<div className="space-y-4">

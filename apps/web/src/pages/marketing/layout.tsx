@@ -139,15 +139,67 @@ function Footer() {
 	return (
 		<footer className="border-t border-[var(--brand-border-soft)] py-10">
 			<div className="page-container">
+				{/* Newsletter Section */}
+				<div className="surface-panel-strong rounded-[32px] px-6 py-10 md:px-10 md:py-12 mb-8 relative overflow-hidden">
+					<div className="brand-grid absolute inset-0 opacity-10" />
+					<div className="relative z-10 flex flex-col items-center gap-6 text-center md:flex-row md:text-left md:justify-between">
+						<div className="max-w-md">
+							<div className="text-xl font-semibold tracking-tight md:text-2xl">
+								Stay ahead of the curve
+							</div>
+							<p className="mt-2 text-sm text-muted-foreground">
+								Get weekly insights on marketing automation, campaign
+								strategies, and product updates straight to your inbox.
+							</p>
+						</div>
+						<form
+							className="flex w-full max-w-sm gap-2"
+							onSubmit={(e) => e.preventDefault()}
+						>
+							<input
+								type="email"
+								placeholder="you@company.com"
+								className="flex-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-4 py-2.5 text-sm backdrop-blur-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+							<Button className="rounded-full bg-gradient-brand px-6 text-white border-0 shrink-0">
+								Subscribe
+							</Button>
+						</form>
+					</div>
+				</div>
+
+				{/* Main Footer */}
 				<div className="surface-panel rounded-[32px] px-6 py-8 md:px-8">
-					<div className="grid gap-10 lg:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))]">
+					<div className="grid gap-10 lg:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
 						<div className="space-y-4">
 							<Logo size="sm" showText />
 							<p className="max-w-sm text-sm text-muted-foreground">
-								Calm infrastructure for social operations. Plan campaigns,
-								review creative, and track growth in one rust-toned control
-								room.
+								The marketing command center for modern teams. Plan campaigns,
+								automate publishing, and measure performance in one workspace.
 							</p>
+							<div className="flex items-center gap-3 pt-1">
+								<a
+									href="https://x.com"
+									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
+									aria-label="X (Twitter)"
+								>
+									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16h-4.267z" /><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" /></svg>
+								</a>
+								<a
+									href="https://linkedin.com"
+									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
+									aria-label="LinkedIn"
+								>
+									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 11l0 5" /><path d="M8 8l0 .01" /><path d="M12 16l0 -5" /><path d="M16 16v-3a2 2 0 0 0 -4 0" /></svg>
+								</a>
+								<a
+									href="https://github.com"
+									className="flex size-9 items-center justify-center rounded-xl border border-[var(--brand-border-soft)] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
+									aria-label="GitHub"
+								>
+									<svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /></svg>
+								</a>
+							</div>
 						</div>
 
 						<div className="space-y-3">
@@ -166,10 +218,16 @@ function Footer() {
 									Pricing
 								</Link>
 								<Link
-									to="/dashboard/posts"
+									to="/dashboard"
 									className="block transition-colors hover:text-foreground"
 								>
-									Posts table
+									Dashboard
+								</Link>
+								<Link
+									to="/dashboard/analytics"
+									className="block transition-colors hover:text-foreground"
+								>
+									Analytics
 								</Link>
 							</div>
 						</div>
@@ -189,21 +247,78 @@ function Footer() {
 								>
 									Contact
 								</a>
-								<Link
-									to="/login"
+								<a
+									href="#"
 									className="block transition-colors hover:text-foreground"
 								>
-									Sign in
-								</Link>
+									Careers
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Blog
+								</a>
 							</div>
 						</div>
 
 						<div className="space-y-3">
-							<div className="text-sm font-medium">Status</div>
+							<div className="text-sm font-medium">Resources</div>
 							<div className="space-y-2 text-sm text-muted-foreground">
-								<div>99.98% delivery uptime</div>
-								<div>18 regions monitored</div>
-								<div>24/7 human support</div>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Documentation
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									API Reference
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Changelog
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Status Page
+								</a>
+							</div>
+						</div>
+
+						<div className="space-y-3">
+							<div className="text-sm font-medium">Legal</div>
+							<div className="space-y-2 text-sm text-muted-foreground">
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Privacy Policy
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Terms of Service
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Cookie Policy
+								</a>
+								<a
+									href="#"
+									className="block transition-colors hover:text-foreground"
+								>
+									Security
+								</a>
 							</div>
 						</div>
 					</div>
@@ -213,24 +328,10 @@ function Footer() {
 							© {new Date().getFullYear()} Heimdall. Built for deliberate teams.
 						</div>
 						<div className="flex items-center gap-4">
-							<a
-								href="https://github.com"
-								className="transition-colors hover:text-foreground"
-							>
-								GitHub
-							</a>
-							<a
-								href="https://linkedin.com"
-								className="transition-colors hover:text-foreground"
-							>
-								LinkedIn
-							</a>
-							<a
-								href="https://x.com"
-								className="transition-colors hover:text-foreground"
-							>
-								X
-							</a>
+							<div className="flex items-center gap-1.5">
+								<div className="size-2 rounded-full bg-[var(--brand-success)]" />
+								<span>All systems operational</span>
+							</div>
 						</div>
 					</div>
 				</div>

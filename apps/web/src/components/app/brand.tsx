@@ -10,9 +10,9 @@ export function BrandBackdrop({ className }: { className?: string }) {
 				className,
 			)}
 		>
-			<div className="hero-halo left-[-10rem] top-[-6rem] h-[22rem] w-[22rem] bg-[var(--brand-glow-strong)]" />
-			<div className="hero-halo right-[-8rem] top-[14rem] h-[24rem] w-[24rem] bg-[var(--brand-glow)]" />
-			<div className="brand-grid absolute inset-x-0 top-0 h-[32rem] opacity-35 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+			<div className="hero-halo left-[-12rem] top-[-8rem] h-[24rem] w-[24rem] bg-[var(--brand-glow-strong)]" />
+			<div className="hero-halo right-[-10rem] top-[15rem] h-[22rem] w-[22rem] bg-[var(--brand-glow)]" />
+			<div className="brand-grid absolute inset-x-0 top-0 h-[32rem] opacity-20 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
 		</div>
 	);
 }

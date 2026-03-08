@@ -2,11 +2,7 @@ import {
 	ArrowRight,
 	BarChart3,
 	CalendarDays,
-	Filter,
-	GripVertical,
-	LayoutGrid,
 	MessageCircleMore,
-	MoveHorizontal,
 	ShieldCheck,
 	Sparkles,
 	WandSparkles,
@@ -20,30 +16,57 @@ import {
 } from "@/components/app/brand";
 import { Button } from "@/components/ui/button";
 
-const productLanes = [
+const workflowHighlights = [
 	{
 		icon: CalendarDays,
-		title: "Plan and sequence",
+		title: "Plan launches with context",
 		description:
-			"Map launches against dates, owners, dependencies, and campaign narratives. The calendar and list views stay in sync so no one is forced into one mode.",
+			"Map campaigns against dates, owners, dependencies, and channel goals so the whole team sees what needs attention next.",
 	},
 	{
-		icon: MoveHorizontal,
-		title: "Shape the table around the work",
+		icon: ShieldCheck,
+		title: "Keep approvals moving",
 		description:
-			"Resize, reorder, and sort columns so each workspace reflects the way your team thinks about operations instead of the way a vendor guessed.",
+			"Route reviews to the right stakeholders, surface blockers early, and maintain a clean record of what is ready to ship.",
 	},
 	{
-		icon: Filter,
-		title: "Filter with intent",
+		icon: MessageCircleMore,
+		title: "Keep feedback attached",
 		description:
-			"Quick filters, global search, and per-status views make it easy to isolate launches, bottlenecks, or underperforming segments without creating new spreadsheets.",
+			"Comments and next steps stay connected to the campaign and assets, so context does not disappear into chat threads.",
 	},
 	{
-		icon: LayoutGrid,
-		title: "Switch from rows to cards",
+		icon: BarChart3,
+		title: "Measure what shipped",
 		description:
-			"Move from a dense operator table to a visual grid for review meetings, asset QA, or mobile triage without losing actions or pagination.",
+			"See delivery signals and performance in the same workspace where the next round of decisions gets made.",
+	},
+];
+
+const campaignFlow = [
+	{
+		label: "Brief",
+		title: "Align the narrative early",
+		description:
+			"Capture the campaign objective, owner, launch window, and dependencies before the work starts to fragment.",
+	},
+	{
+		label: "Review",
+		title: "Collect approvals in one place",
+		description:
+			"Keep legal, brand, and channel feedback visible so nobody is chasing the latest version over email or chat.",
+	},
+	{
+		label: "Publish",
+		title: "Launch with fewer handoffs",
+		description:
+			"Scheduling, asset readiness, and final sign-off stay connected, which reduces last-minute manual coordination.",
+	},
+	{
+		label: "Learn",
+		title: "Turn results into the next move",
+		description:
+			"Use channel and campaign performance to decide what to repeat, revise, or retire in the next cycle.",
 	},
 ];
 
@@ -102,12 +125,12 @@ function WorkflowSection() {
 			<div className="page-container grid gap-6 lg:grid-cols-[1fr_1.05fr]">
 				<SurfaceCard tone="strong" className="p-6 md:p-8">
 					<SectionHeading
-						badge={<SectionTag>Workflow surface</SectionTag>}
-						title="The table is now a first-class interface."
-						description="It behaves like a real operations surface: reconfigurable, dense when needed, and still readable when the team is moving quickly."
+						badge={<SectionTag>Operator flow</SectionTag>}
+						title="One place for the full launch cycle."
+						description="Heimdall keeps planning, approvals, publishing, and reporting connected so the team can move without handoff drift."
 					/>
 					<div className="mt-8 grid gap-4">
-						{productLanes.map((lane) => (
+						{workflowHighlights.map((lane) => (
 							<div
 								key={lane.title}
 								className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
@@ -127,60 +150,31 @@ function WorkflowSection() {
 				</SurfaceCard>
 
 				<SurfaceCard className="overflow-hidden p-4 md:p-6">
-					<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75 p-4">
-						<div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--brand-border-soft)] pb-4">
-							<div>
-								<div className="text-sm font-medium">
-									Launch operations table
-								</div>
-								<div className="text-xs text-muted-foreground">
-									Drag columns, resize widths, and filter on the fly
-								</div>
-							</div>
-							<div className="flex items-center gap-2">
-								<div className="pill pill-muted">
-									<GripVertical className="size-3.5" />
-									Reorder columns
-								</div>
-								<div className="pill pill-info">List / grid</div>
-							</div>
-						</div>
+					<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75 p-5 md:p-6">
+						<SectionHeading
+							badge={<SectionTag>Campaign rhythm</SectionTag>}
+							title="From kickoff to reporting, the room stays aligned."
+							description="Each stage carries the right context forward, so operators, reviewers, and leads can act without rebuilding the story from scratch."
+						/>
 
-						<div className="mt-4 space-y-3">
-							<div className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.3fr] gap-3 rounded-2xl bg-muted/50 px-3 py-3 text-[0.72rem] uppercase tracking-[0.18em] text-muted-foreground">
-								{["Campaign", "Channel", "Status", "Owner", ""].map((label) => (
-									<div
-										key={label || "action"}
-										className="flex items-center gap-2"
-									>
-										{label}
-										{label ? <MoveHorizontal className="size-3" /> : null}
-									</div>
-								))}
-							</div>
-							{[
-								["Narrative launch", "LinkedIn", "Scheduled", "Maya"],
-								["Analyst thread", "X", "Review", "Jon"],
-								["Influencer kit", "Instagram", "Draft", "Pia"],
-								["Quarterly recap", "YouTube", "Blocked", "Leo"],
-							].map((row, index) => (
+						<div className="mt-8 space-y-4">
+							{campaignFlow.map((step) => (
 								<div
-									key={row[0]}
-									className="grid grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.3fr] gap-3 rounded-2xl border border-[var(--brand-border-soft)] bg-card px-3 py-3 text-sm"
+									key={step.label}
+									className="rounded-[24px] border border-[var(--brand-border-soft)] bg-card/90 p-4"
 								>
-									<div className="font-medium">{row[0]}</div>
-									<div className="text-muted-foreground">{row[1]}</div>
-									<div
-										className={
-											index === 1
-												? "text-[var(--brand-warning)]"
-												: "text-muted-foreground"
-										}
-									>
-										{row[2]}
+									<div className="flex items-center justify-between gap-3">
+										<div className="text-xs font-medium uppercase tracking-[0.22em] text-[var(--brand-accent)]">
+											{step.label}
+										</div>
+										<div className="pill pill-muted">Connected</div>
 									</div>
-									<div className="text-muted-foreground">{row[3]}</div>
-									<div className="text-right text-muted-foreground">•••</div>
+									<div className="mt-3 text-lg font-medium tracking-tight">
+										{step.title}
+									</div>
+									<p className="mt-2 text-sm leading-6 text-muted-foreground">
+										{step.description}
+									</p>
 								</div>
 							))}
 						</div>
@@ -197,9 +191,11 @@ function SystemSection() {
 			<div className="page-container">
 				<SectionHeading
 					align="center"
-					badge={<SectionTag className="mx-auto">System design</SectionTag>}
-					title="One design language across every critical surface."
-					description="Marketing and product now share the same warm palette, panel structure, typography rhythm, and interaction model, so the experience feels like one product from the first visit."
+					badge={
+						<SectionTag className="mx-auto">What stays connected</SectionTag>
+					}
+					title="A workspace built for clarity under pressure."
+					description="Whether the team is planning, reviewing, publishing, or learning from results, Heimdall keeps the important signals close to the action."
 				/>
 				<div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 					{systemBlocks.map((block) => (
@@ -232,12 +228,12 @@ function CTASection() {
 					<div className="max-w-2xl space-y-3">
 						<SectionTag>See it live</SectionTag>
 						<h2 className="text-3xl font-semibold tracking-tight">
-							Open the dashboard and inspect the new table directly.
+							Open the workspace and follow the team in motion.
 						</h2>
 						<p className="text-muted-foreground">
-							The dashboard routes are no longer placeholders. Posts, analytics,
-							calendar, library, team, automations, and settings all now follow
-							the same product language.
+							Move from posts to analytics, calendar, library, team, and
+							automations in a single product flow built for day-to-day
+							marketing operations.
 						</p>
 					</div>
 					<Button
