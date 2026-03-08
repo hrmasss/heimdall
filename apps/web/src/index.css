@@ -551,6 +551,85 @@ body {
 	@apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
 }
 
+.auth-shell {
+	min-height: 100dvh;
+}
+
+.auth-main-grid {
+	display: grid;
+	align-items: center;
+	justify-items: center;
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.auth-shell-card {
+	width: 100%;
+	max-width: 40rem;
+}
+
+.auth-shell-sections {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.auth-pane {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.auth-card-group {
+	border: 1px solid var(--brand-border-soft);
+	border-radius: 26px;
+	background: color-mix(in srgb, var(--background) 72%, transparent);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+.auth-card-subsection {
+	border: 1px solid var(--brand-border-soft);
+	border-radius: 22px;
+	background: color-mix(in srgb, var(--card) 90%, transparent);
+}
+
+.auth-companion,
+.auth-secondary-actions {
+	display: none;
+}
+
+.auth-social-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 768px) {
+	.auth-signup-fields {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (min-width: 1280px) and (min-height: 820px) {
+	.auth-shell-card {
+		max-width: 72rem;
+	}
+
+	.auth-companion {
+		display: block;
+	}
+
+	.auth-shell-sections {
+		grid-template-columns: minmax(0, 1fr) minmax(34rem, 38rem);
+		gap: 1.5rem;
+		align-items: stretch;
+	}
+
+	.auth-secondary-actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
 .section-spacing {
 	@apply py-18 md:py-24;
 }

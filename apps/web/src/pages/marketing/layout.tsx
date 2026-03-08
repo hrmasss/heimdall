@@ -87,13 +87,24 @@ function Navbar() {
 									</Link>
 								</Button>
 							) : (
-								<Button
-									variant="outline"
-									className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/40 px-5 backdrop-blur-sm"
-									asChild
-								>
-									<Link to="/login">Sign in</Link>
-								</Button>
+								<>
+									<Button
+										variant="outline"
+										className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/40 px-5 backdrop-blur-sm"
+										asChild
+									>
+										<Link to="/login">Sign in</Link>
+									</Button>
+									<Button
+										className="h-10 rounded-full bg-gradient-brand px-5 text-white border-0"
+										asChild
+									>
+										<Link to="/signup">
+											Start free trial
+											<ArrowRight className="size-4" />
+										</Link>
+									</Button>
+								</>
 							)}
 						</div>
 
@@ -139,13 +150,24 @@ function Navbar() {
 									</Link>
 								</Button>
 							) : (
-								<Button
-									variant="outline"
-									className="h-10 justify-center rounded-full border-[var(--brand-border-soft)] bg-background/40"
-									asChild
-								>
-									<Link to="/login">Sign in</Link>
-								</Button>
+								<>
+									<Button
+										variant="outline"
+										className="h-10 justify-center rounded-full border-[var(--brand-border-soft)] bg-background/40"
+										asChild
+									>
+										<Link to="/login">Sign in</Link>
+									</Button>
+									<Button
+										className="h-10 justify-center rounded-full bg-gradient-brand text-white border-0"
+										asChild
+									>
+										<Link to="/signup">
+											Start free trial
+											<ArrowRight className="size-4" />
+										</Link>
+									</Button>
+								</>
 							)}
 						</div>
 					</div>

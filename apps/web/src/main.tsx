@@ -1,4 +1,4 @@
-import { Suspense, StrictMode, lazy } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 
@@ -32,6 +32,11 @@ const AboutPage = lazy(async () =>
 const LoginPage = lazy(async () =>
 	import("@/pages/auth/login").then((module) => ({
 		default: module.LoginPage,
+	})),
+);
+const SignupPage = lazy(async () =>
+	import("@/pages/auth/signup").then((module) => ({
+		default: module.SignupPage,
 	})),
 );
 const DashboardLayout = lazy(async () =>
@@ -109,6 +114,7 @@ createRoot(root).render(
 					</Route>
 
 					<Route path="/login" element={<LoginPage />} />
+					<Route path="/signup" element={<SignupPage />} />
 
 					<Route path="/dashboard" element={<DashboardLayout />}>
 						<Route index element={<DashboardOverview />} />
