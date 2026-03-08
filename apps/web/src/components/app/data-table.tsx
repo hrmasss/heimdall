@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
 	ChevronsUpDown,
@@ -11,20 +12,21 @@ import {
 	SlidersHorizontal,
 } from "lucide-react";
 import {
+	type MouseEvent as ReactMouseEvent,
+	type ReactNode,
 	startTransition,
 	useDeferredValue,
 	useEffect,
 	useState,
-	type MouseEvent as ReactMouseEvent,
-	type ReactNode,
 } from "react";
 
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@/components/ui/native-select";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
 	Table,
 	TableBody,
@@ -75,6 +78,50 @@ type RowAction<T> = {
 	onClick?: (row: T) => void;
 	destructive?: boolean;
 };
+
+function ToolbarDropdown({
+	label,
+	value,
+	valueLabel,
+	options,
+	onValueChange,
+}: {
+	label: string;
+	value: string;
+	valueLabel: string;
+	options: Array<{ label: string; value: string }>;
+	onValueChange: (value: string) => void;
+}) {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label={label}
+					className="flex h-10 items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent/60"
+				>
+					<span className="truncate">
+						{label}: {valueLabel}
+					</span>
+					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent className="rounded-[24px] p-2">
+				<DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
+					{options.map((option) => (
+						<DropdownMenuRadioItem
+							key={option.value}
+							value={option.value}
+							className="rounded-[18px] px-3 py-2.5"
+						>
+							{option.label}
+						</DropdownMenuRadioItem>
+					))}
+				</DropdownMenuRadioGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
 
 export function DataTable<T>({
 	title,
@@ -141,6 +188,13 @@ export function DataTable<T>({
 		.map((id) => columns.find((column) => column.id === id))
 		.filter((column): column is DataTableColumn<T> => Boolean(column));
 	const sortableColumns = columns.filter((column) => column.getSortValue);
+	const selectedSortColumn = columns.find(
+		(column) => column.id === sortColumnId,
+	);
+	const sortOptions = sortableColumns.flatMap((column) => [
+		{ label: `${column.label} ↑`, value: `${column.id}:asc` },
+		{ label: `${column.label} ↓`, value: `${column.id}:desc` },
+	]);
 
 	const filteredRows = rows.filter((row) => {
 		const matchesSearch =
@@ -370,54 +424,48 @@ export function DataTable<T>({
 							/>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
-							{filters.map((filter) => (
-								<NativeSelect
-									key={filter.id}
-									value={filterValues[filter.id] ?? "all"}
-									onChange={(event) =>
-										startTransition(() => {
-											setFilterValues((current) => ({
-												...current,
-												[filter.id]: event.target.value,
-											}));
-											setCurrentPage(1);
-										})
-									}
-								>
-									<NativeSelectOption value="all">
-										{filter.label}: All
-									</NativeSelectOption>
-									{filter.options.map((option) => (
-										<NativeSelectOption key={option.value} value={option.value}>
-											{option.label}
-										</NativeSelectOption>
-									))}
-								</NativeSelect>
-							))}
+							{filters.map((filter) => {
+								const currentValue = filterValues[filter.id] ?? "all";
+								const selectedOption = filter.options.find(
+									(option) => option.value === currentValue,
+								);
+
+								return (
+									<ToolbarDropdown
+										key={filter.id}
+										label={filter.label}
+										value={currentValue}
+										valueLabel={selectedOption?.label ?? "All"}
+										options={[
+											{ label: "All", value: "all" },
+											...filter.options,
+										]}
+										onValueChange={(nextValue) =>
+											startTransition(() => {
+												setFilterValues((current) => ({
+													...current,
+													[filter.id]: nextValue,
+												}));
+												setCurrentPage(1);
+											})
+										}
+									/>
+								);
+							})}
 							{sortableColumns.length ? (
-								<NativeSelect
+								<ToolbarDropdown
+									label="Sort"
 									value={`${sortColumnId}:${sortDirection}`}
-									onChange={(event) => {
-										const [columnId, direction] = event.target.value.split(":");
+									valueLabel={`${selectedSortColumn?.label ?? "None"} ${
+										sortDirection === "asc" ? "↑" : "↓"
+									}`}
+									options={sortOptions}
+									onValueChange={(nextValue) => {
+										const [columnId, direction] = nextValue.split(":");
 										setSortColumnId(columnId);
 										setSortDirection(direction as "asc" | "desc");
 									}}
-								>
-									{sortableColumns.flatMap((column) => [
-										<NativeSelectOption
-											key={`${column.id}-asc`}
-											value={`${column.id}:asc`}
-										>
-											Sort: {column.label} ↑
-										</NativeSelectOption>,
-										<NativeSelectOption
-											key={`${column.id}-desc`}
-											value={`${column.id}:desc`}
-										>
-											Sort: {column.label} ↓
-										</NativeSelectOption>,
-									])}
-								</NativeSelect>
+								/>
 							) : null}
 						</div>
 					</div>

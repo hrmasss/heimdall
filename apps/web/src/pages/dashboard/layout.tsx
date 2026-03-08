@@ -38,6 +38,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -440,9 +441,17 @@ export function DashboardLayout() {
 					/>
 					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
 						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
-							<div className="dashboard-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-								<Outlet />
-							</div>
+							<ScrollArea
+								type="scroll"
+								scrollHideDelay={180}
+								className="dashboard-content-scroll min-h-0 flex-1 rounded-[inherit]"
+								scrollbarClassName="dashboard-content-scrollbar"
+								thumbClassName="dashboard-content-scrollbar-thumb"
+							>
+								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+									<Outlet />
+								</div>
+							</ScrollArea>
 						</div>
 					</main>
 				</div>

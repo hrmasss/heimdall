@@ -332,10 +332,12 @@ body {
 }
 
 .dashboard-shell-surface {
-	border: 1px solid color-mix(in srgb, var(--brand-border-strong) 88%, transparent);
+	border: 1px solid
+		color-mix(in srgb, var(--brand-border-strong) 88%, transparent);
 	background: color-mix(in srgb, var(--brand-panel) 84%, var(--background) 16%);
-	box-shadow: 0 32px 90px -58px color-mix(in srgb, var(--brand-ink) 48%, transparent),
-		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	box-shadow: 0 32px 90px -58px
+		color-mix(in srgb, var(--brand-ink) 48%, transparent), inset 0 1px 0
+		rgba(255, 255, 255, 0.1);
 	backdrop-filter: blur(28px);
 	-webkit-backdrop-filter: blur(28px);
 }
@@ -392,7 +394,73 @@ body {
 
 .dashboard-content-scroll {
 	min-height: 0;
-	scrollbar-gutter: stable both-edges;
+	overflow: hidden;
+}
+
+.dashboard-content-scrollbar {
+	position: absolute;
+	isolation: isolate;
+	opacity: 0;
+	transform: translateX(4px);
+	transition: opacity 180ms ease, transform 180ms ease, filter 180ms ease;
+	filter: saturate(0.88);
+}
+
+.dashboard-content-scrollbar[data-orientation="vertical"] {
+	top: 18px;
+	right: 6px;
+	bottom: 18px;
+	width: 18px;
+	padding: 2px 4px 2px 9px;
+	border-left: 0;
+}
+
+.dashboard-content-scrollbar[data-state="hidden"] {
+	pointer-events: auto;
+}
+
+.dashboard-content-scrollbar[data-state="visible"],
+.dashboard-content-scrollbar:hover,
+.dashboard-content-scroll:hover .dashboard-content-scrollbar,
+.dashboard-content-scroll:focus-within .dashboard-content-scrollbar {
+	opacity: 0.94;
+	pointer-events: auto;
+	transform: translateX(0);
+	filter: saturate(1);
+}
+
+.dashboard-content-scrollbar::before {
+	content: "";
+	position: absolute;
+	inset: 2px 4px 2px 9px;
+	z-index: -1;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--card) 14%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 14%, transparent);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+}
+
+.dashboard-content-scrollbar-thumb {
+	min-height: 42px;
+	border-radius: 999px;
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--brand-secondary) 52%, white 48%) 0%,
+		color-mix(in srgb, var(--brand-primary) 64%, var(--brand-accent) 36%) 100%
+	);
+	box-shadow: 0 8px 18px -16px
+		color-mix(in srgb, var(--brand-ink) 56%, transparent), inset 0 1px 0
+		rgba(255, 255, 255, 0.18);
+}
+
+.dashboard-content-scrollbar:hover .dashboard-content-scrollbar-thumb,
+.dashboard-content-scroll:focus-within .dashboard-content-scrollbar-thumb {
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--brand-secondary) 60%, white 40%) 0%,
+		color-mix(in srgb, var(--brand-primary) 72%, var(--brand-accent) 28%) 100%
+	);
 }
 
 .glass {
