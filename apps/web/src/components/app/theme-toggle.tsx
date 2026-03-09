@@ -35,11 +35,23 @@ export function ThemeToggle({
 	className?: string;
 	compact?: boolean;
 }) {
-	const [theme, setTheme] = useState<ThemeMode>(resolveTheme);
+	const [theme, setTheme] = useState<ThemeMode>("dark");
+	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		const nextTheme = resolveTheme();
+		setTheme(nextTheme);
+		setMounted(true);
+		applyTheme(nextTheme);
+	}, []);
+
+	useEffect(() => {
+		if (!mounted) {
+			return;
+		}
+
 		applyTheme(theme);
-	}, [theme]);
+	}, [mounted, theme]);
 
 	return (
 		<button

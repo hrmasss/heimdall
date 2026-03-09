@@ -15,13 +15,18 @@ import { cn } from "@/lib/utils";
 const navLinks = [
 	{ href: "/features", label: "Product" },
 	{ href: "/pricing", label: "Pricing" },
+	{ href: "/blog", label: "Blog" },
 	{ href: "/about", label: "Company" },
 ];
+
+function isActivePath(currentPath: string, href: string) {
+	return currentPath === href || currentPath.startsWith(`${href}/`);
+}
 
 function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [scrolled, setScrolled] = useState(false);
-	const [signedIn, setSignedIn] = useState(isMarketingUserSignedIn);
+	const [signedIn, setSignedIn] = useState(false);
 	const location = useLocation();
 
 	useEffect(() => {
@@ -36,6 +41,7 @@ function Navbar() {
 	}, [location.pathname]);
 
 	useEffect(() => {
+		setSignedIn(isMarketingUserSignedIn());
 		return subscribeToMarketingAuth(() => {
 			setSignedIn(isMarketingUserSignedIn());
 		});
@@ -64,7 +70,7 @@ function Navbar() {
 									to={link.href}
 									className={cn(
 										"rounded-full px-4 py-2 text-sm transition-colors",
-										location.pathname === link.href
+										isActivePath(location.pathname, link.href)
 											? "bg-primary text-primary-foreground"
 											: "text-muted-foreground hover:text-foreground",
 									)}
@@ -318,6 +324,12 @@ function Footer() {
 								>
 									About
 								</Link>
+								<Link
+									to="/blog"
+									className="block transition-colors hover:text-foreground"
+								>
+									Blog
+								</Link>
 								<a
 									href="mailto:team@heimdall.app"
 									className="block transition-colors hover:text-foreground"
@@ -329,12 +341,6 @@ function Footer() {
 									className="block transition-colors hover:text-foreground"
 								>
 									Careers
-								</a>
-								<a
-									href="#"
-									className="block transition-colors hover:text-foreground"
-								>
-									Blog
 								</a>
 							</div>
 						</div>
