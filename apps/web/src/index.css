@@ -418,12 +418,19 @@ body {
 	-webkit-backdrop-filter: blur(18px);
 }
 
-.dashboard-content-scroll {
+.dashboard-content-scroll,
+.marketing-content-scroll {
 	min-height: 0;
 	overflow: hidden;
 }
 
-.dashboard-content-scrollbar {
+.marketing-content-viewport > div {
+	display: block !important;
+	width: 100% !important;
+}
+
+.dashboard-content-scrollbar,
+.marketing-content-scrollbar {
 	position: absolute;
 	isolation: isolate;
 	opacity: 0;
@@ -432,7 +439,8 @@ body {
 	filter: saturate(0.88);
 }
 
-.dashboard-content-scrollbar[data-orientation="vertical"] {
+.dashboard-content-scrollbar[data-orientation="vertical"],
+.marketing-content-scrollbar[data-orientation="vertical"] {
 	top: 18px;
 	right: 6px;
 	bottom: 18px;
@@ -441,21 +449,27 @@ body {
 	border-left: 0;
 }
 
-.dashboard-content-scrollbar[data-state="hidden"] {
+.dashboard-content-scrollbar[data-state="hidden"],
+.marketing-content-scrollbar[data-state="hidden"] {
 	pointer-events: auto;
 }
 
 .dashboard-content-scrollbar[data-state="visible"],
 .dashboard-content-scrollbar:hover,
 .dashboard-content-scroll:hover .dashboard-content-scrollbar,
-.dashboard-content-scroll:focus-within .dashboard-content-scrollbar {
+.dashboard-content-scroll:focus-within .dashboard-content-scrollbar,
+.marketing-content-scrollbar[data-state="visible"],
+.marketing-content-scrollbar:hover,
+.marketing-content-scroll:hover .marketing-content-scrollbar,
+.marketing-content-scroll:focus-within .marketing-content-scrollbar {
 	opacity: 0.94;
 	pointer-events: auto;
 	transform: translateX(0);
 	filter: saturate(1);
 }
 
-.dashboard-content-scrollbar::before {
+.dashboard-content-scrollbar::before,
+.marketing-content-scrollbar::before {
 	content: "";
 	position: absolute;
 	inset: 2px 4px 2px 9px;
@@ -467,7 +481,8 @@ body {
 	-webkit-backdrop-filter: blur(10px);
 }
 
-.dashboard-content-scrollbar-thumb {
+.dashboard-content-scrollbar-thumb,
+.marketing-content-scrollbar-thumb {
 	min-height: 42px;
 	border-radius: 999px;
 	background: linear-gradient(
@@ -481,7 +496,9 @@ body {
 }
 
 .dashboard-content-scrollbar:hover .dashboard-content-scrollbar-thumb,
-.dashboard-content-scroll:focus-within .dashboard-content-scrollbar-thumb {
+.dashboard-content-scroll:focus-within .dashboard-content-scrollbar-thumb,
+.marketing-content-scrollbar:hover .marketing-content-scrollbar-thumb,
+.marketing-content-scroll:focus-within .marketing-content-scrollbar-thumb {
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--brand-secondary) 60%, white 40%) 0%,

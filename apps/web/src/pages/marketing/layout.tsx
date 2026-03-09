@@ -1,16 +1,22 @@
 import { ArrowRight, Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 
 import { BrandBackdrop } from "@/components/app/brand";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	isMarketingUserSignedIn,
 	subscribeToMarketingAuth,
 } from "@/lib/marketing-auth";
 import { cn } from "@/lib/utils";
+
+import {
+	MarketingScrollViewportContext,
+	useMarketingScrollViewport,
+} from "./scroll-context";
 
 const navLinks = [
 	{ href: "/features", label: "Product" },
@@ -28,13 +34,22 @@ function Navbar() {
 	const [scrolled, setScrolled] = useState(false);
 	const [signedIn, setSignedIn] = useState(false);
 	const location = useLocation();
+	const scrollViewportRef = useMarketingScrollViewport();
 
 	useEffect(() => {
-		const onScroll = () => setScrolled(window.scrollY > 10);
+		const viewport = scrollViewportRef?.current;
+		const onScroll = () =>
+			setScrolled((viewport?.scrollTop ?? window.scrollY) > 10);
+
 		onScroll();
-		window.addEventListener("scroll", onScroll);
+		if (viewport) {
+			viewport.addEventListener("scroll", onScroll, { passive: true });
+			return () => viewport.removeEventListener("scroll", onScroll);
+		}
+
+		window.addEventListener("scroll", onScroll, { passive: true });
 		return () => window.removeEventListener("scroll", onScroll);
-	}, []);
+	}, [scrollViewportRef]);
 
 	useEffect(() => {
 		setMenuOpen(false);
@@ -424,14 +439,30 @@ function Footer() {
 }
 
 export function MarketingLayout() {
+	const scrollViewportRef = useRef<HTMLDivElement>(null);
+
 	return (
-		<div className="app-shell min-h-screen">
-			<BrandBackdrop />
-			<Navbar />
-			<main className="relative z-10">
-				<Outlet />
-			</main>
-			<Footer />
-		</div>
+		<MarketingScrollViewportContext.Provider value={scrollViewportRef}>
+			<div className="app-shell h-[100dvh] overflow-hidden">
+				<BrandBackdrop />
+				<Navbar />
+				<ScrollArea
+					type="scroll"
+					scrollHideDelay={180}
+					className="marketing-content-scroll relative z-10 h-full min-w-0"
+					viewportRef={scrollViewportRef}
+					viewportClassName="marketing-content-viewport overflow-x-hidden"
+					scrollbarClassName="marketing-content-scrollbar"
+					thumbClassName="marketing-content-scrollbar-thumb"
+				>
+					<div className="min-h-full w-full min-w-0">
+						<main className="relative z-10 w-full min-w-0">
+							<Outlet />
+						</main>
+						<Footer />
+					</div>
+				</ScrollArea>
+			</div>
+		</MarketingScrollViewportContext.Provider>
 	);
 }

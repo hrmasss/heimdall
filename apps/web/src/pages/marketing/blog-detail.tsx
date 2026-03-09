@@ -36,6 +36,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
+import { useMarketingScrollViewport } from "./scroll-context";
+
 /* ================================================================
    HOOKS
    ================================================================ */
@@ -1055,6 +1057,7 @@ function RelatedPosts({ currentSlug }: { currentSlug: string }) {
 export function BlogDetailPage() {
 	const { slug } = useParams<{ slug: string }>();
 	const post = allPosts.find((p) => p.slug === slug);
+	const scrollViewportRef = useMarketingScrollViewport();
 
 	const sectionIds = useMemo(
 		() => (post ? post.chapters.map((ch) => ch.id) : []),
@@ -1065,15 +1068,24 @@ export function BlogDetailPage() {
 	const [readProgress, setReadProgress] = useState(0);
 
 	useEffect(() => {
+		const viewport = scrollViewportRef?.current;
 		const handleScroll = () => {
-			const scrollTop = window.scrollY;
-			const docHeight =
-				document.documentElement.scrollHeight - window.innerHeight;
+			const scrollTop = viewport?.scrollTop ?? window.scrollY;
+			const docHeight = viewport
+				? viewport.scrollHeight - viewport.clientHeight
+				: document.documentElement.scrollHeight - window.innerHeight;
 			setReadProgress(docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 0);
 		};
+
+		handleScroll();
+		if (viewport) {
+			viewport.addEventListener("scroll", handleScroll, { passive: true });
+			return () => viewport.removeEventListener("scroll", handleScroll);
+		}
+
 		window.addEventListener("scroll", handleScroll, { passive: true });
 		return () => window.removeEventListener("scroll", handleScroll);
-	}, []);
+	}, [scrollViewportRef]);
 
 	if (!post) {
 		return (
