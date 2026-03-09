@@ -139,6 +139,8 @@ export function DataTable<T>({
 	error = null,
 	initialView = "list",
 	pageSizeOptions = [6, 12, 24],
+	searchPlaceholder = "Search campaigns, owners, notes...",
+	gridClassName,
 }: {
 	title?: string;
 	description?: string;
@@ -160,6 +162,8 @@ export function DataTable<T>({
 	error?: string | null;
 	initialView?: "list" | "grid";
 	pageSizeOptions?: number[];
+	searchPlaceholder?: string;
+	gridClassName?: string;
 }) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const defaultSortColumn =
@@ -419,7 +423,7 @@ export function DataTable<T>({
 										setCurrentPage(1);
 									})
 								}
-								placeholder="Search campaigns, owners, notes..."
+								placeholder={searchPlaceholder}
 								className="h-10 rounded-full bg-card pl-10"
 							/>
 						</div>
@@ -616,7 +620,12 @@ export function DataTable<T>({
 							</TableBody>
 						</Table>
 					) : (
-						<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+						<div
+							className={cn(
+								"grid gap-4 md:grid-cols-2 xl:grid-cols-3",
+								gridClassName,
+							)}
+						>
 							{paginatedRows.map((row) => (
 								<div
 									key={getRowId(row)}

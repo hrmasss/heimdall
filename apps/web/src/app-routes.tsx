@@ -76,6 +76,53 @@ const NotFoundPage = lazy(async () =>
 	})),
 );
 
+// Admin pages
+const AdminLoginPage = lazy(async () =>
+	import("@/pages/admin/login").then((module) => ({
+		default: module.AdminLoginPage,
+	})),
+);
+const AdminLayout = lazy(async () =>
+	import("@/pages/admin/layout").then((module) => ({
+		default: module.AdminLayout,
+	})),
+);
+const AdminOverview = lazy(async () =>
+	import("@/pages/admin/overview").then((module) => ({
+		default: module.AdminOverview,
+	})),
+);
+const AdminUsers = lazy(async () =>
+	import("@/pages/admin/users").then((module) => ({
+		default: module.AdminUsers,
+	})),
+);
+const AdminSubscriptions = lazy(async () =>
+	import("@/pages/admin/subscriptions").then((module) => ({
+		default: module.AdminSubscriptions,
+	})),
+);
+const AdminApiKeys = lazy(async () =>
+	import("@/pages/admin/api-keys").then((module) => ({
+		default: module.AdminApiKeys,
+	})),
+);
+const AdminBlogPosts = lazy(async () =>
+	import("@/pages/admin/blog-posts").then((module) => ({
+		default: module.AdminBlogPosts,
+	})),
+);
+const AdminPricingPlans = lazy(async () =>
+	import("@/pages/admin/pricing-plans").then((module) => ({
+		default: module.AdminPricingPlans,
+	})),
+);
+const AdminSettings = lazy(async () =>
+	import("@/pages/admin/settings").then((module) => ({
+		default: module.AdminSettings,
+	})),
+);
+
 function RouteSeoSync() {
 	const location = useLocation();
 
@@ -118,6 +165,17 @@ export function AppRoutes() {
 						<Route path="library" element={<DashboardLibrary />} />
 						<Route path="team" element={<DashboardTeam />} />
 						<Route path="settings" element={<DashboardSettings />} />
+					</Route>
+
+					<Route path="/admin/login" element={<AdminLoginPage />} />
+					<Route path="/admin" element={<AdminLayout />}>
+						<Route index element={<AdminOverview />} />
+						<Route path="users" element={<AdminUsers />} />
+						<Route path="subscriptions" element={<AdminSubscriptions />} />
+						<Route path="api-keys" element={<AdminApiKeys />} />
+						<Route path="blog-posts" element={<AdminBlogPosts />} />
+						<Route path="pricing-plans" element={<AdminPricingPlans />} />
+						<Route path="settings" element={<AdminSettings />} />
 					</Route>
 
 					<Route path="*" element={<NotFoundPage />} />
