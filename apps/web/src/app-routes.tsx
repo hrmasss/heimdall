@@ -4,6 +4,7 @@ import { Route, Routes, useLocation } from "react-router";
 import { applyDocumentSeo, getSeoForPath } from "@/lib/seo";
 import { AboutPage } from "@/pages/marketing/about";
 import { BlogPage } from "@/pages/marketing/blog";
+import { BlogDetailPage } from "@/pages/marketing/blog-detail";
 import { FeaturesPage } from "@/pages/marketing/features";
 import { HomePage } from "@/pages/marketing/home";
 import { MarketingLayout } from "@/pages/marketing/layout";
@@ -101,6 +102,7 @@ export function AppRoutes() {
 						<Route path="/pricing" element={<PricingPage />} />
 						<Route path="/about" element={<AboutPage />} />
 						<Route path="/blog" element={<BlogPage />} />
+						<Route path="/blog/:slug" element={<BlogDetailPage />} />
 					</Route>
 
 					<Route path="/login" element={<LoginPage />} />

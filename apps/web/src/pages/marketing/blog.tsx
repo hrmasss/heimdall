@@ -365,9 +365,10 @@ function FeaturedPostSection() {
 					ref={ref}
 					className={cn("stagger-reveal", visible && "is-visible")}
 				>
-					<article
+					<Link
+						to={`/blog/${featuredPost.slug}`}
 						onMouseMove={handleMouse}
-						className="blog-featured-card surface-panel-strong rounded-[28px] overflow-hidden"
+						className="blog-featured-card surface-panel-strong rounded-[28px] overflow-hidden block"
 					>
 						<div className="grid gap-0 lg:grid-cols-[1fr_1.1fr]">
 							{/* Thumbnail */}
@@ -423,7 +424,7 @@ function FeaturedPostSection() {
 								</div>
 							</div>
 						</div>
-					</article>
+					</Link>
 				</div>
 			</div>
 		</section>
@@ -499,11 +500,12 @@ function PostGridSection() {
 					)}
 				>
 					{gridPosts.map((post) => (
-						<article
+						<Link
+							to={`/blog/${post.slug}`}
 							key={post.slug}
 							id={post.slug}
 							onMouseMove={handleMouse}
-							className="blog-card surface-panel rounded-[28px] p-4"
+							className="blog-card surface-panel rounded-[28px] p-4 block"
 						>
 							{/* Thumbnail */}
 							<BlogThumbnail category={post.category} title={post.title} />
@@ -549,7 +551,7 @@ function PostGridSection() {
 									</span>
 								</div>
 							</div>
-						</article>
+						</Link>
 					))}
 				</div>
 			</div>
