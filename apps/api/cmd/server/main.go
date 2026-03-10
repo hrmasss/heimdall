@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -12,7 +14,10 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/joho/godotenv"
 
+	"github.com/heimdall/api/internal/config"
+	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/handlers"
+	"github.com/heimdall/api/internal/iam"
 )
 
 func main() {
@@ -22,9 +27,19 @@ func main() {
 		log.Println("No .env file found, using environment variables")
 	}
 
-	// Get configuration
-	port := getEnv("API_PORT", "8080")
-	host := getEnv("API_HOST", "localhost")
+	cfg := config.Load()
+	db, err := database.Open(cfg.Database)
+	if err != nil {
+		log.Fatalf("Failed to connect database: %v", err)
+	}
+	defer db.Close()
+
+	service := iam.NewService(db, cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := service.Bootstrap(ctx); err != nil {
+		log.Fatalf("Failed to bootstrap IAM schema: %v", err)
+	}
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -48,16 +63,17 @@ func main() {
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:5173", "http://localhost:3000"},
-		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Workspace-ID"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowCredentials: true,
 	}))
 
 	// Register routes
-	registerRoutes(app)
+	handlers.NewAppHandler(service, cfg).Register(app)
 
 	// Start server
-	addr := fmt.Sprintf("%s:%s", host, port)
+	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)
 	log.Printf("🚀 Heimdall API starting on http://%s", addr)
 	log.Printf("📚 API Reference available at http://%s/reference", addr)
 	log.Printf("📄 OpenAPI spec available at http://%s/openapi.yaml", addr)
@@ -65,20 +81,6 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-func registerRoutes(app *fiber.App) {
-	// Serve OpenAPI spec
-	app.Get("/openapi.yaml", handlers.ServeOpenAPISpec)
-
-	// Serve Scalar API Reference
-	app.Get("/reference", handlers.ServeScalarReference)
-
-	// API v1 routes
-	api := app.Group("/api/v1")
-
-	// Health check
-	api.Get("/health", handlers.HealthCheck)
 }
 
 func getEnv(key, defaultValue string) string {

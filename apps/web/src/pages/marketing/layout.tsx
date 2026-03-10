@@ -7,10 +7,7 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-	isMarketingUserSignedIn,
-	subscribeToMarketingAuth,
-} from "@/lib/marketing-auth";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 import {
@@ -32,9 +29,10 @@ function isActivePath(currentPath: string, href: string) {
 function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [scrolled, setScrolled] = useState(false);
-	const [signedIn, setSignedIn] = useState(false);
 	const location = useLocation();
 	const scrollViewportRef = useMarketingScrollViewport();
+	const { customerSession } = useAuth();
+	const signedIn = Boolean(customerSession);
 
 	useEffect(() => {
 		const viewport = scrollViewportRef?.current;
@@ -54,13 +52,6 @@ function Navbar() {
 	useEffect(() => {
 		setMenuOpen(false);
 	}, [location.pathname]);
-
-	useEffect(() => {
-		setSignedIn(isMarketingUserSignedIn());
-		return subscribeToMarketingAuth(() => {
-			setSignedIn(isMarketingUserSignedIn());
-		});
-	}, []);
 
 	return (
 		<header className="fixed inset-x-0 top-0 z-50">

@@ -1,6 +1,10 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router";
 
+import {
+	CustomerRouteGuard,
+	PlatformRouteGuard,
+} from "@/components/auth/route-guard";
 import { applyDocumentSeo, getSeoForPath } from "@/lib/seo";
 import { AboutPage } from "@/pages/marketing/about";
 import { BlogPage } from "@/pages/marketing/blog";
@@ -97,6 +101,11 @@ const AdminUsers = lazy(async () =>
 		default: module.AdminUsers,
 	})),
 );
+const AdminWorkspaces = lazy(async () =>
+	import("@/pages/admin/workspaces").then((module) => ({
+		default: module.AdminWorkspaces,
+	})),
+);
 const AdminSubscriptions = lazy(async () =>
 	import("@/pages/admin/subscriptions").then((module) => ({
 		default: module.AdminSubscriptions,
@@ -155,7 +164,14 @@ export function AppRoutes() {
 					<Route path="/login" element={<LoginPage />} />
 					<Route path="/signup" element={<SignupPage />} />
 
-					<Route path="/dashboard" element={<DashboardLayout />}>
+					<Route
+						path="/dashboard"
+						element={
+							<CustomerRouteGuard>
+								<DashboardLayout />
+							</CustomerRouteGuard>
+						}
+					>
 						<Route index element={<DashboardOverview />} />
 						<Route path="posts" element={<DashboardPosts />} />
 						<Route path="posts/new" element={<DashboardNewPost />} />
@@ -168,9 +184,17 @@ export function AppRoutes() {
 					</Route>
 
 					<Route path="/admin/login" element={<AdminLoginPage />} />
-					<Route path="/admin" element={<AdminLayout />}>
+					<Route
+						path="/admin"
+						element={
+							<PlatformRouteGuard>
+								<AdminLayout />
+							</PlatformRouteGuard>
+						}
+					>
 						<Route index element={<AdminOverview />} />
 						<Route path="users" element={<AdminUsers />} />
+						<Route path="workspaces" element={<AdminWorkspaces />} />
 						<Route path="subscriptions" element={<AdminSubscriptions />} />
 						<Route path="api-keys" element={<AdminApiKeys />} />
 						<Route path="blog-posts" element={<AdminBlogPosts />} />

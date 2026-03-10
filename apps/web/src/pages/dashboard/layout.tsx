@@ -41,7 +41,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { setMarketingUserSignedIn } from "@/lib/marketing-auth";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -54,13 +54,6 @@ const navigation = [
 	{ href: "/dashboard/team", label: "Team", icon: Users2 },
 	{ href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
-
-const workspaces = ["Northset", "Cedar Labs", "Atlas Studio"];
-const currentUser = {
-	name: "Ava Hart",
-	email: "ava@northset.co",
-	role: "Operations lead",
-};
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
@@ -127,7 +120,15 @@ function SidebarCopy({
 }
 
 function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
-	const [activeWorkspace, setActiveWorkspace] = useState(workspaces[0]);
+	const { customerSession, activeWorkspaceId, setActiveWorkspaceId } = useAuth();
+	const workspaces = customerSession?.workspaceMemberships ?? [];
+	const activeWorkspace =
+		workspaces.find((workspace) => workspace.workspaceId === activeWorkspaceId) ??
+		workspaces[0];
+
+	if (!activeWorkspace) {
+		return null;
+	}
 
 	return (
 		<DropdownMenu>
@@ -139,20 +140,20 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 						sidebarTransitionClass,
 						compact && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 					)}
-					aria-label={compact ? activeWorkspace : undefined}
+					aria-label={compact ? activeWorkspace.workspaceName : undefined}
 				>
 					<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
-						{activeWorkspace[0]}
+						{activeWorkspace.workspaceName[0]}
 					</div>
 					<SidebarCopy
 						collapsed={Boolean(compact)}
 						className={compact ? undefined : "flex-1"}
 					>
 						<div className="truncate text-sm font-medium">
-							{activeWorkspace}
+							{activeWorkspace.workspaceName}
 						</div>
 						<div className="text-xs text-muted-foreground">
-							Operations workspace
+							{activeWorkspace.roles.map((role) => role.label).join(" • ")}
 						</div>
 					</SidebarCopy>
 					<ChevronDown
@@ -178,11 +179,11 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 			>
 				{workspaces.map((workspace) => (
 					<DropdownMenuItem
-						key={workspace}
-						onClick={() => setActiveWorkspace(workspace)}
+						key={workspace.workspaceId}
+						onClick={() => setActiveWorkspaceId(workspace.workspaceId)}
 						className="rounded-[18px] px-3 py-2.5"
 					>
-						{workspace}
+						{workspace.workspaceName}
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>
@@ -201,6 +202,13 @@ function Sidebar({
 }) {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const { customerSession, logoutCustomer, activeWorkspaceMembership } = useAuth();
+	const currentUser = customerSession?.user;
+	const currentRoles = activeWorkspaceMembership?.roles;
+
+	if (!currentUser) {
+		return null;
+	}
 
 	return (
 		<>
@@ -294,10 +302,10 @@ function Sidebar({
 										collapsed &&
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
-									aria-label={collapsed ? currentUser.name : undefined}
+									aria-label={collapsed ? currentUser.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
-										{currentUser.name
+										{currentUser.fullName
 											.split(" ")
 											.map((part) => part[0])
 											.join("")
@@ -308,10 +316,10 @@ function Sidebar({
 										className={collapsed ? undefined : "flex-1"}
 									>
 										<div className="truncate text-sm font-medium">
-											{currentUser.name}
+											{currentUser.fullName}
 										</div>
 										<div className="text-xs text-muted-foreground">
-											{currentUser.role}
+											{currentRoles?.map((role) => role.label).join(", ") ?? "Member"}
 										</div>
 									</SidebarCopy>
 									<ChevronDown
@@ -337,7 +345,7 @@ function Sidebar({
 								)}
 							>
 								<div className="mb-1 border-b border-border px-3 py-3">
-									<div className="text-sm font-medium">{currentUser.name}</div>
+									<div className="text-sm font-medium">{currentUser.fullName}</div>
 									<div className="mt-1 text-xs text-muted-foreground">
 										{currentUser.email}
 									</div>
@@ -358,7 +366,7 @@ function Sidebar({
 								<DropdownMenuItem
 									className="rounded-[18px] px-3 py-2.5"
 									onSelect={() => {
-										setMarketingUserSignedIn(false);
+										void logoutCustomer();
 										onClose();
 										navigate("/");
 									}}
@@ -506,10 +514,7 @@ export function DashboardLayout() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
-
-	useEffect(() => {
-		setMarketingUserSignedIn(true);
-	}, []);
+	const { customerSession, activeWorkspaceMembership } = useAuth();
 
 	useEffect(() => {
 		if (location.pathname) {
@@ -542,6 +547,12 @@ export function DashboardLayout() {
 								thumbClassName="dashboard-content-scrollbar-thumb"
 							>
 								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+									{customerSession?.assumedWorkspaceId ? (
+										<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+											Support access session active for{" "}
+											{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
+										</div>
+									) : null}
 									<Outlet />
 								</div>
 							</ScrollArea>
@@ -552,8 +563,8 @@ export function DashboardLayout() {
 			<MiraAssistant
 				open={assistantOpen}
 				onOpenChange={setAssistantOpen}
-				workspaceName={workspaces[0]}
-				currentUserName={currentUser.name}
+				workspaceName={activeWorkspaceMembership?.workspaceName ?? "Workspace"}
+				currentUserName={customerSession?.user.fullName ?? "User"}
 			/>
 		</div>
 	);

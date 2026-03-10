@@ -2,13 +2,14 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  FolderKanban,
   LockKeyhole,
   Mail,
   Sparkles,
   User2,
 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import {
   BrandBackdrop,
@@ -20,7 +21,7 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { setMarketingUserSignedIn } from "@/lib/marketing-auth";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const companionStats = [
@@ -86,12 +87,22 @@ function MicrosoftIcon() {
 
 export function AuthView({ mode }: { mode: AuthMode }) {
   const isSignup = mode === "signup";
+  const navigate = useNavigate();
+  const { signInCustomer, signUpCustomer } = useAuth();
   const nameFieldId = `${mode}-name`;
+  const workspaceFieldId = `${mode}-workspace`;
   const emailFieldId = `${mode}-email`;
   const passwordFieldId = `${mode}-password`;
   const confirmPasswordFieldId = `${mode}-confirm-password`;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const title = isSignup ? "Create your team workspace" : "Welcome back";
   const description = isSignup
@@ -103,6 +114,39 @@ export function AuthView({ mode }: { mode: AuthMode }) {
     : "Need a new workspace?";
   const alternateHref = isSignup ? "/login" : "/signup";
   const alternateLabel = isSignup ? "Sign in" : "Create one";
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    if (isSignup && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (isSignup) {
+        await signUpCustomer({
+          fullName,
+          email,
+          password,
+          workspaceName,
+        });
+      } else {
+        await signInCustomer({ email, password });
+      }
+      navigate("/dashboard");
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Unable to continue with those credentials.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="app-shell auth-shell relative min-h-[100dvh] overflow-hidden">
@@ -231,11 +275,30 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                       <div className="h-px flex-1 bg-[var(--brand-border-soft)]" />
                     </div>
 
-                    <div
+                    <form
+                      onSubmit={handleSubmit}
                       className={cn(
                         "mt-4 gap-3.5",
                         isSignup ? "auth-signup-fields grid" : "space-y-3.5",
                       )}>
+                      {isSignup ? (
+                        <label
+                          className="block space-y-1.5"
+                          htmlFor={workspaceFieldId}>
+                          <span className="text-sm font-medium">Workspace name</span>
+                          <div className="relative">
+                            <FolderKanban className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id={workspaceFieldId}
+                              value={workspaceName}
+                              onChange={(event) => setWorkspaceName(event.target.value)}
+                              className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
+                              placeholder="Northset"
+                            />
+                          </div>
+                        </label>
+                      ) : null}
+
                       {isSignup ? (
                         <label
                           className="block space-y-1.5"
@@ -245,6 +308,8 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                             <User2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                               id={nameFieldId}
+                              value={fullName}
+                              onChange={(event) => setFullName(event.target.value)}
                               className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
                               placeholder="Alex Morgan"
                             />
@@ -260,6 +325,8 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                           <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             id={emailFieldId}
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
                             className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
                             placeholder="you@company.com"
                           />
@@ -274,6 +341,8 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                           <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             id={passwordFieldId}
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
                             className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10 pr-11"
                             type={showPassword ? "text" : "password"}
                             placeholder="••••••••"
@@ -307,6 +376,10 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                             <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                               id={confirmPasswordFieldId}
+                              value={confirmPassword}
+                              onChange={(event) =>
+                                setConfirmPassword(event.target.value)
+                              }
                               className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10 pr-11"
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="••••••••"
@@ -331,7 +404,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                           </div>
                         </label>
                       ) : null}
-                    </div>
+                    </form>
 
                     <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
                       <span>
@@ -348,15 +421,27 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                       ) : null}
                     </div>
 
+                    {error ? (
+                      <div className="mt-4 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                        {error}
+                      </div>
+                    ) : null}
+
                     <Button
-                      className="mt-4 h-11 w-full rounded-full bg-gradient-brand text-white border-0"
-                      asChild>
-                      <Link
-                        to="/dashboard"
-                        onClick={() => setMarketingUserSignedIn(true)}>
-                        {primaryLabel}
-                        <ArrowRight className="size-4" />
-                      </Link>
+                      type="submit"
+                      form={undefined}
+                      onClick={(event) => {
+                        const form = event.currentTarget
+                          .closest(".auth-card-group")
+                          ?.querySelector("form");
+                        if (form instanceof HTMLFormElement) {
+                          form.requestSubmit();
+                        }
+                      }}
+                      disabled={loading}
+                      className="mt-4 h-11 w-full rounded-full bg-gradient-brand text-white border-0">
+                      {loading ? "Working..." : primaryLabel}
+                      <ArrowRight className="size-4" />
                     </Button>
 
                     <div className="auth-secondary-actions mt-3 gap-3">

@@ -15,6 +15,7 @@ import {
 	ShieldCheck,
 	Tag,
 	Users,
+	Building2,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -42,23 +43,19 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const adminNavigation = [
 	{ href: "/admin", label: "Overview", icon: Home },
 	{ href: "/admin/users", label: "Users", icon: Users },
+	{ href: "/admin/workspaces", label: "Workspaces", icon: Building2 },
 	{ href: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
 	{ href: "/admin/api-keys", label: "API Keys", icon: Key },
 	{ href: "/admin/blog-posts", label: "Blog Posts", icon: FileText },
 	{ href: "/admin/pricing-plans", label: "Pricing Plans", icon: Tag },
 	{ href: "/admin/settings", label: "Settings", icon: Settings },
 ];
-
-const currentAdmin = {
-	name: "System Admin",
-	email: "admin@heimdall.io",
-	role: "Super Admin",
-};
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
@@ -135,6 +132,15 @@ function AdminSidebar({
 }) {
 	const location = useLocation();
 	const navigate = useNavigate();
+	const { platformSession, logoutPlatform } = useAuth();
+	const currentAdmin = platformSession?.user;
+	const currentAdminRoles =
+		platformSession?.platformRoles.map((role) => role.label).join(", ") ??
+		"Platform user";
+
+	if (!currentAdmin) {
+		return null;
+	}
 
 	return (
 		<>
@@ -262,10 +268,10 @@ function AdminSidebar({
 										collapsed &&
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
-									aria-label={collapsed ? currentAdmin.name : undefined}
+									aria-label={collapsed ? currentAdmin.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-sm font-semibold text-white">
-										{currentAdmin.name
+										{currentAdmin.fullName
 											.split(" ")
 											.map((part) => part[0])
 											.join("")
@@ -276,10 +282,10 @@ function AdminSidebar({
 										className={collapsed ? undefined : "flex-1"}
 									>
 										<div className="truncate text-sm font-medium">
-											{currentAdmin.name}
+											{currentAdmin.fullName}
 										</div>
 										<div className="text-xs text-muted-foreground">
-											{currentAdmin.role}
+											{currentAdminRoles}
 										</div>
 									</SidebarCopy>
 									<ChevronDown
@@ -305,7 +311,7 @@ function AdminSidebar({
 								)}
 							>
 								<div className="mb-1 border-b border-border px-3 py-3">
-									<div className="text-sm font-medium">{currentAdmin.name}</div>
+									<div className="text-sm font-medium">{currentAdmin.fullName}</div>
 									<div className="mt-1 text-xs text-muted-foreground">
 										{currentAdmin.email}
 									</div>
@@ -326,6 +332,7 @@ function AdminSidebar({
 								<DropdownMenuItem
 									className="rounded-[18px] px-3 py-2.5"
 									onSelect={() => {
+										void logoutPlatform();
 										onClose();
 										navigate("/admin/login");
 									}}
@@ -501,6 +508,7 @@ export function AdminLayout() {
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
+	const { platformSession } = useAuth();
 
 	useEffect(() => {
 		if (location.pathname) {
@@ -544,7 +552,7 @@ export function AdminLayout() {
 				open={assistantOpen}
 				onOpenChange={setAssistantOpen}
 				workspaceName="Admin Portal"
-				currentUserName={currentAdmin.name}
+				currentUserName={platformSession?.user.fullName ?? "Admin"}
 			/>
 		</div>
 	);

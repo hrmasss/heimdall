@@ -7,16 +7,41 @@ import {
 	ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { BrandBackdrop, SurfaceCard } from "@/components/app/brand";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth-context";
 
 export function AdminLoginPage() {
+	const navigate = useNavigate();
+	const { signInPlatform } = useAuth();
 	const [showPassword, setShowPassword] = useState(false);
+	const [email, setEmail] = useState("admin@test.com");
+	const [password, setPassword] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setError(null);
+		setLoading(true);
+		try {
+			await signInPlatform({ email, password });
+			navigate("/admin");
+		} catch (submitError) {
+			setError(
+				submitError instanceof Error
+					? submitError.message
+					: "Unable to sign in to the admin portal.",
+			);
+		} finally {
+			setLoading(false);
+		}
+	}
 
 	return (
 		<div className="app-shell auth-shell relative min-h-[100dvh] overflow-hidden">
@@ -60,7 +85,10 @@ export function AdminLoginPage() {
 								</p>
 							</div>
 
-							<div className="auth-card-group rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 p-5 backdrop-blur-sm">
+							<form
+								onSubmit={handleSubmit}
+								className="auth-card-group rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 p-5 backdrop-blur-sm"
+							>
 								<div className="space-y-4">
 									<label className="block space-y-1.5" htmlFor="admin-email">
 										<span className="text-sm font-medium">Admin email</span>
@@ -68,6 +96,8 @@ export function AdminLoginPage() {
 											<Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 											<Input
 												id="admin-email"
+												value={email}
+												onChange={(event) => setEmail(event.target.value)}
 												className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
 												placeholder="admin@heimdall.io"
 											/>
@@ -80,6 +110,8 @@ export function AdminLoginPage() {
 											<LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 											<Input
 												id="admin-password"
+												value={password}
+												onChange={(event) => setPassword(event.target.value)}
 												className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10 pr-11"
 												type={showPassword ? "text" : "password"}
 												placeholder="••••••••"
@@ -102,16 +134,23 @@ export function AdminLoginPage() {
 									</label>
 								</div>
 
+								{error ? (
+									<div className="mt-4 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+										{error}
+									</div>
+								) : null}
+
 								<Button
+									type="submit"
+									disabled={loading}
 									className="mt-5 h-11 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 hover:from-amber-600 hover:to-orange-700"
-									asChild
 								>
-									<Link to="/admin">
-										Access Admin Panel
+									<>
+										{loading ? "Checking access..." : "Access Admin Panel"}
 										<ArrowRight className="size-4" />
-									</Link>
+									</>
 								</Button>
-							</div>
+							</form>
 
 							<div className="space-y-3 text-center text-sm text-muted-foreground">
 								<p>

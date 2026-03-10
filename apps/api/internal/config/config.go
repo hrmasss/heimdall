@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 // Config holds all application configuration
@@ -10,6 +11,8 @@ type Config struct {
 	Environment string
 	API         APIConfig
 	Database    DatabaseConfig
+	Auth        AuthConfig
+	Bootstrap   BootstrapConfig
 }
 
 // APIConfig holds API server configuration
@@ -21,9 +24,26 @@ type APIConfig struct {
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	URL             string
-	MaxConnections  int
-	MaxIdleConns    int
+	URL            string
+	MaxConnections int
+	MaxIdleConns   int
+}
+
+// AuthConfig holds authentication settings.
+type AuthConfig struct {
+	JWTSecret          string
+	AccessTokenTTL     time.Duration
+	RefreshTokenTTL    time.Duration
+	CustomerCookieName string
+	PlatformCookieName string
+	CookieSecure       bool
+}
+
+// BootstrapConfig holds first-admin bootstrap configuration.
+type BootstrapConfig struct {
+	AdminName     string
+	AdminEmail    string
+	AdminPassword string
 }
 
 // Load reads configuration from environment variables
@@ -40,6 +60,19 @@ func Load() *Config {
 			MaxConnections: getEnvInt("DATABASE_MAX_CONNECTIONS", 25),
 			MaxIdleConns:   getEnvInt("DATABASE_MAX_IDLE_CONNECTIONS", 5),
 		},
+		Auth: AuthConfig{
+			JWTSecret:          getEnv("JWT_SECRET", "heimdall-local-dev-secret"),
+			AccessTokenTTL:     getEnvDuration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTokenTTL:    getEnvDuration("JWT_REFRESH_TTL", 30*24*time.Hour),
+			CustomerCookieName: getEnv("AUTH_CUSTOMER_REFRESH_COOKIE", "heimdall_customer_refresh"),
+			PlatformCookieName: getEnv("AUTH_PLATFORM_REFRESH_COOKIE", "heimdall_platform_refresh"),
+			CookieSecure:       getEnvBool("AUTH_COOKIE_SECURE", false),
+		},
+		Bootstrap: BootstrapConfig{
+			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),
+			AdminEmail:    getEnv("BOOTSTRAP_ADMIN_EMAIL", ""),
+			AdminPassword: getEnv("BOOTSTRAP_ADMIN_PASSWORD", ""),
+		},
 	}
 }
 
@@ -54,6 +87,26 @@ func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intVal, err := strconv.Atoi(value); err == nil {
 			return intVal
+		}
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		parsed, err := strconv.ParseBool(value)
+		if err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		parsed, err := time.ParseDuration(value)
+		if err == nil {
+			return parsed
 		}
 	}
 	return defaultValue
