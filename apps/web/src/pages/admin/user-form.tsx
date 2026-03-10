@@ -29,6 +29,10 @@ import type { ApiListResponse, PlatformUserRecord, Role } from "@/lib/api-types"
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+function getPlatformRoles(record: PlatformUserRecord) {
+	return record.platformRoles ?? [];
+}
+
 function toggleRole(current: string[], roleCode: string, checked: boolean) {
 	if (checked) {
 		return current.includes(roleCode) ? current : [...current, roleCode];
@@ -150,7 +154,7 @@ export function AdminUserFormPage({ mode }: { mode: "create" | "edit" }) {
 					setEmail(userResponse.user.email);
 					setStatus(userResponse.user.status);
 					setSelectedRoleCodes(
-						userResponse.platformRoles.map((role) => role.code),
+						getPlatformRoles(userResponse).map((role) => role.code),
 					);
 				}
 			} catch (loadError) {

@@ -21,6 +21,10 @@ import { useAuth } from "@/lib/auth-context";
 import type { PlatformUserRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
+function getPlatformRoles(record: PlatformUserRecord) {
+	return record.platformRoles ?? [];
+}
+
 const statusConfig: Record<string, string> = {
 	active: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
 	pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
@@ -42,10 +46,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function getUserType(record: PlatformUserRecord) {
-	if (record.platformRoles.length && record.workspaceCount) {
+	const platformRoles = getPlatformRoles(record);
+	if (platformRoles.length && record.workspaceCount) {
 		return "Hybrid access";
 	}
-	if (record.platformRoles.length) {
+	if (platformRoles.length) {
 		return "Platform staff";
 	}
 	return "Client user";
@@ -95,12 +100,12 @@ export function AdminUserDetailPage() {
 				`/platform/users/${id}`,
 				{
 					method: "PATCH",
-					body: {
-						fullName: record.user.fullName,
-						status: nextStatus,
-						roleCodes: record.platformRoles.map((role) => role.code),
+						body: {
+							fullName: record.user.fullName,
+							status: nextStatus,
+							roleCodes: getPlatformRoles(record).map((role) => role.code),
+						},
 					},
-				},
 			);
 			setRecord(updated);
 		} catch (toggleError) {
@@ -120,6 +125,8 @@ export function AdminUserDetailPage() {
 		}
 		return new Date(record.user.createdAt).toLocaleString();
 	}, [record]);
+
+	const platformRoles = record ? getPlatformRoles(record) : [];
 
 	return (
 		<div className="space-y-6">
@@ -221,7 +228,7 @@ export function AdminUserDetailPage() {
 										Platform roles
 									</div>
 									<div className="mt-3 text-3xl font-semibold">
-										{record.platformRoles.length}
+										{platformRoles.length}
 									</div>
 								</div>
 								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
@@ -244,8 +251,8 @@ export function AdminUserDetailPage() {
 							<div className="space-y-3">
 								<div className="text-lg font-semibold">Role coverage</div>
 								<div className="grid gap-3">
-									{record.platformRoles.length ? (
-										record.platformRoles.map((role) => (
+									{platformRoles.length ? (
+										platformRoles.map((role) => (
 											<div
 												key={role.id}
 												className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"

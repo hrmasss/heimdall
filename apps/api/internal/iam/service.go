@@ -821,9 +821,13 @@ func (s *Service) ListPlatformUsers(ctx context.Context, principal *Principal) (
 	}
 	result := make([]PlatformUserRecord, 0, len(users))
 	for _, user := range users {
+		platformRoles := roleMap[user.ID.String()]
+		if platformRoles == nil {
+			platformRoles = []APIRole{}
+		}
 		result = append(result, PlatformUserRecord{
 			User:           apiUserFromModel(user),
-			PlatformRoles:  roleMap[user.ID.String()],
+			PlatformRoles:  platformRoles,
 			WorkspaceCount: countMap[user.ID.String()],
 		})
 	}
@@ -1215,9 +1219,13 @@ func (s *Service) buildPlatformUserRecord(ctx context.Context, user database.Use
 	if err != nil {
 		return nil, err
 	}
+	platformRoles := roleMap[user.ID.String()]
+	if platformRoles == nil {
+		platformRoles = []APIRole{}
+	}
 	return &PlatformUserRecord{
 		User:                 apiUserFromModel(user),
-		PlatformRoles:        roleMap[user.ID.String()],
+		PlatformRoles:        platformRoles,
 		WorkspaceCount:       countMap[user.ID.String()],
 		WorkspaceMemberships: memberships,
 	}, nil

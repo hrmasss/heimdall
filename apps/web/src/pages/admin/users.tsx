@@ -29,11 +29,16 @@ import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformUserRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
+function getPlatformRoles(record: PlatformUserRecord) {
+	return record.platformRoles ?? [];
+}
+
 function getUserType(record: PlatformUserRecord) {
-	if (record.platformRoles.length && record.workspaceCount) {
+	const platformRoles = getPlatformRoles(record);
+	if (platformRoles.length && record.workspaceCount) {
 		return "hybrid";
 	}
-	if (record.platformRoles.length) {
+	if (platformRoles.length) {
 		return "platform";
 	}
 	return "client";
@@ -79,10 +84,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function RoleBadges({ roles }: { roles: PlatformUserRecord["platformRoles"] }) {
+	const safeRoles = roles ?? [];
 	return (
 		<div className="flex flex-wrap gap-2">
-			{roles.length ? (
-				roles.map((role) => (
+			{safeRoles.length ? (
+				safeRoles.map((role) => (
 					<Badge
 						key={role.id}
 						variant="outline"
@@ -166,12 +172,12 @@ export function AdminUsers() {
 				`/platform/users/${record.user.id}`,
 				{
 					method: "PATCH",
-					body: {
-						fullName: record.user.fullName,
-						status: nextStatus,
-						roleCodes: record.platformRoles.map((role) => role.code),
+						body: {
+							fullName: record.user.fullName,
+							status: nextStatus,
+							roleCodes: getPlatformRoles(record).map((role) => role.code),
+						},
 					},
-				},
 			);
 			setUsers((current) =>
 				current.map((item) =>
@@ -224,8 +230,11 @@ export function AdminUsers() {
 			id: "roles",
 			label: "Platform access",
 			width: 240,
-			accessor: (record) => <RoleBadges roles={record.platformRoles} />,
-			getSortValue: (record) => record.platformRoles.map((role) => role.label).join(", "),
+			accessor: (record) => <RoleBadges roles={getPlatformRoles(record)} />,
+			getSortValue: (record) =>
+				getPlatformRoles(record)
+					.map((role) => role.label)
+					.join(", "),
 		},
 		{
 			id: "status",
@@ -394,7 +403,9 @@ export function AdminUsers() {
 							record.user.email,
 							record.user.status,
 							getUserType(record),
-							record.platformRoles.map((role) => role.label).join(" "),
+							getPlatformRoles(record)
+								.map((role) => role.label)
+								.join(" "),
 						].join(" ")
 					}
 					searchPlaceholder="Search users, client accounts, or platform roles..."
@@ -425,7 +436,7 @@ export function AdminUsers() {
 								<StatusBadge status={record.user.status} />
 							</div>
 							<UserTypeBadge record={record} />
-							<RoleBadges roles={record.platformRoles} />
+							<RoleBadges roles={getPlatformRoles(record)} />
 							<div className="text-sm text-muted-foreground">
 								{record.workspaceCount} workspace assignments
 							</div>
