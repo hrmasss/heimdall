@@ -40,6 +40,7 @@ type Principal struct {
 	Portal             string
 	SessionID          uuid.UUID
 	AssumedWorkspaceID *uuid.UUID
+	ImpersonatorUserID *uuid.UUID
 }
 
 type APIUser struct {
@@ -79,6 +80,7 @@ type AuthSessionResponse struct {
 	Portal               string                       `json:"portal"`
 	AccessToken          string                       `json:"accessToken,omitempty"`
 	User                 APIUser                      `json:"user"`
+	Impersonator         *APIUser                     `json:"impersonator,omitempty"`
 	PlatformRoles        []APIRole                    `json:"platformRoles"`
 	PlatformPermissions  []APIPermission              `json:"platformPermissions"`
 	WorkspaceMemberships []WorkspaceMembershipSummary `json:"workspaceMemberships"`
@@ -156,12 +158,21 @@ func (s *Service) BuildPrincipal(token string) (*Principal, error) {
 		}
 		assumedWorkspaceID = &parsed
 	}
+	var impersonatorUserID *uuid.UUID
+	if claims.ImpersonatorUserID != "" {
+		parsed, err := uuid.Parse(claims.ImpersonatorUserID)
+		if err != nil {
+			return nil, ErrUnauthorized
+		}
+		impersonatorUserID = &parsed
+	}
 
 	return &Principal{
 		UserID:             userID,
 		Portal:             claims.Portal,
 		SessionID:          sessionID,
 		AssumedWorkspaceID: assumedWorkspaceID,
+		ImpersonatorUserID: impersonatorUserID,
 	}, nil
 }
 
@@ -208,7 +219,7 @@ func (s *Service) Register(ctx context.Context, fullName, email, password, works
 		return nil, "", err
 	}
 
-	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil)
+	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil, nil)
 }
 
 func (s *Service) CustomerLogin(ctx context.Context, email, password string) (*AuthSessionResponse, string, error) {
@@ -219,7 +230,7 @@ func (s *Service) CustomerLogin(ctx context.Context, email, password string) (*A
 	if user.Status != "active" || !auth.CheckPassword(user.PasswordHash, password) {
 		return nil, "", ErrUnauthorized
 	}
-	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil)
+	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil, nil)
 }
 
 func (s *Service) PlatformLogin(ctx context.Context, email, password string) (*AuthSessionResponse, string, error) {
@@ -237,7 +248,7 @@ func (s *Service) PlatformLogin(ctx context.Context, email, password string) (*A
 	if len(roles) == 0 {
 		return nil, "", ErrForbidden
 	}
-	return s.createSessionResponse(ctx, user, auth.PortalPlatform, nil)
+	return s.createSessionResponse(ctx, user, auth.PortalPlatform, nil, nil)
 }
 
 func (s *Service) RefreshSession(ctx context.Context, portal, refreshToken string) (*AuthSessionResponse, string, error) {
@@ -271,7 +282,7 @@ func (s *Service) RefreshSession(ctx context.Context, portal, refreshToken strin
 	if err != nil {
 		return nil, "", err
 	}
-	return s.createSessionResponse(ctx, user, portal, session.AssumedWorkspaceID)
+	return s.createSessionResponse(ctx, user, portal, session.AssumedWorkspaceID, session.ImpersonatorUserID)
 }
 
 func (s *Service) LogoutSession(ctx context.Context, refreshToken string) error {
@@ -293,7 +304,7 @@ func (s *Service) Me(ctx context.Context, principal *Principal) (*AuthSessionRes
 	if err != nil {
 		return nil, err
 	}
-	return s.buildAuthPayload(ctx, user, principal.Portal, principal.AssumedWorkspaceID, "")
+	return s.buildAuthPayload(ctx, user, principal.Portal, principal.AssumedWorkspaceID, principal.ImpersonatorUserID, "")
 }
 
 func (s *Service) PlatformMe(ctx context.Context, principal *Principal) (*AuthSessionResponse, error) {
@@ -303,7 +314,7 @@ func (s *Service) PlatformMe(ctx context.Context, principal *Principal) (*AuthSe
 	return s.Me(ctx, principal)
 }
 
-func (s *Service) createSessionResponse(ctx context.Context, user *database.User, portal string, assumedWorkspaceID *uuid.UUID) (*AuthSessionResponse, string, error) {
+func (s *Service) createSessionResponse(ctx context.Context, user *database.User, portal string, assumedWorkspaceID *uuid.UUID, impersonatorUserID *uuid.UUID) (*AuthSessionResponse, string, error) {
 	refreshPlain, refreshHash, err := auth.NewRefreshToken()
 	if err != nil {
 		return nil, "", err
@@ -312,6 +323,7 @@ func (s *Service) createSessionResponse(ctx context.Context, user *database.User
 	session := &database.AuthSession{
 		ID:                 uuid.New(),
 		UserID:             user.ID,
+		ImpersonatorUserID: impersonatorUserID,
 		Scope:              portal,
 		RefreshTokenHash:   refreshHash,
 		ExpiresAt:          time.Now().UTC().Add(s.cfg.Auth.RefreshTokenTTL),
@@ -323,26 +335,32 @@ func (s *Service) createSessionResponse(ctx context.Context, user *database.User
 		return nil, "", err
 	}
 
-	accessToken, err := auth.IssueAccessToken(s.cfg.Auth.JWTSecret, user.ID, session.ID, portal, s.cfg.Auth.AccessTokenTTL, assumedWorkspaceID)
+	accessToken, err := auth.IssueAccessToken(s.cfg.Auth.JWTSecret, user.ID, session.ID, portal, s.cfg.Auth.AccessTokenTTL, assumedWorkspaceID, impersonatorUserID)
 	if err != nil {
 		return nil, "", err
 	}
 
-	response, err := s.buildAuthPayload(ctx, user, portal, assumedWorkspaceID, accessToken)
+	response, err := s.buildAuthPayload(ctx, user, portal, assumedWorkspaceID, impersonatorUserID, accessToken)
 	if err != nil {
 		return nil, "", err
 	}
 	return response, refreshPlain, nil
 }
 
-func (s *Service) buildAuthPayload(ctx context.Context, user *database.User, portal string, assumedWorkspaceID *uuid.UUID, accessToken string) (*AuthSessionResponse, error) {
+func (s *Service) buildAuthPayload(ctx context.Context, user *database.User, portal string, assumedWorkspaceID *uuid.UUID, impersonatorUserID *uuid.UUID, accessToken string) (*AuthSessionResponse, error) {
 	platformRoles, err := s.listPlatformRolesForUser(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
+	if platformRoles == nil {
+		platformRoles = []APIRole{}
+	}
 	platformPermissions, err := s.listPlatformPermissionsForUser(ctx, user.ID)
 	if err != nil {
 		return nil, err
+	}
+	if platformPermissions == nil {
+		platformPermissions = []APIPermission{}
 	}
 	memberships, err := s.listWorkspaceMembershipSummaries(ctx, user.ID)
 	if err != nil {
@@ -359,6 +377,14 @@ func (s *Service) buildAuthPayload(ctx context.Context, user *database.User, por
 	}
 	if assumedWorkspaceID != nil {
 		response.AssumedWorkspaceID = assumedWorkspaceID.String()
+	}
+	if impersonatorUserID != nil {
+		impersonator, err := s.findUserByID(ctx, *impersonatorUserID)
+		if err != nil {
+			return nil, err
+		}
+		actor := apiUserFromModel(*impersonator)
+		response.Impersonator = &actor
 	}
 	return response, nil
 }
@@ -449,6 +475,15 @@ func sameStringSet(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func hasAccessibleWorkspaceMembership(memberships []WorkspaceMembershipSummary) bool {
+	for _, membership := range memberships {
+		if membership.Status == "active" && membership.WorkspaceStatus == "active" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) ListWorkspaces(ctx context.Context, principal *Principal) ([]WorkspaceMembershipSummary, error) {
@@ -1168,7 +1203,59 @@ func (s *Service) AssumeWorkspace(ctx context.Context, principal *Principal, wor
 	if err != nil {
 		return nil, "", err
 	}
-	return s.createSessionResponse(ctx, user, auth.PortalCustomer, &workspaceID)
+	return s.createSessionResponse(ctx, user, auth.PortalCustomer, &workspaceID, nil)
+}
+
+func (s *Service) StartPlatformCustomerAccess(ctx context.Context, principal *Principal) (*AuthSessionResponse, string, error) {
+	if principal.Portal != auth.PortalPlatform {
+		return nil, "", ErrForbidden
+	}
+	user, err := s.findUserByID(ctx, principal.UserID)
+	if err != nil {
+		return nil, "", err
+	}
+	memberships, err := s.listWorkspaceMembershipSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	if !hasAccessibleWorkspaceMembership(memberships) {
+		return nil, "", fmt.Errorf("%w: this platform user has no active workspace access", ErrConflict)
+	}
+	if err := s.insertAuditLog(ctx, &principal.UserID, "platform.customer_access.start", "user", user.ID.String(), nil, map[string]any{
+		"portal": auth.PortalPlatform,
+	}); err != nil {
+		return nil, "", err
+	}
+	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil, nil)
+}
+
+func (s *Service) ImpersonateUser(ctx context.Context, principal *Principal, targetUserID uuid.UUID) (*AuthSessionResponse, string, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.support.assume_user"); err != nil {
+		return nil, "", err
+	}
+	if targetUserID == principal.UserID {
+		return s.StartPlatformCustomerAccess(ctx, principal)
+	}
+	user, err := s.findUserByID(ctx, targetUserID)
+	if err != nil {
+		return nil, "", err
+	}
+	if user.Status != "active" {
+		return nil, "", fmt.Errorf("%w: target user must be active", ErrConflict)
+	}
+	memberships, err := s.listWorkspaceMembershipSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	if !hasAccessibleWorkspaceMembership(memberships) {
+		return nil, "", fmt.Errorf("%w: target user has no active workspace access", ErrConflict)
+	}
+	if err := s.insertAuditLog(ctx, &principal.UserID, "platform.support.assume_user", "user", user.ID.String(), nil, map[string]any{
+		"portal": auth.PortalPlatform,
+	}); err != nil {
+		return nil, "", err
+	}
+	return s.createSessionResponse(ctx, user, auth.PortalCustomer, nil, &principal.UserID)
 }
 
 func (s *Service) createWorkspaceMembership(ctx context.Context, userID uuid.UUID, workspaceName string, invitedBy *uuid.UUID) (*database.Workspace, *database.WorkspaceMembership, error) {

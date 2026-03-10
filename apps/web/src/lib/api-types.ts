@@ -35,6 +35,7 @@ export type AuthSession = {
 	portal: "customer" | "platform";
 	accessToken?: string;
 	user: User;
+	impersonator?: User;
 	platformRoles: Role[];
 	platformPermissions: Permission[];
 	workspaceMemberships: WorkspaceMembershipSummary[];

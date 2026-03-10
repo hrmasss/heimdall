@@ -6,6 +6,7 @@ import {
 	Mail,
 	PencilLine,
 	ShieldCheck,
+	ShieldUser,
 	ToggleLeft,
 	ToggleRight,
 } from "lucide-react";
@@ -119,6 +120,18 @@ export function AdminUserDetailPage() {
 		}
 	}
 
+	async function openCustomerPortal() {
+		if (!record || record.workspaceCount === 0) {
+			return;
+		}
+		const endpoint =
+			record.user.id === platformSession?.user.id
+				? "/platform/customer-access"
+				: `/platform/users/${record.user.id}/impersonate`;
+		await platformRequest(endpoint, { method: "POST" });
+		window.open("/dashboard", "_blank", "noopener,noreferrer");
+	}
+
 	const createdLabel = useMemo(() => {
 		if (!record) {
 			return "";
@@ -152,6 +165,21 @@ export function AdminUserDetailPage() {
 									<PencilLine className="size-4" />
 									Edit user
 								</Link>
+							</Button>
+						) : null}
+						{record &&
+						record.workspaceCount > 0 &&
+						(record.user.id === platformSession?.user.id ||
+							hasPlatformPermission("platform.support.assume_user")) ? (
+							<Button
+								variant="outline"
+								className="rounded-full"
+								onClick={() => void openCustomerPortal()}
+							>
+								<ShieldUser className="size-4" />
+								{record.user.id === platformSession?.user.id
+									? "Open dashboard"
+									: "Impersonate user"}
 							</Button>
 						) : null}
 						{record && hasPlatformPermission("platform.users.manage") ? (

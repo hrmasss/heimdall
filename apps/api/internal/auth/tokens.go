@@ -21,11 +21,12 @@ type Claims struct {
 	SessionID          string `json:"sid"`
 	Portal             string `json:"portal"`
 	AssumedWorkspaceID string `json:"assumed_workspace_id,omitempty"`
+	ImpersonatorUserID string `json:"impersonator_user_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
 // IssueAccessToken creates a signed access token.
-func IssueAccessToken(secret string, userID uuid.UUID, sessionID uuid.UUID, portal string, ttl time.Duration, assumedWorkspaceID *uuid.UUID) (string, error) {
+func IssueAccessToken(secret string, userID uuid.UUID, sessionID uuid.UUID, portal string, ttl time.Duration, assumedWorkspaceID *uuid.UUID, impersonatorUserID *uuid.UUID) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
 		SessionID: sessionID.String(),
@@ -38,6 +39,9 @@ func IssueAccessToken(secret string, userID uuid.UUID, sessionID uuid.UUID, port
 	}
 	if assumedWorkspaceID != nil {
 		claims.AssumedWorkspaceID = assumedWorkspaceID.String()
+	}
+	if impersonatorUserID != nil {
+		claims.ImpersonatorUserID = impersonatorUserID.String()
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

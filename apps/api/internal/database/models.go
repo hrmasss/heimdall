@@ -112,6 +112,7 @@ type AuthSession struct {
 
 	ID                 uuid.UUID  `bun:"id,pk,type:uuid"`
 	UserID             uuid.UUID  `bun:"user_id,notnull,type:uuid"`
+	ImpersonatorUserID *uuid.UUID `bun:"impersonator_user_id,type:uuid"`
 	Scope              string     `bun:"scope,notnull"`
 	RefreshTokenHash   string     `bun:"refresh_token_hash,notnull"`
 	ExpiresAt          time.Time  `bun:"expires_at,notnull"`

@@ -12,7 +12,7 @@ func TestIssueAndParseAccessToken(t *testing.T) {
 	sessionID := uuid.New()
 	workspaceID := uuid.New()
 
-	token, err := IssueAccessToken("test-secret", userID, sessionID, PortalCustomer, time.Minute, &workspaceID)
+	token, err := IssueAccessToken("test-secret", userID, sessionID, PortalCustomer, time.Minute, &workspaceID, nil)
 	if err != nil {
 		t.Fatalf("IssueAccessToken returned error: %v", err)
 	}

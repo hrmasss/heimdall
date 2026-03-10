@@ -41,6 +41,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/platform/me", h.requireAuth, h.platformMe)
 	api.Get("/platform/roles", h.requireAuth, h.listPlatformRoles)
 	api.Get("/platform/workspace-roles", h.requireAuth, h.listPlatformWorkspaceRoles)
+	api.Post("/platform/customer-access", h.requireAuth, h.startPlatformCustomerAccess)
 
 	api.Get("/workspaces", h.requireAuth, h.listWorkspaces)
 	api.Post("/workspaces", h.requireAuth, h.createWorkspace)
@@ -58,6 +59,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
 	api.Get("/platform/users/:id", h.requireAuth, h.getPlatformUser)
 	api.Patch("/platform/users/:id", h.requireAuth, h.updatePlatformUser)
+	api.Post("/platform/users/:id/impersonate", h.requireAuth, h.impersonatePlatformUser)
 	api.Get("/platform/workspaces", h.requireAuth, h.listPlatformWorkspaces)
 	api.Post("/platform/workspaces", h.requireAuth, h.createPlatformWorkspace)
 	api.Get("/platform/workspaces/:id", h.requireAuth, h.getPlatformWorkspace)
@@ -207,6 +209,19 @@ func (h *AppHandler) listPlatformWorkspaceRoles(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.JSON(fiber.Map{"items": items})
+}
+
+func (h *AppHandler) startPlatformCustomerAccess(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	session, refreshToken, err := h.service.StartPlatformCustomerAccess(c.Context(), principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	h.setRefreshCookie(c, auth.PortalCustomer, refreshToken)
+	return c.JSON(session)
 }
 
 func (h *AppHandler) listWorkspaces(c fiber.Ctx) error {
@@ -471,6 +486,23 @@ func (h *AppHandler) updatePlatformUser(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.JSON(record)
+}
+
+func (h *AppHandler) impersonatePlatformUser(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	session, refreshToken, err := h.service.ImpersonateUser(c.Context(), principal, userID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	h.setRefreshCookie(c, auth.PortalCustomer, refreshToken)
+	return c.JSON(session)
 }
 
 func (h *AppHandler) listPlatformWorkspaces(c fiber.Ctx) error {

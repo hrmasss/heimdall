@@ -5,6 +5,7 @@ import {
 	Eye,
 	PencilLine,
 	ShieldCheck,
+	ShieldUser,
 	ToggleLeft,
 	ToggleRight,
 	UserPlus,
@@ -31,6 +32,10 @@ import { cn } from "@/lib/utils";
 
 function getPlatformRoles(record: PlatformUserRecord) {
 	return record.platformRoles ?? [];
+}
+
+function isOwnUserRecord(userId: string, currentUserId?: string) {
+	return userId === currentUserId;
 }
 
 function getUserType(record: PlatformUserRecord) {
@@ -211,6 +216,15 @@ export function AdminUsers() {
 		}, 1800);
 	}
 
+	async function openCustomerPortal(record: PlatformUserRecord) {
+		const isSelf = record.user.id === platformSession?.user.id;
+		const endpoint = isSelf
+			? "/platform/customer-access"
+			: `/platform/users/${record.user.id}/impersonate`;
+		await platformRequest(endpoint, { method: "POST" });
+		window.open("/dashboard", "_blank", "noopener,noreferrer");
+	}
+
 	const columns: DataTableColumn<PlatformUserRecord>[] = [
 		{
 			id: "user",
@@ -313,6 +327,22 @@ export function AdminUsers() {
 							align="end"
 							className="min-w-[220px] rounded-[20px] p-2"
 						>
+							{record.workspaceCount > 0 &&
+							(isOwnUserRecord(record.user.id, platformSession?.user.id)
+								|| hasPlatformPermission("platform.support.assume_user")) ? (
+								<>
+									<DropdownMenuItem
+										className="rounded-[14px] px-3 py-2 whitespace-nowrap"
+										onClick={() => void openCustomerPortal(record)}
+									>
+										<ShieldUser className="size-4" />
+										{record.user.id === platformSession?.user.id
+											? "Open dashboard"
+											: "Impersonate user"}
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+								</>
+							) : null}
 							<DropdownMenuItem
 								className="rounded-[14px] px-3 py-2 whitespace-nowrap"
 								onClick={() => navigate(`/admin/users/${record.user.id}`)}

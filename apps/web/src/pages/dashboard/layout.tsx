@@ -547,6 +547,13 @@ export function DashboardLayout() {
 								thumbClassName="dashboard-content-scrollbar-thumb"
 							>
 								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+									{customerSession?.impersonator ? (
+										<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+											Support impersonation active. Acting as{" "}
+											{customerSession.user.fullName} on behalf of{" "}
+											{customerSession.impersonator.fullName}.
+										</div>
+									) : null}
 									{customerSession?.assumedWorkspaceId ? (
 										<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
 											Support access session active for{" "}

@@ -132,11 +132,26 @@ function AdminSidebar({
 }) {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { platformSession, logoutPlatform } = useAuth();
+	const { platformRequest, platformSession, logoutPlatform } = useAuth();
 	const currentAdmin = platformSession?.user;
+	const hasCustomerAccess =
+		(platformSession?.workspaceMemberships?.some(
+			(membership) =>
+				membership.status === "active" && membership.workspaceStatus === "active",
+		) ?? false);
 	const currentAdminRoles =
 		platformSession?.platformRoles.map((role) => role.label).join(", ") ??
 		"Platform user";
+
+	async function openOwnDashboard() {
+		if (!hasCustomerAccess) {
+			return;
+		}
+		await platformRequest("/platform/customer-access", {
+			method: "POST",
+		});
+		window.open("/dashboard", "_blank", "noopener,noreferrer");
+	}
 
 	if (!currentAdmin) {
 		return null;
@@ -245,10 +260,17 @@ function AdminSidebar({
 					</nav>
 
 					<div className="mt-6 space-y-3">
-						<Link
-							to="/dashboard"
+						<button
+							type="button"
+							onClick={() => void openOwnDashboard()}
+							disabled={!hasCustomerAccess}
+							title={
+								hasCustomerAccess
+									? "Open the customer workspace in a new tab."
+									: "Assign this platform user to a workspace to enable customer access."
+							}
 							className={cn(
-								"flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[var(--brand-border-soft)] bg-background/50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
+								"flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[var(--brand-border-soft)] bg-background/50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
 								collapsed && "lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
 							)}
 						>
@@ -256,7 +278,7 @@ function AdminSidebar({
 							<SidebarCopy collapsed={collapsed} className="whitespace-nowrap">
 								<span>User Dashboard</span>
 							</SidebarCopy>
-						</Link>
+						</button>
 
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>

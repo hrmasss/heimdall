@@ -49,6 +49,7 @@ var permissionSeeds = []permissionSeed{
 	{Code: "platform.subscriptions.view", Label: "View subscriptions", Scope: "platform", Description: "View subscriptions"},
 	{Code: "platform.subscriptions.manage", Label: "Manage subscriptions", Scope: "platform", Description: "Manage subscriptions"},
 	{Code: "platform.support.assume_workspace", Label: "Assume workspace", Scope: "platform", Description: "Assume customer workspace access"},
+	{Code: "platform.support.assume_user", Label: "Impersonate users", Scope: "platform", Description: "Impersonate customer users for support"},
 	{Code: "platform.audit.view", Label: "View audit logs", Scope: "platform", Description: "View audit logs"},
 	{Code: "platform.settings.view", Label: "View platform settings", Scope: "platform", Description: "View platform settings"},
 	{Code: "platform.settings.manage", Label: "Manage platform settings", Scope: "platform", Description: "Manage platform settings"},
@@ -124,7 +125,7 @@ var roleSeeds = []roleSeed{
 			"platform.users.view", "platform.users.manage",
 			"platform.workspaces.view", "platform.workspaces.manage",
 			"platform.subscriptions.view", "platform.subscriptions.manage",
-			"platform.support.assume_workspace",
+			"platform.support.assume_workspace", "platform.support.assume_user",
 			"platform.audit.view",
 			"platform.settings.view", "platform.settings.manage",
 		},
@@ -137,6 +138,7 @@ var roleSeeds = []roleSeed{
 			"platform.users.view", "platform.users.manage",
 			"platform.workspaces.view", "platform.workspaces.manage",
 			"platform.subscriptions.view", "platform.subscriptions.manage",
+			"platform.support.assume_user",
 			"platform.audit.view",
 		},
 	},
@@ -147,7 +149,7 @@ var roleSeeds = []roleSeed{
 		PermissionCodes: []string{
 			"platform.users.view",
 			"platform.workspaces.view",
-			"platform.support.assume_workspace",
+			"platform.support.assume_workspace", "platform.support.assume_user",
 			"platform.audit.view",
 		},
 	},
@@ -232,6 +234,7 @@ var schemaStatements = []string{
 	`CREATE TABLE IF NOT EXISTS auth_sessions (
 		id uuid PRIMARY KEY,
 		user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		impersonator_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
 		scope text NOT NULL,
 		refresh_token_hash text NOT NULL UNIQUE,
 		expires_at timestamptz NOT NULL,
@@ -258,6 +261,9 @@ func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 		if _, err := db.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("exec schema statement: %w", err)
 		}
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE auth_sessions ADD COLUMN IF NOT EXISTS impersonator_user_id uuid REFERENCES users(id) ON DELETE SET NULL`); err != nil {
+		return fmt.Errorf("ensure auth_sessions.impersonator_user_id: %w", err)
 	}
 
 	if err := seedPermissions(ctx, db); err != nil {
