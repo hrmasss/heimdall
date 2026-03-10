@@ -1,4 +1,5 @@
 import {
+	BriefcaseBusiness,
 	Copy,
 	Ellipsis,
 	Eye,
@@ -9,7 +10,7 @@ import {
 	UserPlus,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
@@ -27,6 +28,16 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformUserRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
+
+function getUserType(record: PlatformUserRecord) {
+	if (record.platformRoles.length && record.workspaceCount) {
+		return "hybrid";
+	}
+	if (record.platformRoles.length) {
+		return "platform";
+	}
+	return "client";
+}
 
 const statusConfig: Record<string, string> = {
 	active: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
@@ -87,6 +98,31 @@ function RoleBadges({ roles }: { roles: PlatformUserRecord["platformRoles"] }) {
 				</Badge>
 			)}
 		</div>
+	);
+}
+
+function UserTypeBadge({ record }: { record: PlatformUserRecord }) {
+	const userType = getUserType(record);
+	const config: Record<string, { label: string; className: string }> = {
+		platform: {
+			label: "Platform staff",
+			className: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+		},
+		client: {
+			label: "Client user",
+			className: "bg-sky-500/10 text-sky-700 border-sky-500/20",
+		},
+		hybrid: {
+			label: "Hybrid access",
+			className: "bg-violet-500/10 text-violet-700 border-violet-500/20",
+		},
+	};
+	const resolved = config[userType];
+
+	return (
+		<Badge variant="outline" className={cn("rounded-full", resolved.className)}>
+			{resolved.label}
+		</Badge>
 	);
 }
 
@@ -178,8 +214,15 @@ export function AdminUsers() {
 			getSortValue: (record) => record.user.fullName,
 		},
 		{
+			id: "type",
+			label: "User type",
+			width: 160,
+			accessor: (record) => <UserTypeBadge record={record} />,
+			getSortValue: (record) => getUserType(record),
+		},
+		{
 			id: "roles",
-			label: "Platform roles",
+			label: "Platform access",
 			width: 240,
 			accessor: (record) => <RoleBadges roles={record.platformRoles} />,
 			getSortValue: (record) => record.platformRoles.map((role) => role.label).join(", "),
@@ -257,9 +300,12 @@ export function AdminUsers() {
 								<Ellipsis className="size-4" />
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="rounded-[20px] p-2">
+						<DropdownMenuContent
+							align="end"
+							className="min-w-[220px] rounded-[20px] p-2"
+						>
 							<DropdownMenuItem
-								className="rounded-[14px] px-3 py-2"
+								className="rounded-[14px] px-3 py-2 whitespace-nowrap"
 								onClick={() => navigate(`/admin/users/${record.user.id}`)}
 							>
 								<Eye className="size-4" />
@@ -267,7 +313,7 @@ export function AdminUsers() {
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem
-								className="rounded-[14px] px-3 py-2"
+								className="rounded-[14px] px-3 py-2 whitespace-nowrap"
 								onClick={() =>
 									void copyValue(record.user.email, "Copied user email.")
 								}
@@ -276,7 +322,7 @@ export function AdminUsers() {
 								Copy email
 							</DropdownMenuItem>
 							<DropdownMenuItem
-								className="rounded-[14px] px-3 py-2"
+								className="rounded-[14px] px-3 py-2 whitespace-nowrap"
 								onClick={() => void copyValue(record.user.id, "Copied user ID.")}
 							>
 								<Copy className="size-4" />
@@ -294,20 +340,38 @@ export function AdminUsers() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Platform Access"
+				eyebrow="User Directory"
 				title="Users"
-				description="Manage global admin, ops, and support access across the Heimdall platform."
+				description="Manage both platform staff and client users from one directory, then drill into workspace associations when tenant access needs changes."
 				actions={
 					hasPlatformPermission("platform.users.manage") ? (
-						<Button
-							className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
-							asChild
-						>
-							<Link to="/admin/users/new">
-								<UserPlus className="size-4" />
-								New platform user
-							</Link>
-						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
+									<UserPlus className="size-4" />
+									New user
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className="min-w-[220px] rounded-[20px] p-2"
+							>
+								<DropdownMenuItem
+									className="rounded-[14px] px-3 py-2 whitespace-nowrap"
+									onClick={() => navigate("/admin/users/new")}
+								>
+									<ShieldCheck className="size-4" />
+									Create platform staff
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="rounded-[14px] px-3 py-2 whitespace-nowrap"
+									onClick={() => navigate("/admin/users/new/customer")}
+								>
+									<BriefcaseBusiness className="size-4" />
+									Create client user
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					) : null
 				}
 			/>
@@ -319,8 +383,8 @@ export function AdminUsers() {
 					</div>
 				) : null}
 				<DataTable
-					title="Platform directory"
-					description="Review global access, workspace footprint, and account state from one directory."
+					title="All users"
+					description="Review platform staff, client users, workspace footprint, and account state from one directory."
 					rows={users}
 					columns={columns}
 					getRowId={(record) => record.user.id}
@@ -329,15 +393,29 @@ export function AdminUsers() {
 							record.user.fullName,
 							record.user.email,
 							record.user.status,
+							getUserType(record),
 							record.platformRoles.map((role) => role.label).join(" "),
 						].join(" ")
 					}
-					searchPlaceholder="Search users or platform roles..."
+					searchPlaceholder="Search users, client accounts, or platform roles..."
+					filters={[
+						{
+							id: "type",
+							label: "Type",
+							options: [
+								{ label: "Platform staff", value: "platform" },
+								{ label: "Client user", value: "client" },
+								{ label: "Hybrid access", value: "hybrid" },
+							],
+							getValue: (record) => getUserType(record),
+						},
+					]}
 					loading={loading}
 					error={error}
 					emptyState={{
-						title: "No platform users found",
-						description: "Bootstrap a platform admin to begin managing users.",
+						title: "No users found",
+						description:
+							"Create a platform staff account or a client user to populate the directory.",
 					}}
 					onRowClick={(record) => navigate(`/admin/users/${record.user.id}`)}
 					renderGridCard={(record) => (
@@ -346,6 +424,7 @@ export function AdminUsers() {
 								<UserIdentity user={record.user} />
 								<StatusBadge status={record.user.status} />
 							</div>
+							<UserTypeBadge record={record} />
 							<RoleBadges roles={record.platformRoles} />
 							<div className="text-sm text-muted-foreground">
 								{record.workspaceCount} workspace assignments

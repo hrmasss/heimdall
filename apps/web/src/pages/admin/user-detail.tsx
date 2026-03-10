@@ -1,5 +1,6 @@
 import {
 	ArrowLeft,
+	BriefcaseBusiness,
 	Building2,
 	CalendarDays,
 	Mail,
@@ -38,6 +39,16 @@ function StatusBadge({ status }: { status: string }) {
 			{status}
 		</Badge>
 	);
+}
+
+function getUserType(record: PlatformUserRecord) {
+	if (record.platformRoles.length && record.workspaceCount) {
+		return "Hybrid access";
+	}
+	if (record.platformRoles.length) {
+		return "Platform staff";
+	}
+	return "Client user";
 }
 
 export function AdminUserDetailPage() {
@@ -113,12 +124,12 @@ export function AdminUserDetailPage() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Platform Access"
+				eyebrow="User Directory"
 				title={record?.user.fullName ?? "User detail"}
 				description={
 					record
-						? "Review platform roles, account state, and workspace associations from one dedicated page."
-						: "Inspect the operator profile and linked workspace memberships."
+						? "Review platform access, customer workspace associations, and lifecycle state from one dedicated page."
+						: "Inspect the user profile and linked workspace memberships."
 				}
 				actions={
 					<>
@@ -197,6 +208,15 @@ export function AdminUserDetailPage() {
 
 							<div className="grid gap-4 md:grid-cols-3">
 								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+									<div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-muted-foreground">
+										<BriefcaseBusiness className="size-4" />
+										User type
+									</div>
+									<div className="mt-3 text-sm font-medium">
+										{getUserType(record)}
+									</div>
+								</div>
+								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
 									<div className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
 										Platform roles
 									</div>
@@ -212,7 +232,7 @@ export function AdminUserDetailPage() {
 										{record.workspaceCount}
 									</div>
 								</div>
-								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 md:col-span-3">
 									<div className="flex items-center gap-2 text-sm uppercase tracking-[0.18em] text-muted-foreground">
 										<CalendarDays className="size-4" />
 										Created

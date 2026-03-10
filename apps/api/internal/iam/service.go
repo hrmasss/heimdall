@@ -169,8 +169,11 @@ func (s *Service) Register(ctx context.Context, fullName, email, password, works
 	fullName = strings.TrimSpace(fullName)
 	email = normalizeEmail(email)
 	workspaceName = strings.TrimSpace(workspaceName)
-	if fullName == "" || email == "" || password == "" || workspaceName == "" {
-		return nil, "", fmt.Errorf("%w: full name, email, password, and workspace name are required", ErrValidation)
+	if fullName == "" || email == "" || password == "" {
+		return nil, "", fmt.Errorf("%w: full name, email, and password are required", ErrValidation)
+	}
+	if workspaceName == "" {
+		workspaceName = defaultWorkspaceName(fullName)
 	}
 
 	if _, err := s.findUserByEmail(ctx, email); err == nil {
@@ -413,6 +416,17 @@ func slugify(value string) string {
 	return strings.Trim(value, "-")
 }
 
+func defaultWorkspaceName(fullName string) string {
+	trimmedName := strings.TrimSpace(fullName)
+	if trimmedName == "" {
+		return "User's Workspace"
+	}
+	if strings.HasSuffix(strings.ToLower(trimmedName), "s") {
+		return fmt.Sprintf("%s' Workspace", trimmedName)
+	}
+	return fmt.Sprintf("%s's Workspace", trimmedName)
+}
+
 func uniqueStrings(values []string) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
@@ -632,6 +646,13 @@ func (s *Service) ListPlatformRoles(ctx context.Context, principal *Principal) (
 		return nil, err
 	}
 	return s.listRolesByScope(ctx, "platform")
+}
+
+func (s *Service) ListPlatformWorkspaceRoles(ctx context.Context, principal *Principal) ([]APIRole, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.workspaces.manage"); err != nil {
+		return nil, err
+	}
+	return s.listRolesByScope(ctx, "workspace")
 }
 
 func (s *Service) ListWorkspaceInvites(ctx context.Context, principal *Principal, workspaceID uuid.UUID) ([]WorkspaceInviteRecord, error) {

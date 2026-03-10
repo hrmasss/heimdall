@@ -40,6 +40,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/platform/auth/logout", h.platformLogout)
 	api.Get("/platform/me", h.requireAuth, h.platformMe)
 	api.Get("/platform/roles", h.requireAuth, h.listPlatformRoles)
+	api.Get("/platform/workspace-roles", h.requireAuth, h.listPlatformWorkspaceRoles)
 
 	api.Get("/workspaces", h.requireAuth, h.listWorkspaces)
 	api.Post("/workspaces", h.requireAuth, h.createWorkspace)
@@ -190,6 +191,18 @@ func (h *AppHandler) listPlatformRoles(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	items, err := h.service.ListPlatformRoles(c.Context(), principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": items})
+}
+
+func (h *AppHandler) listPlatformWorkspaceRoles(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	items, err := h.service.ListPlatformWorkspaceRoles(c.Context(), principal)
 	if err != nil {
 		return h.writeError(c, err)
 	}

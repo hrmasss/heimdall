@@ -106,6 +106,11 @@ const AdminUserCreatePage = lazy(async () =>
 		default: () => <module.AdminUserFormPage mode="create" />,
 	})),
 );
+const AdminCustomerUserCreatePage = lazy(async () =>
+	import("@/pages/admin/customer-user-form").then((module) => ({
+		default: module.AdminCustomerUserFormPage,
+	})),
+);
 const AdminUserEditPage = lazy(async () =>
 	import("@/pages/admin/user-form").then((module) => ({
 		default: () => <module.AdminUserFormPage mode="edit" />,
@@ -235,6 +240,10 @@ export function AppRoutes() {
 						<Route index element={<AdminOverview />} />
 						<Route path="users" element={<AdminUsers />} />
 						<Route path="users/new" element={<AdminUserCreatePage />} />
+						<Route
+							path="users/new/customer"
+							element={<AdminCustomerUserCreatePage />}
+						/>
 						<Route path="users/:id" element={<AdminUserDetailPage />} />
 						<Route path="users/:id/edit" element={<AdminUserEditPage />} />
 						<Route path="workspaces" element={<AdminWorkspaces />} />

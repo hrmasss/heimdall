@@ -8,7 +8,7 @@ import {
   Sparkles,
   User2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import {
@@ -30,6 +30,16 @@ const companionStats = [
 ];
 
 type AuthMode = "login" | "signup";
+
+function defaultWorkspaceName(fullName: string) {
+  const trimmedName = fullName.trim();
+  if (!trimmedName) {
+    return "User's Workspace";
+  }
+  return trimmedName.toLowerCase().endsWith("s")
+    ? `${trimmedName}' Workspace`
+    : `${trimmedName}'s Workspace`;
+}
 
 function GoogleIcon() {
   return (
@@ -98,6 +108,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceNameTouched, setWorkspaceNameTouched] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -115,6 +126,13 @@ export function AuthView({ mode }: { mode: AuthMode }) {
   const alternateHref = isSignup ? "/login" : "/signup";
   const alternateLabel = isSignup ? "Sign in" : "Create one";
 
+  useEffect(() => {
+    if (!isSignup || workspaceNameTouched) {
+      return;
+    }
+    setWorkspaceName(defaultWorkspaceName(fullName));
+  }, [fullName, isSignup, workspaceNameTouched]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -131,7 +149,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
           fullName,
           email,
           password,
-          workspaceName,
+          workspaceName: workspaceName.trim() || defaultWorkspaceName(fullName),
         });
       } else {
         await signInCustomer({ email, password });
@@ -284,24 +302,6 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                       {isSignup ? (
                         <label
                           className="block space-y-1.5"
-                          htmlFor={workspaceFieldId}>
-                          <span className="text-sm font-medium">Workspace name</span>
-                          <div className="relative">
-                            <FolderKanban className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                              id={workspaceFieldId}
-                              value={workspaceName}
-                              onChange={(event) => setWorkspaceName(event.target.value)}
-                              className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
-                              placeholder="Northset"
-                            />
-                          </div>
-                        </label>
-                      ) : null}
-
-                      {isSignup ? (
-                        <label
-                          className="block space-y-1.5"
                           htmlFor={nameFieldId}>
                           <span className="text-sm font-medium">Your name</span>
                           <div className="relative">
@@ -313,6 +313,31 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                               className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
                               placeholder="Alex Morgan"
                             />
+                          </div>
+                        </label>
+                      ) : null}
+
+                      {isSignup ? (
+                        <label
+                          className="block space-y-1.5"
+                          htmlFor={workspaceFieldId}>
+                          <span className="text-sm font-medium">Workspace name</span>
+                          <div className="relative">
+                            <FolderKanban className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id={workspaceFieldId}
+                              value={workspaceName}
+                              onChange={(event) => {
+                                setWorkspaceNameTouched(true);
+                                setWorkspaceName(event.target.value);
+                              }}
+                              className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
+                              placeholder={defaultWorkspaceName(fullName)}
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Leave it blank and Heimdall will use{" "}
+                            {defaultWorkspaceName(fullName)}.
                           </div>
                         </label>
                       ) : null}

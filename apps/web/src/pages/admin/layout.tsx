@@ -362,6 +362,7 @@ function getAdminBreadcrumbs(pathname: string) {
 	const labelMap: Record<string, string> = {
 		users: "Users",
 		workspaces: "Workspaces",
+		customer: "Client User",
 		members: "Members",
 		new: "New",
 		edit: "Edit",
