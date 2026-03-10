@@ -111,9 +111,10 @@ type WorkspaceInviteRecord struct {
 }
 
 type PlatformUserRecord struct {
-	User           APIUser   `json:"user"`
-	PlatformRoles  []APIRole `json:"platformRoles"`
-	WorkspaceCount int       `json:"workspaceCount"`
+	User                 APIUser                      `json:"user"`
+	PlatformRoles        []APIRole                    `json:"platformRoles"`
+	WorkspaceCount       int                          `json:"workspaceCount"`
+	WorkspaceMemberships []WorkspaceMembershipSummary `json:"workspaceMemberships,omitempty"`
 }
 
 type PlatformWorkspaceRecord struct {
@@ -422,6 +423,20 @@ func uniqueStrings(values []string) []string {
 	return result
 }
 
+func sameStringSet(left, right []string) bool {
+	left = uniqueStrings(left)
+	right = uniqueStrings(right)
+	if len(left) != len(right) {
+		return false
+	}
+	for _, value := range left {
+		if !slices.Contains(right, value) {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Service) ListWorkspaces(ctx context.Context, principal *Principal) ([]WorkspaceMembershipSummary, error) {
 	summary, err := s.Me(ctx, principal)
 	if err != nil {
@@ -612,6 +627,13 @@ func (s *Service) ListWorkspaceRoles(ctx context.Context) ([]APIRole, error) {
 	return s.listRolesByScope(ctx, "workspace")
 }
 
+func (s *Service) ListPlatformRoles(ctx context.Context, principal *Principal) ([]APIRole, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.users.view"); err != nil {
+		return nil, err
+	}
+	return s.listRolesByScope(ctx, "platform")
+}
+
 func (s *Service) ListWorkspaceInvites(ctx context.Context, principal *Principal, workspaceID uuid.UUID) ([]WorkspaceInviteRecord, error) {
 	_, err := s.requireWorkspaceAccess(ctx, principal, workspaceID, "workspace.members.manage")
 	if err != nil {
@@ -787,7 +809,66 @@ func (s *Service) ListPlatformUsers(ctx context.Context, principal *Principal) (
 	return result, nil
 }
 
-func (s *Service) UpdatePlatformUser(ctx context.Context, principal *Principal, userID uuid.UUID, status string, roleCodes []string) (*PlatformUserRecord, error) {
+func (s *Service) GetPlatformUser(ctx context.Context, principal *Principal, userID uuid.UUID) (*PlatformUserRecord, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.users.view"); err != nil {
+		return nil, err
+	}
+	user, err := s.findUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildPlatformUserRecord(ctx, *user)
+}
+
+func (s *Service) CreatePlatformUser(ctx context.Context, principal *Principal, fullName, email, password, status string, roleCodes []string) (*PlatformUserRecord, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.users.manage"); err != nil {
+		return nil, err
+	}
+	fullName = strings.TrimSpace(fullName)
+	email = normalizeEmail(email)
+	password = strings.TrimSpace(password)
+	status = strings.TrimSpace(status)
+	if fullName == "" || email == "" || password == "" {
+		return nil, fmt.Errorf("%w: full name, email, and password are required", ErrValidation)
+	}
+	if status == "" {
+		status = "active"
+	}
+	if status != "active" && status != "suspended" {
+		return nil, fmt.Errorf("%w: invalid status", ErrValidation)
+	}
+	if len(roleCodes) == 0 {
+		return nil, fmt.Errorf("%w: at least one platform role is required", ErrValidation)
+	}
+	if _, err := s.findUserByEmail(ctx, email); err == nil {
+		return nil, fmt.Errorf("%w: email already exists", ErrConflict)
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	passwordHash, err := auth.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	user := &database.User{
+		ID:           uuid.New(),
+		Email:        email,
+		FullName:     fullName,
+		PasswordHash: passwordHash,
+		Status:       status,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+	}
+	if _, err := s.db.NewInsert().Model(user).Exec(ctx); err != nil {
+		return nil, err
+	}
+	if err := s.assignPlatformRolesByCode(ctx, user.ID, roleCodes); err != nil {
+		return nil, err
+	}
+	return s.buildPlatformUserRecord(ctx, *user)
+}
+
+func (s *Service) UpdatePlatformUser(ctx context.Context, principal *Principal, userID uuid.UUID, fullName, status string, roleCodes []string) (*PlatformUserRecord, error) {
 	if _, err := s.requirePlatformAccess(ctx, principal, "platform.users.manage"); err != nil {
 		return nil, err
 	}
@@ -795,12 +876,33 @@ func (s *Service) UpdatePlatformUser(ctx context.Context, principal *Principal, 
 	if err != nil {
 		return nil, err
 	}
+	currentRoles, err := s.listPlatformRolesForUser(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	nextStatus := user.Status
 	if status != "" {
-		user.Status = status
-		user.UpdatedAt = time.Now().UTC()
-		if _, err := s.db.NewUpdate().Model(user).Column("status", "updated_at").WherePK().Exec(ctx); err != nil {
-			return nil, err
+		nextStatus = status
+	}
+	nextRoleCodes := extractRoleCodes(currentRoles)
+	if len(roleCodes) > 0 {
+		nextRoleCodes = roleCodes
+	}
+	if user.ID == principal.UserID {
+		if nextStatus != user.Status || !sameStringSet(nextRoleCodes, extractRoleCodes(currentRoles)) {
+			return nil, fmt.Errorf("%w: platform users cannot change their own status or role assignments", ErrConflict)
 		}
+	}
+	if err := s.ensurePlatformHasActiveSuperAdmin(ctx, user.ID, nextStatus, nextRoleCodes); err != nil {
+		return nil, err
+	}
+	if trimmedName := strings.TrimSpace(fullName); trimmedName != "" {
+		user.FullName = trimmedName
+	}
+	user.Status = nextStatus
+	user.UpdatedAt = time.Now().UTC()
+	if _, err := s.db.NewUpdate().Model(user).Column("full_name", "status", "updated_at").WherePK().Exec(ctx); err != nil {
+		return nil, err
 	}
 	if len(roleCodes) > 0 {
 		if err := s.assignPlatformRolesByCode(ctx, user.ID, roleCodes); err != nil {
@@ -843,6 +945,17 @@ func (s *Service) ListPlatformWorkspaces(ctx context.Context, principal *Princip
 		})
 	}
 	return result, nil
+}
+
+func (s *Service) GetPlatformWorkspace(ctx context.Context, principal *Principal, workspaceID uuid.UUID) (*PlatformWorkspaceRecord, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.workspaces.view"); err != nil {
+		return nil, err
+	}
+	workspace, err := s.findWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return s.buildPlatformWorkspaceRecord(ctx, *workspace)
 }
 
 func (s *Service) CreatePlatformWorkspace(ctx context.Context, principal *Principal, name string) (*PlatformWorkspaceRecord, error) {
@@ -926,6 +1039,94 @@ func (s *Service) ListPlatformWorkspaceMembers(ctx context.Context, principal *P
 	}, workspaceID)
 }
 
+func (s *Service) CreatePlatformWorkspaceMember(ctx context.Context, principal *Principal, workspaceID uuid.UUID, fullName, email, password, status string, roleCodes []string) (*WorkspaceMemberRecord, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.workspaces.manage"); err != nil {
+		return nil, err
+	}
+	if _, err := s.findWorkspaceByID(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+
+	email = normalizeEmail(email)
+	fullName = strings.TrimSpace(fullName)
+	password = strings.TrimSpace(password)
+	status = strings.TrimSpace(status)
+	if email == "" {
+		return nil, fmt.Errorf("%w: email is required", ErrValidation)
+	}
+	if status == "" {
+		status = "active"
+	}
+	if status != "active" && status != "suspended" {
+		return nil, fmt.Errorf("%w: invalid status", ErrValidation)
+	}
+	if len(roleCodes) == 0 {
+		return nil, fmt.Errorf("%w: at least one workspace role is required", ErrValidation)
+	}
+
+	user, err := s.findUserByEmail(ctx, email)
+	if err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return nil, err
+		}
+		if fullName == "" || password == "" {
+			return nil, fmt.Errorf("%w: full name and password are required for new users", ErrValidation)
+		}
+		passwordHash, hashErr := auth.HashPassword(password)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+		user = &database.User{
+			ID:           uuid.New(),
+			Email:        email,
+			FullName:     fullName,
+			PasswordHash: passwordHash,
+			Status:       "active",
+			CreatedAt:    time.Now().UTC(),
+			UpdatedAt:    time.Now().UTC(),
+		}
+		if _, err := s.db.NewInsert().Model(user).Exec(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	existingMembership, err := s.findWorkspaceMembership(ctx, user.ID, workspaceID)
+	if err == nil && existingMembership != nil {
+		return nil, fmt.Errorf("%w: user is already associated with this workspace", ErrConflict)
+	}
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	membership := &database.WorkspaceMembership{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		UserID:      user.ID,
+		Status:      status,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if _, err := s.db.NewInsert().Model(membership).Exec(ctx); err != nil {
+		return nil, err
+	}
+	if err := s.assignWorkspaceRolesByCode(ctx, membership.ID, roleCodes); err != nil {
+		return nil, err
+	}
+	return s.buildWorkspaceMemberRecord(ctx, *membership, *user)
+}
+
+func (s *Service) UpdatePlatformWorkspaceMember(ctx context.Context, principal *Principal, workspaceID, membershipID uuid.UUID, status string, roleCodes []string) (*WorkspaceMemberRecord, error) {
+	if _, err := s.requirePlatformAccess(ctx, principal, "platform.workspaces.manage"); err != nil {
+		return nil, err
+	}
+	return s.UpdateWorkspaceMember(ctx, &Principal{
+		UserID:             principal.UserID,
+		Portal:             auth.PortalCustomer,
+		SessionID:          principal.SessionID,
+		AssumedWorkspaceID: &workspaceID,
+	}, workspaceID, membershipID, status, roleCodes)
+}
+
 func (s *Service) AssumeWorkspace(ctx context.Context, principal *Principal, workspaceID uuid.UUID) (*AuthSessionResponse, string, error) {
 	if _, err := s.requirePlatformAccess(ctx, principal, "platform.support.assume_workspace"); err != nil {
 		return nil, "", err
@@ -978,6 +1179,55 @@ func (s *Service) createWorkspaceMembership(ctx context.Context, userID uuid.UUI
 		return nil, nil, err
 	}
 	return workspace, membership, nil
+}
+
+func (s *Service) buildPlatformUserRecord(ctx context.Context, user database.User) (*PlatformUserRecord, error) {
+	roleMap, err := s.listPlatformRolesByUser(ctx, []string{user.ID.String()})
+	if err != nil {
+		return nil, err
+	}
+	countMap, err := s.listWorkspaceCountsByUser(ctx, []string{user.ID.String()})
+	if err != nil {
+		return nil, err
+	}
+	memberships, err := s.listWorkspaceMembershipSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &PlatformUserRecord{
+		User:                 apiUserFromModel(user),
+		PlatformRoles:        roleMap[user.ID.String()],
+		WorkspaceCount:       countMap[user.ID.String()],
+		WorkspaceMemberships: memberships,
+	}, nil
+}
+
+func (s *Service) buildPlatformWorkspaceRecord(ctx context.Context, workspace database.Workspace) (*PlatformWorkspaceRecord, error) {
+	memberCounts, activeCounts, err := s.listWorkspaceCounts(ctx, []string{workspace.ID.String()})
+	if err != nil {
+		return nil, err
+	}
+	return &PlatformWorkspaceRecord{
+		ID:                workspace.ID.String(),
+		Name:              workspace.Name,
+		Slug:              workspace.Slug,
+		Status:            workspace.Status,
+		MemberCount:       memberCounts[workspace.ID.String()],
+		ActiveMemberCount: activeCounts[workspace.ID.String()],
+	}, nil
+}
+
+func (s *Service) buildWorkspaceMemberRecord(ctx context.Context, membership database.WorkspaceMembership, user database.User) (*WorkspaceMemberRecord, error) {
+	roleMap, err := s.listMembershipRoles(ctx, []string{membership.ID.String()})
+	if err != nil {
+		return nil, err
+	}
+	return &WorkspaceMemberRecord{
+		MembershipID: membership.ID.String(),
+		User:         apiUserFromModel(user),
+		Status:       membership.Status,
+		Roles:        roleMap[membership.ID.String()],
+	}, nil
 }
 
 func (s *Service) ensureWorkspaceSlug(ctx context.Context, name string, workspaceID uuid.UUID) (string, error) {
@@ -1166,6 +1416,38 @@ func (s *Service) ensureWorkspaceHasOwner(ctx context.Context, workspaceID uuid.
 	}
 	if ownerCount == 0 {
 		return ErrLastWorkspaceOwner
+	}
+	return nil
+}
+
+func (s *Service) ensurePlatformHasActiveSuperAdmin(ctx context.Context, userID uuid.UUID, nextStatus string, nextRoleCodes []string) error {
+	if nextStatus == "active" && slices.Contains(nextRoleCodes, "super_admin") {
+		return nil
+	}
+
+	type row struct {
+		UserID string `bun:"user_id"`
+	}
+	var rows []row
+	if err := s.db.NewSelect().
+		TableExpr("platform_user_roles AS pur").
+		ColumnExpr("pur.user_id::text AS user_id").
+		Join("JOIN roles AS r ON r.id = pur.role_id").
+		Join("JOIN users AS u ON u.id = pur.user_id").
+		Where("r.code = ?", "super_admin").
+		Where("u.status = ?", "active").
+		Scan(ctx, &rows); err != nil {
+		return err
+	}
+
+	activeSuperAdminCount := 0
+	for _, row := range rows {
+		if row.UserID != userID.String() {
+			activeSuperAdminCount++
+		}
+	}
+	if activeSuperAdminCount == 0 {
+		return fmt.Errorf("%w: platform must retain at least one active super admin", ErrConflict)
 	}
 	return nil
 }

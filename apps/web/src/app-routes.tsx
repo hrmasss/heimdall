@@ -101,9 +101,49 @@ const AdminUsers = lazy(async () =>
 		default: module.AdminUsers,
 	})),
 );
+const AdminUserCreatePage = lazy(async () =>
+	import("@/pages/admin/user-form").then((module) => ({
+		default: () => <module.AdminUserFormPage mode="create" />,
+	})),
+);
+const AdminUserEditPage = lazy(async () =>
+	import("@/pages/admin/user-form").then((module) => ({
+		default: () => <module.AdminUserFormPage mode="edit" />,
+	})),
+);
+const AdminUserDetailPage = lazy(async () =>
+	import("@/pages/admin/user-detail").then((module) => ({
+		default: module.AdminUserDetailPage,
+	})),
+);
 const AdminWorkspaces = lazy(async () =>
 	import("@/pages/admin/workspaces").then((module) => ({
 		default: module.AdminWorkspaces,
+	})),
+);
+const AdminWorkspaceCreatePage = lazy(async () =>
+	import("@/pages/admin/workspace-form").then((module) => ({
+		default: () => <module.AdminWorkspaceFormPage mode="create" />,
+	})),
+);
+const AdminWorkspaceEditPage = lazy(async () =>
+	import("@/pages/admin/workspace-form").then((module) => ({
+		default: () => <module.AdminWorkspaceFormPage mode="edit" />,
+	})),
+);
+const AdminWorkspaceDetailPage = lazy(async () =>
+	import("@/pages/admin/workspace-detail").then((module) => ({
+		default: module.AdminWorkspaceDetailPage,
+	})),
+);
+const AdminWorkspaceMemberCreatePage = lazy(async () =>
+	import("@/pages/admin/workspace-member-form").then((module) => ({
+		default: () => <module.AdminWorkspaceMemberFormPage mode="create" />,
+	})),
+);
+const AdminWorkspaceMemberEditPage = lazy(async () =>
+	import("@/pages/admin/workspace-member-form").then((module) => ({
+		default: () => <module.AdminWorkspaceMemberFormPage mode="edit" />,
 	})),
 );
 const AdminSubscriptions = lazy(async () =>
@@ -194,7 +234,21 @@ export function AppRoutes() {
 					>
 						<Route index element={<AdminOverview />} />
 						<Route path="users" element={<AdminUsers />} />
+						<Route path="users/new" element={<AdminUserCreatePage />} />
+						<Route path="users/:id" element={<AdminUserDetailPage />} />
+						<Route path="users/:id/edit" element={<AdminUserEditPage />} />
 						<Route path="workspaces" element={<AdminWorkspaces />} />
+						<Route path="workspaces/new" element={<AdminWorkspaceCreatePage />} />
+						<Route path="workspaces/:id" element={<AdminWorkspaceDetailPage />} />
+						<Route path="workspaces/:id/edit" element={<AdminWorkspaceEditPage />} />
+						<Route
+							path="workspaces/:id/members/new"
+							element={<AdminWorkspaceMemberCreatePage />}
+						/>
+						<Route
+							path="workspaces/:id/members/:membershipId/edit"
+							element={<AdminWorkspaceMemberEditPage />}
+						/>
 						<Route path="subscriptions" element={<AdminSubscriptions />} />
 						<Route path="api-keys" element={<AdminApiKeys />} />
 						<Route path="blog-posts" element={<AdminBlogPosts />} />

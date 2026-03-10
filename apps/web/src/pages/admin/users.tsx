@@ -1,5 +1,15 @@
-import { Edit2, ShieldCheck, UserCog } from "lucide-react";
+import {
+	Copy,
+	Ellipsis,
+	Eye,
+	PencilLine,
+	ShieldCheck,
+	ToggleLeft,
+	ToggleRight,
+	UserPlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
@@ -8,18 +18,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@/components/ui/native-select";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformUserRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
@@ -87,37 +91,24 @@ function RoleBadges({ roles }: { roles: PlatformUserRecord["platformRoles"] }) {
 }
 
 export function AdminUsers() {
-	const { platformRequest } = useAuth();
+	const navigate = useNavigate();
+	const { platformRequest, hasPlatformPermission, platformSession } = useAuth();
 	const [users, setUsers] = useState<PlatformUserRecord[]>([]);
-	const [availableRoles, setAvailableRoles] = useState<string[]>([
-		"super_admin",
-		"ops_admin",
-		"support_agent",
-	]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [editTarget, setEditTarget] = useState<PlatformUserRecord | null>(null);
-	const [editStatus, setEditStatus] = useState("active");
-	const [editRoleCode, setEditRoleCode] = useState("support_agent");
+	const [busyUserId, setBusyUserId] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 
 	async function loadUsers() {
 		setLoading(true);
 		setError(null);
+		setNotice(null);
 		try {
 			const response =
 				await platformRequest<ApiListResponse<PlatformUserRecord>>(
 					"/platform/users",
 				);
 			setUsers(response.items);
-			const uniqueRoles = new Set<string>();
-			for (const user of response.items) {
-				for (const role of user.platformRoles) {
-					uniqueRoles.add(role.code);
-				}
-			}
-			if (uniqueRoles.size) {
-				setAvailableRoles([...uniqueRoles]);
-			}
 		} catch (loadError) {
 			setError(loadError instanceof Error ? loadError.message : "Unable to load users.");
 		} finally {
@@ -129,19 +120,53 @@ export function AdminUsers() {
 		void loadUsers();
 	}, []);
 
-	async function updateUser() {
-		if (!editTarget) {
+	async function updateUserStatus(record: PlatformUserRecord) {
+		setBusyUserId(record.user.id);
+		setError(null);
+		setNotice(null);
+		const nextStatus = record.user.status === "active" ? "suspended" : "active";
+		try {
+			const updated = await platformRequest<PlatformUserRecord>(
+				`/platform/users/${record.user.id}`,
+				{
+					method: "PATCH",
+					body: {
+						fullName: record.user.fullName,
+						status: nextStatus,
+						roleCodes: record.platformRoles.map((role) => role.code),
+					},
+				},
+			);
+			setUsers((current) =>
+				current.map((item) =>
+					item.user.id === updated.user.id ? updated : item,
+				),
+			);
+			setNotice(
+				nextStatus === "active"
+					? "User activated."
+					: "User suspended.",
+			);
+		} catch (updateError) {
+			setError(
+				updateError instanceof Error
+					? updateError.message
+					: "Unable to update the user state.",
+			);
+		} finally {
+			setBusyUserId(null);
+		}
+	}
+
+	async function copyValue(value: string, message: string) {
+		if (!navigator.clipboard) {
 			return;
 		}
-		await platformRequest<PlatformUserRecord>(`/platform/users/${editTarget.user.id}`, {
-			method: "PATCH",
-			body: {
-				status: editStatus,
-				roleCodes: editRoleCode ? [editRoleCode] : [],
-			},
-		});
-		setEditTarget(null);
-		await loadUsers();
+		await navigator.clipboard.writeText(value);
+		setNotice(message);
+		window.setTimeout(() => {
+			setNotice((current) => (current === message ? null : current));
+		}, 1800);
 	}
 
 	const columns: DataTableColumn<PlatformUserRecord>[] = [
@@ -173,6 +198,97 @@ export function AdminUsers() {
 			accessor: (record) => String(record.workspaceCount),
 			getSortValue: (record) => record.workspaceCount,
 		},
+		{
+			id: "actions",
+			label: "Manage",
+			width: 280,
+			accessor: (record) => (
+				<div
+					className="flex items-center justify-end gap-2"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<Button
+						variant="outline"
+						size="sm"
+						className="rounded-full"
+						onClick={() => navigate(`/admin/users/${record.user.id}`)}
+					>
+						<Eye className="size-4" />
+						View
+					</Button>
+					{hasPlatformPermission("platform.users.manage") ? (
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								className="rounded-full"
+								onClick={() => navigate(`/admin/users/${record.user.id}/edit`)}
+							>
+								<PencilLine className="size-4" />
+								Edit user
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="rounded-full"
+								onClick={() => void updateUserStatus(record)}
+								disabled={
+									busyUserId === record.user.id ||
+									record.user.id === platformSession?.user.id
+								}
+								title={
+									record.user.id === platformSession?.user.id
+										? "You cannot suspend your own platform account."
+										: undefined
+								}
+							>
+								{record.user.status === "active" ? (
+									<ToggleLeft className="size-4" />
+								) : (
+									<ToggleRight className="size-4" />
+								)}
+								{record.user.status === "active" ? "Suspend" : "Activate"}
+							</Button>
+						</>
+					) : null}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon-sm" className="rounded-full">
+								<Ellipsis className="size-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="rounded-[20px] p-2">
+							<DropdownMenuItem
+								className="rounded-[14px] px-3 py-2"
+								onClick={() => navigate(`/admin/users/${record.user.id}`)}
+							>
+								<Eye className="size-4" />
+								Open detail
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								className="rounded-[14px] px-3 py-2"
+								onClick={() =>
+									void copyValue(record.user.email, "Copied user email.")
+								}
+							>
+								<Copy className="size-4" />
+								Copy email
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								className="rounded-[14px] px-3 py-2"
+								onClick={() => void copyValue(record.user.id, "Copied user ID.")}
+							>
+								<Copy className="size-4" />
+								Copy user ID
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
+			),
+			className: "text-right",
+			headerClassName: "text-right",
+		},
 	];
 
 	return (
@@ -181,9 +297,27 @@ export function AdminUsers() {
 				eyebrow="Platform Access"
 				title="Users"
 				description="Manage global admin, ops, and support access across the Heimdall platform."
+				actions={
+					hasPlatformPermission("platform.users.manage") ? (
+						<Button
+							className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+							asChild
+						>
+							<Link to="/admin/users/new">
+								<UserPlus className="size-4" />
+								New platform user
+							</Link>
+						</Button>
+					) : null
+				}
 			/>
 
 			<SurfaceCard className="p-5 md:p-6">
+				{notice ? (
+					<div className="mb-4 rounded-[22px] border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+						{notice}
+					</div>
+				) : null}
 				<DataTable
 					title="Platform directory"
 					description="Review global access, workspace footprint, and account state from one directory."
@@ -205,17 +339,7 @@ export function AdminUsers() {
 						title: "No platform users found",
 						description: "Bootstrap a platform admin to begin managing users.",
 					}}
-					rowActions={[
-						{
-							label: "Edit access",
-							icon: UserCog,
-							onClick: (record) => {
-								setEditTarget(record);
-								setEditStatus(record.user.status);
-								setEditRoleCode(record.platformRoles[0]?.code ?? "support_agent");
-							},
-						},
-					]}
+					onRowClick={(record) => navigate(`/admin/users/${record.user.id}`)}
 					renderGridCard={(record) => (
 						<div className="space-y-4">
 							<div className="flex items-start justify-between gap-3">
@@ -226,66 +350,59 @@ export function AdminUsers() {
 							<div className="text-sm text-muted-foreground">
 								{record.workspaceCount} workspace assignments
 							</div>
+							<div
+								className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4"
+								onClick={(event) => event.stopPropagation()}
+							>
+								<Button
+									variant="outline"
+									size="sm"
+									className="rounded-full"
+									onClick={() => navigate(`/admin/users/${record.user.id}`)}
+								>
+									<Eye className="size-4" />
+									View
+								</Button>
+								{hasPlatformPermission("platform.users.manage") ? (
+									<>
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={() => navigate(`/admin/users/${record.user.id}/edit`)}
+										>
+											<PencilLine className="size-4" />
+											Edit user
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="rounded-full"
+											onClick={() => void updateUserStatus(record)}
+											disabled={
+												busyUserId === record.user.id ||
+												record.user.id === platformSession?.user.id
+											}
+											title={
+												record.user.id === platformSession?.user.id
+													? "You cannot suspend your own platform account."
+													: undefined
+											}
+										>
+											{record.user.status === "active" ? (
+												<ToggleLeft className="size-4" />
+											) : (
+												<ToggleRight className="size-4" />
+											)}
+											{record.user.status === "active" ? "Suspend" : "Activate"}
+										</Button>
+									</>
+								) : null}
+							</div>
 						</div>
 					)}
 				/>
 			</SurfaceCard>
-
-			<Dialog open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Edit platform access</DialogTitle>
-						<DialogDescription>
-							Update platform role assignment and account status for this user.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="grid gap-4 py-2">
-						<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 p-4">
-							<div className="font-medium">{editTarget?.user.fullName}</div>
-							<div className="text-sm text-muted-foreground">{editTarget?.user.email}</div>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="platform-role">Role</Label>
-							<NativeSelect
-								id="platform-role"
-								value={editRoleCode}
-								onChange={(event) => setEditRoleCode(event.target.value)}
-								className="rounded-xl"
-							>
-								{availableRoles.map((roleCode) => (
-									<NativeSelectOption key={roleCode} value={roleCode}>
-										{roleCode}
-									</NativeSelectOption>
-								))}
-							</NativeSelect>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="platform-status">Status</Label>
-							<NativeSelect
-								id="platform-status"
-								value={editStatus}
-								onChange={(event) => setEditStatus(event.target.value)}
-								className="rounded-xl"
-							>
-								<NativeSelectOption value="active">Active</NativeSelectOption>
-								<NativeSelectOption value="suspended">Suspended</NativeSelectOption>
-							</NativeSelect>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="outline" className="rounded-full">
-							Cancel
-						</Button>
-						<Button
-							className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
-							onClick={() => void updateUser()}
-						>
-							<Edit2 className="size-4" />
-							Save changes
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }

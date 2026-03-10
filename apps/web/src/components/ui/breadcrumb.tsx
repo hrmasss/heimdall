@@ -73,19 +73,20 @@ function BreadcrumbSeparator({
   children,
   className,
   ...props
-}: React.ComponentProps<"li">) {
+}: React.ComponentProps<"span">) {
   return (
-    <li
+    <span
       data-slot="breadcrumb-separator"
       role="presentation"
       aria-hidden="true"
+      style={{ display: "inline-flex" }}
       className={cn("[&>svg]:size-3.5", className)}
       {...props}
     >
       {children ?? (
         <RiArrowRightSLine />
       )}
-    </li>
+    </span>
   )
 }
 

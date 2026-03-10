@@ -72,12 +72,40 @@ export function AuthProvider({ children }: PropsWithChildren) {
 	);
 
 	useEffect(() => {
-		void Promise.allSettled([
-			apiRequest<AuthSession>("/auth/refresh", { method: "POST" }),
-			apiRequest<AuthSession>("/platform/auth/refresh", { method: "POST" }),
-		]).then((results) => {
-			const customer = results[0].status === "fulfilled" ? results[0].value : null;
-			const platform = results[1].status === "fulfilled" ? results[1].value : null;
+		const pathname =
+			typeof window === "undefined" ? "/" : window.location.pathname;
+		const shouldRefreshCustomer =
+			!pathname.startsWith("/admin") || Boolean(readStorage(CUSTOMER_TOKEN_KEY));
+		const shouldRefreshPlatform =
+			pathname.startsWith("/admin") || Boolean(readStorage(PLATFORM_TOKEN_KEY));
+		const refreshes: Array<PromiseSettledResult<AuthSession> | null> = [null, null];
+		const jobs: Promise<void>[] = [];
+
+		if (shouldRefreshCustomer) {
+			jobs.push(
+				Promise.allSettled([
+					apiRequest<AuthSession>("/auth/refresh", { method: "POST" }),
+				]).then((results) => {
+					refreshes[0] = results[0];
+				}),
+			);
+		}
+
+		if (shouldRefreshPlatform) {
+			jobs.push(
+				Promise.allSettled([
+					apiRequest<AuthSession>("/platform/auth/refresh", { method: "POST" }),
+				]).then((results) => {
+					refreshes[1] = results[0];
+				}),
+			);
+		}
+
+		void Promise.all(jobs).then(() => {
+			const customer =
+				refreshes[0]?.status === "fulfilled" ? refreshes[0].value : null;
+			const platform =
+				refreshes[1]?.status === "fulfilled" ? refreshes[1].value : null;
 			if (customer) {
 				setCustomerSession(customer);
 				setCustomerToken(customer.accessToken ?? null);

@@ -361,6 +361,10 @@ function getAdminBreadcrumbs(pathname: string) {
 	const segments = pathname.replace("/admin/", "").split("/");
 	const labelMap: Record<string, string> = {
 		users: "Users",
+		workspaces: "Workspaces",
+		members: "Members",
+		new: "New",
+		edit: "Edit",
 		subscriptions: "Subscriptions",
 		"api-keys": "API Keys",
 		"blog-posts": "Blog Posts",
@@ -371,7 +375,9 @@ function getAdminBreadcrumbs(pathname: string) {
 	let currentPath = "/admin";
 	for (const segment of segments) {
 		currentPath += `/${segment}`;
-		const label = labelMap[segment] || segment;
+		const label =
+			labelMap[segment] ||
+			(/^[0-9a-f-]{36}$/i.test(segment) ? "Detail" : segment);
 		crumbs.push({ label, href: currentPath });
 	}
 

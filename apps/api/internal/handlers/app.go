@@ -39,6 +39,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/platform/auth/refresh", h.platformRefresh)
 	api.Post("/platform/auth/logout", h.platformLogout)
 	api.Get("/platform/me", h.requireAuth, h.platformMe)
+	api.Get("/platform/roles", h.requireAuth, h.listPlatformRoles)
 
 	api.Get("/workspaces", h.requireAuth, h.listWorkspaces)
 	api.Post("/workspaces", h.requireAuth, h.createWorkspace)
@@ -52,12 +53,17 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Delete("/workspaces/:id/invites/:inviteId", h.requireAuth, h.deleteWorkspaceInvite)
 	api.Post("/invites/:token/accept", h.requireAuth, h.acceptInvite)
 
+	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
+	api.Get("/platform/users/:id", h.requireAuth, h.getPlatformUser)
 	api.Patch("/platform/users/:id", h.requireAuth, h.updatePlatformUser)
 	api.Get("/platform/workspaces", h.requireAuth, h.listPlatformWorkspaces)
 	api.Post("/platform/workspaces", h.requireAuth, h.createPlatformWorkspace)
+	api.Get("/platform/workspaces/:id", h.requireAuth, h.getPlatformWorkspace)
 	api.Patch("/platform/workspaces/:id", h.requireAuth, h.updatePlatformWorkspace)
 	api.Get("/platform/workspaces/:id/members", h.requireAuth, h.listPlatformWorkspaceMembers)
+	api.Post("/platform/workspaces/:id/members", h.requireAuth, h.createPlatformWorkspaceMember)
+	api.Patch("/platform/workspaces/:id/members/:membershipId", h.requireAuth, h.updatePlatformWorkspaceMember)
 	api.Post("/platform/workspaces/:id/assume-access", h.requireAuth, h.assumeWorkspace)
 }
 
@@ -176,6 +182,18 @@ func (h *AppHandler) platformMe(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.JSON(session)
+}
+
+func (h *AppHandler) listPlatformRoles(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	items, err := h.service.ListPlatformRoles(c.Context(), principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": items})
 }
 
 func (h *AppHandler) listWorkspaces(c fiber.Ctx) error {
@@ -380,12 +398,51 @@ func (h *AppHandler) listPlatformUsers(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"items": items})
 }
 
+func (h *AppHandler) createPlatformUser(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	var body struct {
+		FullName  string   `json:"fullName"`
+		Email     string   `json:"email"`
+		Password  string   `json:"password"`
+		Status    string   `json:"status"`
+		RoleCodes []string `json:"roleCodes"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.service.CreatePlatformUser(c.Context(), principal, body.FullName, body.Email, body.Password, body.Status, body.RoleCodes)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) getPlatformUser(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.service.GetPlatformUser(c.Context(), principal, userID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
 func (h *AppHandler) updatePlatformUser(c fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return h.writeError(c, iam.ErrValidation)
 	}
 	var body struct {
+		FullName  string   `json:"fullName"`
 		Status    string   `json:"status"`
 		RoleCodes []string `json:"roleCodes"`
 	}
@@ -396,7 +453,7 @@ func (h *AppHandler) updatePlatformUser(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, err)
 	}
-	record, err := h.service.UpdatePlatformUser(c.Context(), principal, userID, body.Status, body.RoleCodes)
+	record, err := h.service.UpdatePlatformUser(c.Context(), principal, userID, body.FullName, body.Status, body.RoleCodes)
 	if err != nil {
 		return h.writeError(c, err)
 	}
@@ -431,6 +488,22 @@ func (h *AppHandler) createPlatformWorkspace(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) getPlatformWorkspace(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.service.GetPlatformWorkspace(c.Context(), principal, workspaceID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
 }
 
 func (h *AppHandler) updatePlatformWorkspace(c fiber.Ctx) error {
@@ -470,6 +543,59 @@ func (h *AppHandler) listPlatformWorkspaceMembers(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.JSON(fiber.Map{"items": items})
+}
+
+func (h *AppHandler) createPlatformWorkspaceMember(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body struct {
+		FullName  string   `json:"fullName"`
+		Email     string   `json:"email"`
+		Password  string   `json:"password"`
+		Status    string   `json:"status"`
+		RoleCodes []string `json:"roleCodes"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.service.CreatePlatformWorkspaceMember(c.Context(), principal, workspaceID, body.FullName, body.Email, body.Password, body.Status, body.RoleCodes)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) updatePlatformWorkspaceMember(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	membershipID, err := uuid.Parse(c.Params("membershipId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body struct {
+		Status    string   `json:"status"`
+		RoleCodes []string `json:"roleCodes"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.service.UpdatePlatformWorkspaceMember(c.Context(), principal, workspaceID, membershipID, body.Status, body.RoleCodes)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
 }
 
 func (h *AppHandler) assumeWorkspace(c fiber.Ctx) error {

@@ -1,26 +1,12 @@
-import { Building2, Edit2, Shield, UserPlus } from "lucide-react";
+import { Building2, PencilLine, Shield, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@/components/ui/native-select";
 import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformWorkspaceRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
@@ -46,14 +32,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function AdminWorkspaces() {
+	const navigate = useNavigate();
 	const { platformRequest, hasPlatformPermission } = useAuth();
 	const [workspaces, setWorkspaces] = useState<PlatformWorkspaceRecord[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [createName, setCreateName] = useState("");
-	const [editTarget, setEditTarget] = useState<PlatformWorkspaceRecord | null>(null);
-	const [editName, setEditName] = useState("");
-	const [editStatus, setEditStatus] = useState("active");
 
 	async function loadWorkspaces() {
 		setLoading(true);
@@ -74,30 +57,6 @@ export function AdminWorkspaces() {
 	useEffect(() => {
 		void loadWorkspaces();
 	}, []);
-
-	async function createWorkspace() {
-		await platformRequest<PlatformWorkspaceRecord>("/platform/workspaces", {
-			method: "POST",
-			body: { name: createName },
-		});
-		setCreateName("");
-		await loadWorkspaces();
-	}
-
-	async function updateWorkspace() {
-		if (!editTarget) {
-			return;
-		}
-		await platformRequest<PlatformWorkspaceRecord>(
-			`/platform/workspaces/${editTarget.id}`,
-			{
-				method: "PATCH",
-				body: { name: editName, status: editStatus },
-			},
-		);
-		setEditTarget(null);
-		await loadWorkspaces();
-	}
 
 	async function assumeWorkspace(workspaceId: string) {
 		await platformRequest(`/platform/workspaces/${workspaceId}/assume-access`, {
@@ -150,43 +109,15 @@ export function AdminWorkspaces() {
 				description="Create, update, suspend, and support customer workspaces from the platform control surface."
 				actions={
 					hasPlatformPermission("platform.workspaces.manage") ? (
-						<Dialog>
-							<DialogTrigger asChild>
-								<Button className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-									<UserPlus className="size-4" />
-									New workspace
-								</Button>
-							</DialogTrigger>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Create workspace</DialogTitle>
-									<DialogDescription>
-										Create a platform-managed customer workspace.
-									</DialogDescription>
-								</DialogHeader>
-								<div className="grid gap-2 py-2">
-									<Label htmlFor="workspace-name">Workspace name</Label>
-									<Input
-										id="workspace-name"
-										value={createName}
-										onChange={(event) => setCreateName(event.target.value)}
-										className="rounded-xl"
-										placeholder="Northset"
-									/>
-								</div>
-								<DialogFooter>
-									<Button variant="outline" className="rounded-full">
-										Cancel
-									</Button>
-									<Button
-										className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
-										onClick={() => void createWorkspace()}
-									>
-										Create
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
+						<Button
+							className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+							asChild
+						>
+							<Link to="/admin/workspaces/new">
+								<Building2 className="size-4" />
+								New workspace
+							</Link>
+						</Button>
 					) : null
 				}
 			/>
@@ -215,13 +146,15 @@ export function AdminWorkspaces() {
 					}}
 					rowActions={[
 						{
+							label: "Manage members",
+							icon: Users,
+							onClick: (workspace) => navigate(`/admin/workspaces/${workspace.id}`),
+						},
+						{
 							label: "Edit workspace",
-							icon: Edit2,
-							onClick: (workspace) => {
-								setEditTarget(workspace);
-								setEditName(workspace.name);
-								setEditStatus(workspace.status);
-							},
+							icon: PencilLine,
+							onClick: (workspace) =>
+								navigate(`/admin/workspaces/${workspace.id}/edit`),
 						},
 						{
 							label: "Assume workspace",
@@ -259,51 +192,6 @@ export function AdminWorkspaces() {
 					)}
 				/>
 			</SurfaceCard>
-
-			<Dialog open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Edit workspace</DialogTitle>
-						<DialogDescription>
-							Update the workspace name or lifecycle state.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="grid gap-4 py-2">
-						<div className="grid gap-2">
-							<Label htmlFor="edit-workspace-name">Name</Label>
-							<Input
-								id="edit-workspace-name"
-								value={editName}
-								onChange={(event) => setEditName(event.target.value)}
-								className="rounded-xl"
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="edit-workspace-status">Status</Label>
-							<NativeSelect
-								id="edit-workspace-status"
-								value={editStatus}
-								onChange={(event) => setEditStatus(event.target.value)}
-								className="rounded-xl"
-							>
-								<NativeSelectOption value="active">Active</NativeSelectOption>
-								<NativeSelectOption value="suspended">Suspended</NativeSelectOption>
-							</NativeSelect>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="outline" className="rounded-full">
-							Cancel
-						</Button>
-						<Button
-							className="rounded-full border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
-							onClick={() => void updateWorkspace()}
-						>
-							Save changes
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }

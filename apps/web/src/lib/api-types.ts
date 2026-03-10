@@ -70,6 +70,7 @@ export type PlatformUserRecord = {
 	user: User;
 	platformRoles: Role[];
 	workspaceCount: number;
+	workspaceMemberships?: WorkspaceMembershipSummary[];
 };
 
 export type PlatformWorkspaceRecord = {

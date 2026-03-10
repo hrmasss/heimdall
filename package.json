@@ -5,16 +5,17 @@
   "description": "Centralized Social Media Management Platform",
   "workspaces": ["apps/*"],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "predev": "node scripts/free-dev-ports.mjs 8080 5173",
+    "dev": "pnpm run predev && concurrently -k -n api,web -c blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
     "dev:api": "cd apps/api && go run ./cmd/server",
-    "dev:web": "cd apps/web && npm run dev",
-    "build": "npm run build:api && npm run build:web",
+    "dev:web": "pnpm --dir apps/web dev",
+    "build": "pnpm run build:api && pnpm run build:web",
     "build:api": "cd apps/api && go build -o ../../bin/api ./cmd/server",
-    "build:web": "cd apps/web && npm run build",
-    "lint": "npm run lint:web",
-    "lint:web": "cd apps/web && npm run lint",
-    "format": "cd apps/web && npm run format",
-    "typecheck": "cd apps/web && npm run typecheck"
+    "build:web": "pnpm --dir apps/web build",
+    "lint": "pnpm run lint:web",
+    "lint:web": "pnpm --dir apps/web lint",
+    "format": "pnpm --dir apps/web format",
+    "typecheck": "pnpm --dir apps/web typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
@@ -22,5 +23,5 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "packageManager": "npm@10.8.0"
+  "packageManager": "pnpm@10.17.1"
 }

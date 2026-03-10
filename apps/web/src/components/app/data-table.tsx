@@ -31,9 +31,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@/components/ui/native-select";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import {
 	Table,
@@ -141,6 +144,7 @@ export function DataTable<T>({
 	pageSizeOptions = [6, 12, 24],
 	searchPlaceholder = "Search campaigns, owners, notes...",
 	gridClassName,
+	onRowClick,
 }: {
 	title?: string;
 	description?: string;
@@ -164,6 +168,7 @@ export function DataTable<T>({
 	pageSizeOptions?: number[];
 	searchPlaceholder?: string;
 	gridClassName?: string;
+	onRowClick?: (row: T) => void;
 }) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const defaultSortColumn =
@@ -340,19 +345,24 @@ export function DataTable<T>({
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<span>Rows</span>
-						<NativeSelect
+						<Select
 							value={String(pageSize)}
-							onChange={(event) => {
-								setPageSize(Number(event.target.value));
+							onValueChange={(value) => {
+								setPageSize(Number(value));
 								setCurrentPage(1);
 							}}
 						>
-							{pageSizeOptions.map((option) => (
-								<NativeSelectOption key={option} value={String(option)}>
-									{option}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
+							<SelectTrigger className="h-9 w-[88px] rounded-full bg-card">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent align="end">
+								{pageSizeOptions.map((option) => (
+									<SelectItem key={option} value={String(option)}>
+										{option}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
 					<div className="flex items-center gap-1">
 						<Button
@@ -578,7 +588,14 @@ export function DataTable<T>({
 							</TableHeader>
 							<TableBody>
 								{paginatedRows.map((row) => (
-									<TableRow key={getRowId(row)}>
+									<TableRow
+										key={getRowId(row)}
+										onClick={onRowClick ? () => onRowClick(row) : undefined}
+										className={cn(
+											onRowClick &&
+												"cursor-pointer transition-colors hover:bg-accent/40",
+										)}
+									>
 										{orderedColumns.map((column) => (
 											<TableCell
 												key={`${getRowId(row)}-${column.id}`}
@@ -592,7 +609,11 @@ export function DataTable<T>({
 											<TableCell className="text-right">
 												<DropdownMenu>
 													<DropdownMenuTrigger asChild>
-														<Button variant="ghost" size="icon-sm">
+														<Button
+															variant="ghost"
+															size="icon-sm"
+															onClick={(event) => event.stopPropagation()}
+														>
 															<MoreHorizontal className="size-4" />
 														</Button>
 													</DropdownMenuTrigger>
@@ -603,7 +624,10 @@ export function DataTable<T>({
 																className={cn(
 																	action.destructive && "text-destructive",
 																)}
-																onClick={() => action.onClick?.(row)}
+																onClick={(event) => {
+																	event.stopPropagation();
+																	action.onClick?.(row);
+																}}
 															>
 																{action.icon ? (
 																	<action.icon className="size-4" />
@@ -629,7 +653,12 @@ export function DataTable<T>({
 							{paginatedRows.map((row) => (
 								<div
 									key={getRowId(row)}
-									className="rounded-[26px] border border-[var(--brand-border-soft)] bg-card p-5"
+									onClick={onRowClick ? () => onRowClick(row) : undefined}
+									className={cn(
+										"rounded-[26px] border border-[var(--brand-border-soft)] bg-card p-5",
+										onRowClick &&
+											"cursor-pointer transition-colors hover:bg-accent/20",
+									)}
 								>
 									{renderGridCard ? (
 										renderGridCard(row)

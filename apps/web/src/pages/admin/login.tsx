@@ -96,6 +96,8 @@ export function AdminLoginPage() {
 											<Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 											<Input
 												id="admin-email"
+												name="email"
+												autoComplete="email"
 												value={email}
 												onChange={(event) => setEmail(event.target.value)}
 												className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
@@ -110,6 +112,8 @@ export function AdminLoginPage() {
 											<LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 											<Input
 												id="admin-password"
+												name="password"
+												autoComplete="current-password"
 												value={password}
 												onChange={(event) => setPassword(event.target.value)}
 												className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10 pr-11"
