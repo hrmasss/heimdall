@@ -12,6 +12,7 @@ type Config struct {
 	API         APIConfig
 	Database    DatabaseConfig
 	Auth        AuthConfig
+	Storage     StorageConfig
 	Bootstrap   BootstrapConfig
 }
 
@@ -37,6 +38,16 @@ type AuthConfig struct {
 	CustomerCookieName string
 	PlatformCookieName string
 	CookieSecure       bool
+}
+
+// StorageConfig holds resource storage and media processing settings.
+type StorageConfig struct {
+	Driver                  string
+	LocalRoot               string
+	MaxUploadSizeBytes      int64
+	SignedURLTTL            time.Duration
+	SignedURLSecret         string
+	OptimizeImagesByDefault bool
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -68,6 +79,14 @@ func Load() *Config {
 			PlatformCookieName: getEnv("AUTH_PLATFORM_REFRESH_COOKIE", "heimdall_platform_refresh"),
 			CookieSecure:       getEnvBool("AUTH_COOKIE_SECURE", false),
 		},
+		Storage: StorageConfig{
+			Driver:                  getEnv("STORAGE_DRIVER", "local"),
+			LocalRoot:               getEnv("STORAGE_LOCAL_ROOT", "./tmp/storage"),
+			MaxUploadSizeBytes:      getEnvInt64("STORAGE_MAX_UPLOAD_BYTES", 1024*1024*512),
+			SignedURLTTL:            getEnvDuration("STORAGE_SIGNED_URL_TTL", 15*time.Minute),
+			SignedURLSecret:         getEnv("STORAGE_SIGNED_URL_SECRET", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
+			OptimizeImagesByDefault: getEnvBool("STORAGE_OPTIMIZE_IMAGES_BY_DEFAULT", true),
+		},
 		Bootstrap: BootstrapConfig{
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),
 			AdminEmail:    getEnv("BOOTSTRAP_ADMIN_EMAIL", ""),
@@ -86,6 +105,15 @@ func getEnv(key, defaultValue string) string {
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
+func getEnvInt64(key string, defaultValue int64) int64 {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
 			return intVal
 		}
 	}

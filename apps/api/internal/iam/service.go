@@ -176,6 +176,25 @@ func (s *Service) BuildPrincipal(token string) (*Principal, error) {
 	}, nil
 }
 
+func (s *Service) RequireWorkspacePermission(ctx context.Context, principal *Principal, workspaceID uuid.UUID, requiredPermission string) ([]APIPermission, error) {
+	return s.requireWorkspaceAccess(ctx, principal, workspaceID, requiredPermission)
+}
+
+func (s *Service) ResolveWorkspaceID(principal *Principal, requestedWorkspaceID string) (uuid.UUID, error) {
+	requestedWorkspaceID = strings.TrimSpace(requestedWorkspaceID)
+	if requestedWorkspaceID != "" {
+		workspaceID, err := uuid.Parse(requestedWorkspaceID)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("%w: invalid workspace id", ErrValidation)
+		}
+		return workspaceID, nil
+	}
+	if principal.AssumedWorkspaceID != nil {
+		return *principal.AssumedWorkspaceID, nil
+	}
+	return uuid.Nil, fmt.Errorf("%w: workspace context is required", ErrValidation)
+}
+
 func (s *Service) Register(ctx context.Context, fullName, email, password, workspaceName string) (*AuthSessionResponse, string, error) {
 	fullName = strings.TrimSpace(fullName)
 	email = normalizeEmail(email)

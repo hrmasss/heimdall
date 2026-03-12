@@ -134,3 +134,65 @@ type AuditLog struct {
 	Metadata    string     `bun:"metadata,notnull"`
 	CreatedAt   time.Time  `bun:"created_at,notnull"`
 }
+
+type Resource struct {
+	bun.BaseModel `bun:"table:resources"`
+
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ParentResourceID *uuid.UUID `bun:"parent_resource_id,type:uuid"`
+	MediaKind        string     `bun:"media_kind,notnull"`
+	SourceType       string     `bun:"source_type,notnull"`
+	LifecycleStatus  string     `bun:"lifecycle_status,notnull"`
+	DisplayName      string     `bun:"display_name,notnull"`
+	OriginalName     string     `bun:"original_name,notnull"`
+	MIMEType         string     `bun:"mime_type,notnull"`
+	FileExtension    string     `bun:"file_extension,notnull"`
+	ChecksumSHA256   string     `bun:"checksum_sha256,notnull"`
+	SizeBytes        int64      `bun:"size_bytes,notnull"`
+	WidthPx          *int       `bun:"width_px"`
+	HeightPx         *int       `bun:"height_px"`
+	DurationMS       *int64     `bun:"duration_ms"`
+	PageCount        *int       `bun:"page_count"`
+	FrameRate        *float64   `bun:"frame_rate"`
+	HasAudio         *bool      `bun:"has_audio"`
+	Optimized        bool       `bun:"optimized,notnull"`
+	StorageBackend   string     `bun:"storage_backend,notnull"`
+	StorageKey       string     `bun:"storage_key,notnull"`
+	TransformRecipe  string     `bun:"transform_recipe,notnull"`
+	ProcessingError  *string    `bun:"processing_error"`
+	CreatedByUserID  *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID  *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
+}
+
+type ResourceReference struct {
+	bun.BaseModel `bun:"table:resource_references"`
+
+	ID          uuid.UUID `bun:"id,pk,type:uuid"`
+	WorkspaceID uuid.UUID `bun:"workspace_id,notnull,type:uuid"`
+	ResourceID  uuid.UUID `bun:"resource_id,notnull,type:uuid"`
+	EntityType  string    `bun:"entity_type,notnull"`
+	EntityID    string    `bun:"entity_id,notnull"`
+	Slot        string    `bun:"slot,notnull"`
+	Position    int       `bun:"position,notnull"`
+	Metadata    string    `bun:"metadata,notnull"`
+	CreatedAt   time.Time `bun:"created_at,notnull"`
+	UpdatedAt   time.Time `bun:"updated_at,notnull"`
+}
+
+type ResourceCleanupJob struct {
+	bun.BaseModel `bun:"table:resource_cleanup_jobs"`
+
+	ID             uuid.UUID `bun:"id,pk,type:uuid"`
+	WorkspaceID    uuid.UUID `bun:"workspace_id,notnull,type:uuid"`
+	ResourceID     uuid.UUID `bun:"resource_id,notnull,type:uuid"`
+	StorageBackend string    `bun:"storage_backend,notnull"`
+	Payload        string    `bun:"payload,notnull"`
+	Status         string    `bun:"status,notnull"`
+	AttemptCount   int       `bun:"attempt_count,notnull"`
+	LastError      *string   `bun:"last_error"`
+	CreatedAt      time.Time `bun:"created_at,notnull"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull"`
+}

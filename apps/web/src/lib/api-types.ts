@@ -86,3 +86,70 @@ export type PlatformWorkspaceRecord = {
 export type ApiListResponse<T> = {
 	items: T[];
 };
+
+export type ResourceCompatibility = {
+	platform: string;
+	surface: string;
+	status: "supported" | "warning" | "unsupported";
+	reasons: string[];
+};
+
+export type ResourceCapabilityRule = {
+	platform: string;
+	surface: string;
+	label: string;
+	accepts: string[];
+	hardLimit: string[];
+	preferred: string[];
+	maxItems?: number;
+};
+
+export type ResourceCapabilityMatrix = {
+	rules: ResourceCapabilityRule[];
+};
+
+export type ResourceRecord = {
+	id: string;
+	workspaceId: string;
+	parentResourceId?: string;
+	mediaKind: "image" | "video" | "document";
+	sourceType: string;
+	lifecycleStatus: string;
+	displayName: string;
+	originalName: string;
+	mimeType: string;
+	fileExtension: string;
+	checksumSha256: string;
+	sizeBytes: number;
+	widthPx?: number;
+	heightPx?: number;
+	durationMs?: number;
+	pageCount?: number;
+	frameRate?: number;
+	hasAudio?: boolean;
+	optimized: boolean;
+	storageBackend: string;
+	downloadUrl: string;
+	previewUrl: string;
+	usageCount: number;
+	childCount: number;
+	transformRecipe?: Record<string, unknown>;
+	compatibility: ResourceCompatibility[];
+	processingError?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type ResourceDetail = ResourceRecord & {
+	variants: ResourceRecord[];
+};
+
+export type ResourceUploadResponse = {
+	resource: ResourceDetail;
+	optimization?: {
+		applied: boolean;
+		originalSizeBytes: number;
+		storedSizeBytes: number;
+		savedBytes: number;
+	};
+};

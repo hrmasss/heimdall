@@ -35,6 +35,8 @@ tags:
     description: Authentication and authorization
   - name: Workspaces
     description: Multi-tenant workspace management
+  - name: Resources
+    description: Workspace-scoped reusable media and capability registry
   - name: Posts
     description: Social media post management
   - name: Scheduling
@@ -72,6 +74,165 @@ paths:
                   goroutines: 8
                 checks:
                   api: "ok"
+  /api/v1/resources/capabilities:
+    get:
+      operationId: getResourceCapabilities
+      summary: List Resource Capabilities
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Workspace-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resource capability matrix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceCapabilityMatrix'
+  /api/v1/resources:
+    get:
+      operationId: listResources
+      summary: List Resources
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Workspace-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspace resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceListResponse'
+    post:
+      operationId: uploadResource
+      summary: Upload Resource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: header
+          name: X-Workspace-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                displayName:
+                  type: string
+                sourceType:
+                  type: string
+                optimize:
+                  type: boolean
+                transformRecipe:
+                  type: string
+      responses:
+        '201':
+          description: Uploaded resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceUploadResponse'
+  /api/v1/resources/{id}:
+    get:
+      operationId: getResource
+      summary: Get Resource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Resource detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceDetail'
+    delete:
+      operationId: deleteResource
+      summary: Delete Resource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '204':
+          description: Resource queued for cleanup
+  /api/v1/resources/{id}/download:
+    get:
+      operationId: downloadResource
+      summary: Download Resource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '302':
+          description: Redirects to a signed blob URL
+  /api/v1/resources/{id}/variants:
+    post:
+      operationId: createResourceVariant
+      summary: Create Resource Variant
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                displayName:
+                  type: string
+                optimize:
+                  type: boolean
+                transformRecipe:
+                  type: string
 
 components:
   securitySchemes:
@@ -80,6 +241,21 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT authentication token
+  parameters:
+    WorkspaceHeader:
+      in: header
+      name: X-Workspace-ID
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ResourceId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   schemas:
     HealthResponse:
@@ -149,3 +325,144 @@ components:
           type: object
           additionalProperties: true
           description: Additional error details
+    ResourceCapabilityMatrix:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceCapabilityRule'
+    ResourceCapabilityRule:
+      type: object
+      properties:
+        platform:
+          type: string
+        surface:
+          type: string
+        label:
+          type: string
+        accepts:
+          type: array
+          items:
+            type: string
+        hardLimit:
+          type: array
+          items:
+            type: string
+        preferred:
+          type: array
+          items:
+            type: string
+        maxItems:
+          type: integer
+    ResourceCompatibility:
+      type: object
+      properties:
+        platform:
+          type: string
+        surface:
+          type: string
+        status:
+          type: string
+          enum: [supported, warning, unsupported]
+        reasons:
+          type: array
+          items:
+            type: string
+    ResourceRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        parentResourceId:
+          type: string
+          format: uuid
+        mediaKind:
+          type: string
+          enum: [image, video, document]
+        sourceType:
+          type: string
+        lifecycleStatus:
+          type: string
+        displayName:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        fileExtension:
+          type: string
+        checksumSha256:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        widthPx:
+          type: integer
+        heightPx:
+          type: integer
+        pageCount:
+          type: integer
+        optimized:
+          type: boolean
+        storageBackend:
+          type: string
+        downloadUrl:
+          type: string
+        previewUrl:
+          type: string
+        usageCount:
+          type: integer
+        childCount:
+          type: integer
+        compatibility:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceCompatibility'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ResourceDetail:
+      allOf:
+        - $ref: '#/components/schemas/ResourceRecord'
+        - type: object
+          properties:
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResourceRecord'
+    ResourceListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRecord'
+    ResourceUploadOptimization:
+      type: object
+      properties:
+        applied:
+          type: boolean
+        originalSizeBytes:
+          type: integer
+          format: int64
+        storedSizeBytes:
+          type: integer
+          format: int64
+        savedBytes:
+          type: integer
+          format: int64
+    ResourceUploadResponse:
+      type: object
+      properties:
+        resource:
+          $ref: '#/components/schemas/ResourceDetail'
+        optimization:
+          $ref: '#/components/schemas/ResourceUploadOptimization'

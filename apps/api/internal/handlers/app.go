@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,15 +14,18 @@ import (
 	"github.com/heimdall/api/internal/auth"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/iam"
+	"github.com/heimdall/api/internal/resources"
 )
 
 type AppHandler struct {
-	service *iam.Service
-	cfg     *config.Config
+	service         *iam.Service
+	resourceService *resources.Service
+	blobServer      resources.SignedBlobServer
+	cfg             *config.Config
 }
 
-func NewAppHandler(service *iam.Service, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, cfg: cfg}
+func NewAppHandler(service *iam.Service, resourceService *resources.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, resourceService: resourceService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -54,6 +60,14 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/workspaces/:id/invites", h.requireAuth, h.createWorkspaceInvite)
 	api.Delete("/workspaces/:id/invites/:inviteId", h.requireAuth, h.deleteWorkspaceInvite)
 	api.Post("/invites/:token/accept", h.requireAuth, h.acceptInvite)
+	api.Get("/resource-blobs/:key", h.serveResourceBlob)
+	api.Get("/resources/capabilities", h.requireAuth, h.resourceCapabilities)
+	api.Post("/resources", h.requireAuth, h.uploadResource)
+	api.Get("/resources", h.requireAuth, h.listResources)
+	api.Get("/resources/:id/download", h.requireAuth, h.downloadResource)
+	api.Post("/resources/:id/variants", h.requireAuth, h.createResourceVariant)
+	api.Get("/resources/:id", h.requireAuth, h.getResource)
+	api.Delete("/resources/:id", h.requireAuth, h.deleteResource)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
@@ -414,6 +428,190 @@ func (h *AppHandler) acceptInvite(c fiber.Ctx) error {
 	return c.JSON(summary)
 }
 
+func (h *AppHandler) resourceCapabilities(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	if _, err := h.resolveWorkspaceID(c, principal); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(h.resourceService.Capabilities())
+}
+
+func (h *AppHandler) listResources(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	items, err := h.resourceService.ListResources(c.Context(), principal, workspaceID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": items})
+}
+
+func (h *AppHandler) getResource(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	item, err := h.resourceService.GetResource(c.Context(), principal, workspaceID, resourceID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(item)
+}
+
+func (h *AppHandler) uploadResource(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	input, err := h.bindResourceUpload(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	if closer, ok := input.Body.(io.Closer); ok {
+		defer closer.Close()
+	}
+	response, err := h.resourceService.UploadResource(c.Context(), principal, workspaceID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+func (h *AppHandler) createResourceVariant(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	input, err := h.bindResourceUpload(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	if closer, ok := input.Body.(io.Closer); ok {
+		defer closer.Close()
+	}
+	response, err := h.resourceService.CreateVariant(c.Context(), principal, workspaceID, resourceID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+func (h *AppHandler) downloadResource(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	downloadURL, err := h.resourceService.GetDownloadURL(c.Context(), principal, workspaceID, resourceID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Redirect().To(downloadURL)
+}
+
+func (h *AppHandler) deleteResource(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.resourceService.DeleteResource(c.Context(), principal, workspaceID, resourceID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) serveResourceBlob(c fiber.Ctx) error {
+	if h.blobServer == nil {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+	expiresUnix, err := strconv.ParseInt(c.Query("expires"), 10, 64)
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	blob, err := h.blobServer.OpenSigned(c.Context(), c.Params("key"), c.Query("filename"), expiresUnix, c.Query("sig"))
+	if err != nil {
+		return h.writeError(c, fmt.Errorf("%w: invalid or expired resource link", iam.ErrUnauthorized))
+	}
+	defer blob.Reader.Close()
+	c.Set("Content-Type", blob.ContentType)
+	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", blob.Filename))
+	return c.SendStream(blob.Reader, int(blob.Size))
+}
+
+func (h *AppHandler) bindResourceUpload(c fiber.Ctx) (resources.UploadInput, error) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil || fileHeader == nil {
+		return resources.UploadInput{}, fmt.Errorf("%w: file is required", iam.ErrValidation)
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return resources.UploadInput{}, err
+	}
+	optimizeValue := strings.TrimSpace(c.FormValue("optimize"))
+	var optimize *bool
+	if optimizeValue != "" {
+		parsed, parseErr := strconv.ParseBool(optimizeValue)
+		if parseErr != nil {
+			file.Close()
+			return resources.UploadInput{}, fmt.Errorf("%w: optimize must be true or false", iam.ErrValidation)
+		}
+		optimize = &parsed
+	}
+	return resources.UploadInput{
+		DisplayName:     strings.TrimSpace(c.FormValue("displayName")),
+		OriginalName:    fileHeader.Filename,
+		ContentType:     fileHeader.Header.Get("Content-Type"),
+		SourceType:      strings.TrimSpace(c.FormValue("sourceType")),
+		Optimize:        optimize,
+		TransformRecipe: strings.TrimSpace(c.FormValue("transformRecipe")),
+		Body:            file,
+	}, nil
+}
+
 func (h *AppHandler) listPlatformUsers(c fiber.Ctx) error {
 	principal, err := h.principal(c)
 	if err != nil {
@@ -684,6 +882,10 @@ func (h *AppHandler) principal(c fiber.Ctx) (*iam.Principal, error) {
 	}
 	c.Locals("principal", principal)
 	return principal, nil
+}
+
+func (h *AppHandler) resolveWorkspaceID(c fiber.Ctx, principal *iam.Principal) (uuid.UUID, error) {
+	return h.service.ResolveWorkspaceID(principal, c.Get("X-Workspace-ID"))
 }
 
 func (h *AppHandler) setRefreshCookie(c fiber.Ctx, portal, token string) {

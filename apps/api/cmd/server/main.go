@@ -18,6 +18,7 @@ import (
 	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/handlers"
 	"github.com/heimdall/api/internal/iam"
+	"github.com/heimdall/api/internal/resources"
 )
 
 func main() {
@@ -39,6 +40,19 @@ func main() {
 	defer cancel()
 	if err := service.Bootstrap(ctx); err != nil {
 		log.Fatalf("Failed to bootstrap IAM schema: %v", err)
+	}
+
+	localRoot := cfg.Storage.LocalRoot
+	if !filepath.IsAbs(localRoot) {
+		localRoot = filepath.Join(rootDir, localRoot)
+	}
+	storage, err := resources.NewLocalStorage(localRoot, cfg.Storage.SignedURLSecret)
+	if err != nil {
+		log.Fatalf("Failed to configure resource storage: %v", err)
+	}
+	resourceService := resources.NewService(db, cfg.Storage, storage, service)
+	if err := resourceService.RunCleanupSweep(ctx); err != nil {
+		log.Printf("Resource cleanup sweep failed during startup: %v", err)
 	}
 
 	// Create Fiber app
@@ -70,7 +84,7 @@ func main() {
 	}))
 
 	// Register routes
-	handlers.NewAppHandler(service, cfg).Register(app)
+	handlers.NewAppHandler(service, resourceService, storage, cfg).Register(app)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)
