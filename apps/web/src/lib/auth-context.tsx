@@ -1,6 +1,7 @@
 import {
-	createContext,
 	type PropsWithChildren,
+	createContext,
+	useCallback,
 	useContext,
 	useEffect,
 	useMemo,
@@ -24,21 +25,34 @@ type AuthContextValue = {
 	platformSession: AuthSession | null;
 	activeWorkspaceId: string | null;
 	activeWorkspaceMembership: WorkspaceMembershipSummary | null;
-	signInCustomer: (payload: { email: string; password: string }) => Promise<AuthSession>;
+	reloadCustomerSession: () => Promise<AuthSession | null>;
+	signInCustomer: (payload: {
+		email: string;
+		password: string;
+	}) => Promise<AuthSession>;
 	signUpCustomer: (payload: {
 		fullName: string;
 		email: string;
 		password: string;
 		workspaceName: string;
 	}) => Promise<AuthSession>;
-	signInPlatform: (payload: { email: string; password: string }) => Promise<AuthSession>;
+	signInPlatform: (payload: {
+		email: string;
+		password: string;
+	}) => Promise<AuthSession>;
 	logoutCustomer: () => Promise<void>;
 	logoutPlatform: () => Promise<void>;
 	setActiveWorkspaceId: (workspaceId: string) => void;
 	hasCustomerPermission: (code: string, capabilities?: Permission[]) => boolean;
 	hasPlatformPermission: (code: string) => boolean;
-	customerRequest: <T>(path: string, options?: { method?: string; body?: unknown; workspaceId?: string | null }) => Promise<T>;
-	platformRequest: <T>(path: string, options?: { method?: string; body?: unknown }) => Promise<T>;
+	customerRequest: <T>(
+		path: string,
+		options?: { method?: string; body?: unknown; workspaceId?: string | null },
+	) => Promise<T>;
+	platformRequest: <T>(
+		path: string,
+		options?: { method?: string; body?: unknown },
+	) => Promise<T>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -61,71 +75,147 @@ function writeStorage(key: string, value: string | null) {
 	window.localStorage.setItem(key, value);
 }
 
+function resolvePreferredWorkspace(session: AuthSession) {
+	if (session.assumedWorkspaceId) {
+		return session.assumedWorkspaceId;
+	}
+	const storedWorkspaceId = readStorage(ACTIVE_WORKSPACE_KEY);
+	if (
+		storedWorkspaceId &&
+		session.workspaceMemberships.some(
+			(item) => item.workspaceId === storedWorkspaceId,
+		)
+	) {
+		return storedWorkspaceId;
+	}
+	return (
+		session.workspaceMemberships.find((item) => item.status === "active")
+			?.workspaceId ??
+		session.workspaceMemberships[0]?.workspaceId ??
+		null
+	);
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
 	const [bootstrapping, setBootstrapping] = useState(true);
-	const [customerSession, setCustomerSession] = useState<AuthSession | null>(null);
-	const [platformSession, setPlatformSession] = useState<AuthSession | null>(null);
-	const [customerToken, setCustomerToken] = useState<string | null>(readStorage(CUSTOMER_TOKEN_KEY));
-	const [platformToken, setPlatformToken] = useState<string | null>(readStorage(PLATFORM_TOKEN_KEY));
-	const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(
-		readStorage(ACTIVE_WORKSPACE_KEY),
+	const [customerSession, setCustomerSession] = useState<AuthSession | null>(
+		null,
+	);
+	const [platformSession, setPlatformSession] = useState<AuthSession | null>(
+		null,
+	);
+	const [customerToken, setCustomerToken] = useState<string | null>(
+		readStorage(CUSTOMER_TOKEN_KEY),
+	);
+	const [platformToken, setPlatformToken] = useState<string | null>(
+		readStorage(PLATFORM_TOKEN_KEY),
+	);
+	const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<
+		string | null
+	>(readStorage(ACTIVE_WORKSPACE_KEY));
+
+	const applyCustomerSession = useCallback((session: AuthSession | null) => {
+		setCustomerSession(session);
+		const accessToken = session?.accessToken ?? null;
+		setCustomerToken(accessToken);
+		writeStorage(CUSTOMER_TOKEN_KEY, accessToken);
+		const nextWorkspaceId = session ? resolvePreferredWorkspace(session) : null;
+		setActiveWorkspaceIdState(nextWorkspaceId);
+		writeStorage(ACTIVE_WORKSPACE_KEY, nextWorkspaceId);
+	}, []);
+
+	const applyPlatformSession = useCallback((session: AuthSession | null) => {
+		setPlatformSession(session);
+		const accessToken = session?.accessToken ?? null;
+		setPlatformToken(accessToken);
+		writeStorage(PLATFORM_TOKEN_KEY, accessToken);
+	}, []);
+
+	const loadCustomerSession = useCallback(
+		async (tokenOverride?: string | null) => {
+			try {
+				return await apiRequest<AuthSession>("/auth/refresh", {
+					method: "POST",
+				});
+			} catch {
+				const token = tokenOverride ?? readStorage(CUSTOMER_TOKEN_KEY);
+				if (!token) {
+					return null;
+				}
+				try {
+					return await apiRequest<AuthSession>("/auth/me", { token });
+				} catch {
+					return null;
+				}
+			}
+		},
+		[],
+	);
+
+	const loadPlatformSession = useCallback(
+		async (tokenOverride?: string | null) => {
+			try {
+				return await apiRequest<AuthSession>("/platform/auth/refresh", {
+					method: "POST",
+				});
+			} catch {
+				const token = tokenOverride ?? readStorage(PLATFORM_TOKEN_KEY);
+				if (!token) {
+					return null;
+				}
+				try {
+					return await apiRequest<AuthSession>("/platform/me", { token });
+				} catch {
+					return null;
+				}
+			}
+		},
+		[],
 	);
 
 	useEffect(() => {
-		const pathname =
-			typeof window === "undefined" ? "/" : window.location.pathname;
-		const shouldRefreshCustomer =
-			!pathname.startsWith("/admin") || Boolean(readStorage(CUSTOMER_TOKEN_KEY));
-		const shouldRefreshPlatform =
-			pathname.startsWith("/admin") || Boolean(readStorage(PLATFORM_TOKEN_KEY));
-		const refreshes: Array<PromiseSettledResult<AuthSession> | null> = [null, null];
-		const jobs: Promise<void>[] = [];
+		let cancelled = false;
 
-		if (shouldRefreshCustomer) {
-			jobs.push(
-				Promise.allSettled([
-					apiRequest<AuthSession>("/auth/refresh", { method: "POST" }),
-				]).then((results) => {
-					refreshes[0] = results[0];
-				}),
-			);
+		async function bootstrapSessions() {
+			try {
+				const pathname =
+					typeof window === "undefined" ? "/" : window.location.pathname;
+				const shouldRefreshCustomer =
+					!pathname.startsWith("/admin") ||
+					Boolean(readStorage(CUSTOMER_TOKEN_KEY));
+				const shouldRefreshPlatform =
+					pathname.startsWith("/admin") ||
+					Boolean(readStorage(PLATFORM_TOKEN_KEY));
+
+				const [customer, platform] = await Promise.all([
+					shouldRefreshCustomer ? loadCustomerSession() : Promise.resolve(null),
+					shouldRefreshPlatform ? loadPlatformSession() : Promise.resolve(null),
+				]);
+
+				if (cancelled) {
+					return;
+				}
+
+				applyCustomerSession(customer);
+				applyPlatformSession(platform);
+			} finally {
+				if (!cancelled) {
+					setBootstrapping(false);
+				}
+			}
 		}
 
-		if (shouldRefreshPlatform) {
-			jobs.push(
-				Promise.allSettled([
-					apiRequest<AuthSession>("/platform/auth/refresh", { method: "POST" }),
-				]).then((results) => {
-					refreshes[1] = results[0];
-				}),
-			);
-		}
+		void bootstrapSessions();
 
-		void Promise.all(jobs).then(() => {
-			const customer =
-				refreshes[0]?.status === "fulfilled" ? refreshes[0].value : null;
-			const platform =
-				refreshes[1]?.status === "fulfilled" ? refreshes[1].value : null;
-			if (customer) {
-				setCustomerSession(customer);
-				setCustomerToken(customer.accessToken ?? null);
-				writeStorage(CUSTOMER_TOKEN_KEY, customer.accessToken ?? null);
-				const preferredWorkspace =
-					readStorage(ACTIVE_WORKSPACE_KEY) ??
-					customer.assumedWorkspaceId ??
-					customer.workspaceMemberships.find((item) => item.status === "active")?.workspaceId ??
-					null;
-				setActiveWorkspaceIdState(preferredWorkspace);
-				writeStorage(ACTIVE_WORKSPACE_KEY, preferredWorkspace);
-			}
-			if (platform) {
-				setPlatformSession(platform);
-				setPlatformToken(platform.accessToken ?? null);
-				writeStorage(PLATFORM_TOKEN_KEY, platform.accessToken ?? null);
-			}
-			setBootstrapping(false);
-		});
-	}, []);
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		applyCustomerSession,
+		applyPlatformSession,
+		loadCustomerSession,
+		loadPlatformSession,
+	]);
 
 	const activeWorkspaceMembership = useMemo(() => {
 		if (!customerSession || !activeWorkspaceId) {
@@ -143,15 +233,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 			method: "POST",
 			body: payload,
 		});
-		setCustomerSession(session);
-		setCustomerToken(session.accessToken ?? null);
-		writeStorage(CUSTOMER_TOKEN_KEY, session.accessToken ?? null);
-		const nextWorkspaceId =
-			session.assumedWorkspaceId ??
-			session.workspaceMemberships.find((item) => item.status === "active")?.workspaceId ??
-			null;
-		setActiveWorkspaceIdState(nextWorkspaceId);
-		writeStorage(ACTIVE_WORKSPACE_KEY, nextWorkspaceId);
+		applyCustomerSession(session);
 		return session;
 	}
 
@@ -165,15 +247,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 			method: "POST",
 			body: payload,
 		});
-		setCustomerSession(session);
-		setCustomerToken(session.accessToken ?? null);
-		writeStorage(CUSTOMER_TOKEN_KEY, session.accessToken ?? null);
-		const nextWorkspaceId =
-			session.assumedWorkspaceId ??
-			session.workspaceMemberships.find((item) => item.status === "active")?.workspaceId ??
-			null;
-		setActiveWorkspaceIdState(nextWorkspaceId);
-		writeStorage(ACTIVE_WORKSPACE_KEY, nextWorkspaceId);
+		applyCustomerSession(session);
 		return session;
 	}
 
@@ -182,49 +256,51 @@ export function AuthProvider({ children }: PropsWithChildren) {
 			method: "POST",
 			body: payload,
 		});
-		setPlatformSession(session);
-		setPlatformToken(session.accessToken ?? null);
-		writeStorage(PLATFORM_TOKEN_KEY, session.accessToken ?? null);
+		applyPlatformSession(session);
 		return session;
 	}
 
 	async function logoutCustomer() {
 		await apiRequest<void>("/auth/logout", { method: "POST" });
-		setCustomerSession(null);
-		setCustomerToken(null);
-		setActiveWorkspaceIdState(null);
-		writeStorage(CUSTOMER_TOKEN_KEY, null);
-		writeStorage(ACTIVE_WORKSPACE_KEY, null);
+		applyCustomerSession(null);
 	}
 
 	async function logoutPlatform() {
 		await apiRequest<void>("/platform/auth/logout", { method: "POST" });
-		setPlatformSession(null);
-		setPlatformToken(null);
-		writeStorage(PLATFORM_TOKEN_KEY, null);
+		applyPlatformSession(null);
+	}
+
+	async function reloadCustomerSession() {
+		const session = await loadCustomerSession(customerToken);
+		applyCustomerSession(session);
+		return session;
 	}
 
 	async function refreshCustomer() {
-		const session = await apiRequest<AuthSession>("/auth/refresh", { method: "POST" });
-		setCustomerSession(session);
-		setCustomerToken(session.accessToken ?? null);
-		writeStorage(CUSTOMER_TOKEN_KEY, session.accessToken ?? null);
+		const session = await reloadCustomerSession();
+		if (!session) {
+			throw new ApiError("Unauthorized", 401);
+		}
 		return session;
 	}
 
 	async function refreshPlatform() {
-		const session = await apiRequest<AuthSession>("/platform/auth/refresh", {
-			method: "POST",
-		});
-		setPlatformSession(session);
-		setPlatformToken(session.accessToken ?? null);
-		writeStorage(PLATFORM_TOKEN_KEY, session.accessToken ?? null);
+		const session = await loadPlatformSession(platformToken);
+		if (!session) {
+			applyPlatformSession(null);
+			throw new ApiError("Unauthorized", 401);
+		}
+		applyPlatformSession(session);
 		return session;
 	}
 
 	async function customerRequest<T>(
 		path: string,
-		options: { method?: string; body?: unknown; workspaceId?: string | null } = {},
+		options: {
+			method?: string;
+			body?: unknown;
+			workspaceId?: string | null;
+		} = {},
 	): Promise<T> {
 		try {
 			return await apiRequest<T>(path, {
@@ -236,11 +312,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
 		} catch (error) {
 			if (error instanceof ApiError && error.status === 401) {
 				const session = await refreshCustomer();
+				const resolvedWorkspaceId =
+					options.workspaceId ?? resolvePreferredWorkspace(session);
 				return apiRequest<T>(path, {
 					method: options.method,
 					body: options.body,
-					token: session.accessToken ?? null,
-					workspaceId: options.workspaceId ?? activeWorkspaceId,
+					token: session.accessToken ?? customerToken ?? null,
+					workspaceId: resolvedWorkspaceId,
 				});
 			}
 			throw error;
@@ -275,7 +353,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 		writeStorage(ACTIVE_WORKSPACE_KEY, workspaceId);
 	}
 
-	function hasCustomerPermission(code: string, capabilities: Permission[] = []) {
+	function hasCustomerPermission(
+		code: string,
+		capabilities: Permission[] = [],
+	) {
 		return capabilities.some((permission) => permission.code === code);
 	}
 
@@ -287,32 +368,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
 		);
 	}
 
-	const value = useMemo<AuthContextValue>(
-		() => ({
-			bootstrapping,
-			customerSession,
-			platformSession,
-			activeWorkspaceId,
-			activeWorkspaceMembership,
-			signInCustomer,
-			signUpCustomer,
-			signInPlatform,
-			logoutCustomer,
-			logoutPlatform,
-			setActiveWorkspaceId,
-			hasCustomerPermission,
-			hasPlatformPermission,
-			customerRequest,
-			platformRequest,
-		}),
-		[
-			bootstrapping,
-			customerSession,
-			platformSession,
-			activeWorkspaceId,
-			activeWorkspaceMembership,
-		],
-	);
+	const value: AuthContextValue = {
+		bootstrapping,
+		customerSession,
+		platformSession,
+		activeWorkspaceId,
+		activeWorkspaceMembership,
+		reloadCustomerSession,
+		signInCustomer,
+		signUpCustomer,
+		signInPlatform,
+		logoutCustomer,
+		logoutPlatform,
+		setActiveWorkspaceId,
+		hasCustomerPermission,
+		hasPlatformPermission,
+		customerRequest,
+		platformRequest,
+	};
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

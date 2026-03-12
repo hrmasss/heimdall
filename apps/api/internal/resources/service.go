@@ -45,6 +45,10 @@ type UploadInput struct {
 	Body            io.Reader
 }
 
+type UpdateInput struct {
+	DisplayName string
+}
+
 type ReferenceInput struct {
 	ResourceID uuid.UUID
 	Metadata   map[string]any
@@ -295,6 +299,36 @@ func (s *Service) DeleteResource(ctx context.Context, principal *iam.Principal, 
 	}
 	_ = s.RunCleanupSweep(ctx)
 	return nil
+}
+
+func (s *Service) UpdateResource(ctx context.Context, principal *iam.Principal, workspaceID, resourceID uuid.UUID, input UpdateInput) (*ResourceDetail, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.resources.manage"); err != nil {
+		return nil, err
+	}
+
+	displayName := strings.TrimSpace(input.DisplayName)
+	if displayName == "" {
+		return nil, fmt.Errorf("%w: display name is required", iam.ErrValidation)
+	}
+
+	record, err := s.findResource(ctx, workspaceID, resourceID)
+	if err != nil {
+		return nil, err
+	}
+
+	record.DisplayName = displayName
+	record.UpdatedAt = time.Now().UTC()
+	record.UpdatedByUserID = &principal.UserID
+
+	if _, err := s.db.NewUpdate().
+		Model(record).
+		Column("display_name", "updated_at", "updated_by_user_id").
+		WherePK().
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+
+	return s.GetResource(ctx, principal, workspaceID, resourceID)
 }
 
 func (s *Service) GetDownloadURL(ctx context.Context, principal *iam.Principal, workspaceID, resourceID uuid.UUID) (string, error) {

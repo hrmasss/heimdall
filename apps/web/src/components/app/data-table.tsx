@@ -144,6 +144,7 @@ export function DataTable<T>({
 	pageSizeOptions = [6, 12, 24],
 	searchPlaceholder = "Search campaigns, owners, notes...",
 	gridClassName,
+	gridCardClassName,
 	onRowClick,
 }: {
 	title?: string;
@@ -168,6 +169,7 @@ export function DataTable<T>({
 	pageSizeOptions?: number[];
 	searchPlaceholder?: string;
 	gridClassName?: string;
+	gridCardClassName?: string;
 	onRowClick?: (row: T) => void;
 }) {
 	const [searchQuery, setSearchQuery] = useState("");
@@ -654,8 +656,21 @@ export function DataTable<T>({
 								<div
 									key={getRowId(row)}
 									onClick={onRowClick ? () => onRowClick(row) : undefined}
+									onKeyDown={
+										onRowClick
+											? (event) => {
+													if (event.key === "Enter" || event.key === " ") {
+														event.preventDefault();
+														onRowClick(row);
+													}
+												}
+											: undefined
+									}
+									role={onRowClick ? "button" : undefined}
+									tabIndex={onRowClick ? 0 : undefined}
 									className={cn(
 										"rounded-[26px] border border-[var(--brand-border-soft)] bg-card p-5",
+										gridCardClassName,
 										onRowClick &&
 											"cursor-pointer transition-colors hover:bg-accent/20",
 									)}

@@ -34,6 +34,11 @@ const DashboardOverview = lazy(async () =>
 		default: module.DashboardOverview,
 	})),
 );
+const DashboardOnboarding = lazy(async () =>
+	import("@/pages/dashboard/onboarding").then((module) => ({
+		default: module.DashboardOnboardingPage,
+	})),
+);
 const DashboardPosts = lazy(async () =>
 	import("@/pages/dashboard/posts").then((module) => ({
 		default: module.DashboardPosts,
@@ -62,6 +67,16 @@ const DashboardAutomations = lazy(async () =>
 const DashboardLibrary = lazy(async () =>
 	import("@/pages/dashboard/library").then((module) => ({
 		default: module.DashboardLibrary,
+	})),
+);
+const DashboardLibraryDetail = lazy(async () =>
+	import("@/pages/dashboard/library-detail").then((module) => ({
+		default: module.DashboardLibraryDetailPage,
+	})),
+);
+const DashboardLibraryEdit = lazy(async () =>
+	import("@/pages/dashboard/library-form").then((module) => ({
+		default: module.DashboardLibraryFormPage,
 	})),
 );
 const DashboardTeam = lazy(async () =>
@@ -218,12 +233,15 @@ export function AppRoutes() {
 						}
 					>
 						<Route index element={<DashboardOverview />} />
+						<Route path="onboarding" element={<DashboardOnboarding />} />
 						<Route path="posts" element={<DashboardPosts />} />
 						<Route path="posts/new" element={<DashboardNewPost />} />
 						<Route path="calendar" element={<DashboardCalendar />} />
 						<Route path="analytics" element={<DashboardAnalytics />} />
 						<Route path="automations" element={<DashboardAutomations />} />
 						<Route path="library" element={<DashboardLibrary />} />
+						<Route path="library/:id" element={<DashboardLibraryDetail />} />
+						<Route path="library/:id/edit" element={<DashboardLibraryEdit />} />
 						<Route path="team" element={<DashboardTeam />} />
 						<Route path="settings" element={<DashboardSettings />} />
 					</Route>
@@ -247,9 +265,18 @@ export function AppRoutes() {
 						<Route path="users/:id" element={<AdminUserDetailPage />} />
 						<Route path="users/:id/edit" element={<AdminUserEditPage />} />
 						<Route path="workspaces" element={<AdminWorkspaces />} />
-						<Route path="workspaces/new" element={<AdminWorkspaceCreatePage />} />
-						<Route path="workspaces/:id" element={<AdminWorkspaceDetailPage />} />
-						<Route path="workspaces/:id/edit" element={<AdminWorkspaceEditPage />} />
+						<Route
+							path="workspaces/new"
+							element={<AdminWorkspaceCreatePage />}
+						/>
+						<Route
+							path="workspaces/:id"
+							element={<AdminWorkspaceDetailPage />}
+						/>
+						<Route
+							path="workspaces/:id/edit"
+							element={<AdminWorkspaceEditPage />}
+						/>
 						<Route
 							path="workspaces/:id/members/new"
 							element={<AdminWorkspaceMemberCreatePage />}

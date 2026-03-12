@@ -67,6 +67,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/resources/:id/download", h.requireAuth, h.downloadResource)
 	api.Post("/resources/:id/variants", h.requireAuth, h.createResourceVariant)
 	api.Get("/resources/:id", h.requireAuth, h.getResource)
+	api.Patch("/resources/:id", h.requireAuth, h.updateResource)
 	api.Delete("/resources/:id", h.requireAuth, h.deleteResource)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
@@ -562,6 +563,34 @@ func (h *AppHandler) deleteResource(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) updateResource(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body struct {
+		DisplayName string `json:"displayName"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.resourceService.UpdateResource(c.Context(), principal, workspaceID, resourceID, resources.UpdateInput{
+		DisplayName: body.DisplayName,
+	})
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
 }
 
 func (h *AppHandler) serveResourceBlob(c fiber.Ctx) error {

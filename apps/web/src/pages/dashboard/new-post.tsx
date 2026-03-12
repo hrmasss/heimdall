@@ -6,10 +6,8 @@ import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
-import {
-	ResourceChipList,
-	ResourcePicker,
-} from "@/components/resources/resource-picker";
+import { ResourceChipList } from "@/components/resources/resource-display";
+import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,7 +96,7 @@ export function DashboardNewPost() {
 							</div>
 							<ResourceChipList
 								resources={selectedResources}
-								onRemove={(resourceId) =>
+								onRemove={(resourceId: string) =>
 									setSelectedResourceIds((current) =>
 										current.filter((item) => item !== resourceId),
 									)

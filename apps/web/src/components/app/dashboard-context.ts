@@ -1,5 +1,6 @@
 const dashboardLabels: Record<string, string> = {
 	"/dashboard": "Overview",
+	"/dashboard/onboarding": "Create workspace",
 	"/dashboard/posts": "Posts",
 	"/dashboard/posts/new": "Create post",
 	"/dashboard/calendar": "Calendar",
@@ -25,15 +26,21 @@ export function getDashboardBreadcrumbs(pathname: string) {
 		.filter((path) => path.startsWith("/dashboard"))
 		.map((path) => ({
 			href: path,
-			label:
-				dashboardLabels[path] ??
-				formatBreadcrumbLabel(
-					path.split("/").filter(Boolean).at(-1) ?? "Overview",
-				),
+			label: resolveDashboardLabel(path),
 		}));
 }
 
 export function getDashboardContextLabel(pathname: string) {
+	return resolveDashboardLabel(pathname);
+}
+
+function resolveDashboardLabel(pathname: string) {
+	if (/^\/dashboard\/library\/[^/]+\/edit$/.test(pathname)) {
+		return "Edit resource";
+	}
+	if (/^\/dashboard\/library\/[^/]+$/.test(pathname)) {
+		return "Resource detail";
+	}
 	return (
 		dashboardLabels[pathname] ??
 		formatBreadcrumbLabel(

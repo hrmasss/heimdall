@@ -1,15 +1,12 @@
-import {
-	Check,
-	FileText,
-	ImageIcon,
-	Layers3,
-	Search,
-	TriangleAlert,
-	Video,
-} from "lucide-react";
+import { Layers3, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
+import {
+	ResourceCompatibilityBadge,
+	ResourceKindIcon,
+	ResourceThumb,
+	formatResourceMeta,
+} from "@/components/resources/resource-display";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -22,164 +19,6 @@ import {
 import { Input } from "@/components/ui/input";
 import type { ResourceRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
-
-export function formatBytes(sizeBytes: number) {
-	if (sizeBytes < 1024) {
-		return `${sizeBytes} B`;
-	}
-	if (sizeBytes < 1024 * 1024) {
-		return `${(sizeBytes / 1024).toFixed(1)} KB`;
-	}
-	if (sizeBytes < 1024 * 1024 * 1024) {
-		return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
-	return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-export function formatResourceMeta(resource: ResourceRecord) {
-	if (resource.mediaKind === "image") {
-		if (resource.widthPx && resource.heightPx) {
-			return `${resource.widthPx} x ${resource.heightPx} · ${formatBytes(resource.sizeBytes)}`;
-		}
-		return formatBytes(resource.sizeBytes);
-	}
-	if (resource.mediaKind === "document") {
-		return resource.pageCount
-			? `${resource.pageCount} pages · ${formatBytes(resource.sizeBytes)}`
-			: formatBytes(resource.sizeBytes);
-	}
-	return formatBytes(resource.sizeBytes);
-}
-
-export function ResourceThumb({
-	resource,
-	className,
-}: {
-	resource: ResourceRecord;
-	className?: string;
-}) {
-	if (resource.mediaKind === "image") {
-		return (
-			<img
-				src={resource.previewUrl}
-				alt={resource.displayName}
-				className={cn("h-full w-full object-cover", className)}
-			/>
-		);
-	}
-
-	const Icon = resource.mediaKind === "video" ? Video : FileText;
-	return (
-		<div
-			className={cn(
-				"flex h-full w-full items-center justify-center bg-[linear-gradient(160deg,var(--brand-highlight),transparent)] text-primary",
-				className,
-			)}
-		>
-			<Icon className="size-8" />
-		</div>
-	);
-}
-
-export function ResourceChipList({
-	resources,
-	onRemove,
-}: {
-	resources: ResourceRecord[];
-	onRemove?: (resourceId: string) => void;
-}) {
-	if (resources.length === 0) {
-		return (
-			<div className="rounded-[22px] border border-dashed border-[var(--brand-border-soft)] px-4 py-3 text-sm text-muted-foreground">
-				No resources attached yet.
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex flex-wrap gap-2">
-			{resources.map((resource) => (
-				<div
-					key={resource.id}
-					className="flex items-center gap-3 rounded-full border border-[var(--brand-border-soft)] bg-background/80 px-3 py-2"
-				>
-					<div className="flex size-8 items-center justify-center overflow-hidden rounded-full bg-muted">
-						<ResourceThumb resource={resource} />
-					</div>
-					<div className="min-w-0">
-						<div className="max-w-44 truncate text-sm font-medium">
-							{resource.displayName}
-						</div>
-						<div className="text-xs text-muted-foreground">
-							{formatResourceMeta(resource)}
-						</div>
-					</div>
-					{onRemove ? (
-						<Button
-							variant="ghost"
-							size="sm"
-							className="rounded-full"
-							onClick={() => onRemove(resource.id)}
-						>
-							Remove
-						</Button>
-					) : null}
-				</div>
-			))}
-		</div>
-	);
-}
-
-function KindIcon({ mediaKind }: { mediaKind: ResourceRecord["mediaKind"] }) {
-	if (mediaKind === "image") {
-		return <ImageIcon className="size-4" />;
-	}
-	if (mediaKind === "video") {
-		return <Video className="size-4" />;
-	}
-	return <FileText className="size-4" />;
-}
-
-function CompatibilitySummary({ resource }: { resource: ResourceRecord }) {
-	const unsupportedCount = resource.compatibility.filter(
-		(item) => item.status === "unsupported",
-	).length;
-	const warningCount = resource.compatibility.filter(
-		(item) => item.status === "warning",
-	).length;
-
-	if (unsupportedCount > 0) {
-		return (
-			<Badge
-				variant="outline"
-				className="rounded-full border-red-500/25 text-red-600"
-			>
-				<TriangleAlert className="size-3.5" />
-				{unsupportedCount} blockers
-			</Badge>
-		);
-	}
-	if (warningCount > 0) {
-		return (
-			<Badge
-				variant="outline"
-				className="rounded-full border-amber-500/25 text-amber-600"
-			>
-				<TriangleAlert className="size-3.5" />
-				{warningCount} warnings
-			</Badge>
-		);
-	}
-	return (
-		<Badge
-			variant="outline"
-			className="rounded-full border-emerald-500/25 text-emerald-600"
-		>
-			<Check className="size-3.5" />
-			Ready
-		</Badge>
-	);
-}
 
 export function ResourcePicker({
 	resources,
@@ -288,11 +127,11 @@ export function ResourcePicker({
 														{formatResourceMeta(resource)}
 													</div>
 												</div>
-												<CompatibilitySummary resource={resource} />
+												<ResourceCompatibilityBadge resource={resource} />
 											</div>
 											<div className="flex items-center justify-between text-xs text-muted-foreground">
 												<span className="inline-flex items-center gap-1.5 capitalize">
-													<KindIcon mediaKind={resource.mediaKind} />
+													<ResourceKindIcon mediaKind={resource.mediaKind} />
 													{resource.mediaKind}
 												</span>
 												<span>{resource.usageCount} uses</span>
