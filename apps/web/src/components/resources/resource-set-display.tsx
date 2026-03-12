@@ -166,6 +166,7 @@ export function ResourceSetItemList({
 	onDragStart,
 	onDragOver,
 	onDrop,
+	onDragEnd,
 	onRemove,
 	onMoveUp,
 	onMoveDown,
@@ -183,6 +184,7 @@ export function ResourceSetItemList({
 	onDragStart?: (resourceId: string) => void;
 	onDragOver?: (resourceId: string) => void;
 	onDrop?: (resourceId: string) => void;
+	onDragEnd?: () => void;
 	onRemove?: (resourceId: string) => void;
 	onMoveUp?: (resourceId: string) => void;
 	onMoveDown?: (resourceId: string) => void;
@@ -202,6 +204,7 @@ export function ResourceSetItemList({
 					key={`${item.resourceId}-${index}`}
 					draggable={draggable}
 					onDragStart={() => onDragStart?.(item.resourceId)}
+					onDragEnd={() => onDragEnd?.()}
 					onDragOver={(event) => {
 						if (!draggable) {
 							return;
@@ -223,7 +226,11 @@ export function ResourceSetItemList({
 				>
 					{showPosition ? (
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
-							{draggable ? <GripVertical className="size-4" /> : null}
+							{draggable ? (
+								<div className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+									<GripVertical className="size-4" />
+								</div>
+							) : null}
 							<span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background px-2 font-medium">
 								{index + 1}
 							</span>

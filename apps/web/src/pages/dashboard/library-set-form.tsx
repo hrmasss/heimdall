@@ -1,5 +1,6 @@
 import {
 	ArrowLeft,
+	GripVertical,
 	FolderKanban,
 	LoaderCircle,
 	Plus,
@@ -16,6 +17,10 @@ import {
 	ResourceSetItemList,
 } from "@/components/resources/resource-set-display";
 import {
+	getIntentSurfaceOptions,
+	getResourceSetIntentOptions,
+} from "@/components/resources/resource-set-intent";
+import {
 	ResourceCompatibilityBadge,
 	ResourceThumb,
 	formatResourceMeta,
@@ -24,9 +29,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type {
 	ApiListResponse,
+	ResourceCapabilityMatrix,
 	ResourceRecord,
 	ResourceSetDetail,
 } from "@/lib/api-types";
@@ -76,12 +89,24 @@ function reorderDraftItems(
 	return nextItems;
 }
 
+function getResourceHealth(resource: ResourceRecord) {
+	if (resource.compatibility.some((item) => item.status === "unsupported")) {
+		return "blocked";
+	}
+	if (resource.compatibility.some((item) => item.status === "warning")) {
+		return "warning";
+	}
+	return "ready";
+}
+
 export function DashboardLibrarySetFormPage() {
 	const navigate = useNavigate();
 	const { id } = useParams();
 	const isEditMode = Boolean(id);
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
+	const [capabilities, setCapabilities] =
+		useState<ResourceCapabilityMatrix | null>(null);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [intentType, setIntentType] = useState<"generic" | "social_surface">(
@@ -92,10 +117,25 @@ export function DashboardLibrarySetFormPage() {
 	const [selectedItems, setSelectedItems] = useState<DraftSetItem[]>([]);
 	const [coverResourceId, setCoverResourceId] = useState<string | null>(null);
 	const [resourceQuery, setResourceQuery] = useState("");
+	const [resourceKindFilter, setResourceKindFilter] = useState<
+		"all" | "image" | "video" | "document"
+	>("all");
+	const [resourceReadinessFilter, setResourceReadinessFilter] = useState<
+		"all" | "ready" | "warning" | "blocked"
+	>("all");
 	const [draggingResourceId, setDraggingResourceId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	const intentPlatformOptions = useMemo(
+		() => getResourceSetIntentOptions(capabilities),
+		[capabilities],
+	);
+	const intentSurfaceOptions = useMemo(
+		() => getIntentSurfaceOptions(intentPlatformOptions, intentPlatform),
+		[intentPlatform, intentPlatformOptions],
+	);
 
 	useEffect(() => {
 		if (!activeWorkspaceId) {
@@ -107,8 +147,9 @@ export function DashboardLibrarySetFormPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const [resourceResponse, setResponse] = await Promise.all([
+				const [resourceResponse, capabilityResponse, setResponse] = await Promise.all([
 					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
 					isEditMode && id
 						? customerRequest<ResourceSetDetail>(`/resource-sets/${id}`)
 						: Promise.resolve(null),
@@ -117,6 +158,7 @@ export function DashboardLibrarySetFormPage() {
 					return;
 				}
 				setResources(resourceResponse.items);
+				setCapabilities(capabilityResponse);
 				if (setResponse) {
 					setName(setResponse.name);
 					setDescription(setResponse.description);
@@ -154,6 +196,24 @@ export function DashboardLibrarySetFormPage() {
 	}, [activeWorkspaceId, customerRequest, id, isEditMode]);
 
 	useEffect(() => {
+		if (intentPlatformOptions.length === 0) {
+			return;
+		}
+		if (!intentPlatformOptions.some((option) => option.value === intentPlatform)) {
+			setIntentPlatform(intentPlatformOptions[0].value);
+		}
+	}, [intentPlatform, intentPlatformOptions]);
+
+	useEffect(() => {
+		if (intentSurfaceOptions.length === 0) {
+			return;
+		}
+		if (!intentSurfaceOptions.some((option) => option.value === intentSurface)) {
+			setIntentSurface(intentSurfaceOptions[0].value);
+		}
+	}, [intentSurface, intentSurfaceOptions]);
+
+	useEffect(() => {
 		if (!coverResourceId && selectedItems.length > 0) {
 			setCoverResourceId(selectedItems[0].resourceId);
 			return;
@@ -177,6 +237,15 @@ export function DashboardLibrarySetFormPage() {
 			if (selectedResourceIds.has(resource.id)) {
 				return false;
 			}
+			if (resourceKindFilter !== "all" && resource.mediaKind !== resourceKindFilter) {
+				return false;
+			}
+			if (
+				resourceReadinessFilter !== "all" &&
+				getResourceHealth(resource) !== resourceReadinessFilter
+			) {
+				return false;
+			}
 			if (!needle) {
 				return true;
 			}
@@ -190,7 +259,13 @@ export function DashboardLibrarySetFormPage() {
 				.toLowerCase()
 				.includes(needle);
 		});
-	}, [resourceQuery, resources, selectedResourceIds]);
+	}, [
+		resourceKindFilter,
+		resourceQuery,
+		resourceReadinessFilter,
+		resources,
+		selectedResourceIds,
+	]);
 
 	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -368,24 +443,37 @@ export function DashboardLibrarySetFormPage() {
 							{intentType === "social_surface" ? (
 								<>
 									<div className="grid gap-2">
-										<Label htmlFor="asset-set-platform">Platform</Label>
-										<Input
-											id="asset-set-platform"
+										<Label>Platform</Label>
+										<Select
 											value={intentPlatform}
-											onChange={(event) => setIntentPlatform(event.target.value)}
-											className="h-11 rounded-2xl"
-											placeholder="instagram"
-										/>
+											onValueChange={setIntentPlatform}
+										>
+											<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+												<SelectValue placeholder="Choose a platform" />
+											</SelectTrigger>
+											<SelectContent position="popper" align="start">
+												{intentPlatformOptions.map((option) => (
+													<SelectItem key={option.value} value={option.value}>
+														{option.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 									<div className="grid gap-2">
-										<Label htmlFor="asset-set-surface">Surface</Label>
-										<Input
-											id="asset-set-surface"
-											value={intentSurface}
-											onChange={(event) => setIntentSurface(event.target.value)}
-											className="h-11 rounded-2xl"
-											placeholder="carousel"
-										/>
+										<Label>Surface</Label>
+										<Select value={intentSurface} onValueChange={setIntentSurface}>
+											<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+												<SelectValue placeholder="Choose a surface" />
+											</SelectTrigger>
+											<SelectContent position="popper" align="start">
+												{intentSurfaceOptions.map((option) => (
+													<SelectItem key={option.value} value={option.value}>
+														{option.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 								</>
 							) : null}
@@ -401,12 +489,18 @@ export function DashboardLibrarySetFormPage() {
 						<div className="text-sm text-muted-foreground">Loading resources...</div>
 					) : (
 						<div className="space-y-6">
+							<div className="flex items-center gap-2 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm text-muted-foreground">
+								<GripVertical className="size-4" />
+								Drag members to set their saved order. That order is reused in
+								pickers and any future carousel-style flows.
+							</div>
 							<ResourceSetItemList
 								items={selectedItems}
 								draggable
 								draggingResourceId={draggingResourceId}
 								onDragStart={(resourceId) => setDraggingResourceId(resourceId)}
 								onDragOver={() => undefined}
+								onDragEnd={() => setDraggingResourceId(null)}
 								onDrop={(targetResourceId) => {
 									if (!draggingResourceId) {
 										return;
@@ -472,12 +566,53 @@ export function DashboardLibrarySetFormPage() {
 											to multiple sets.
 										</div>
 									</div>
+									<div className="text-sm text-muted-foreground">
+										{filteredResources.length} available
+									</div>
+								</div>
+								<div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.7fr)]">
 									<Input
 										value={resourceQuery}
 										onChange={(event) => setResourceQuery(event.target.value)}
-										className="h-11 w-full rounded-2xl md:w-72"
-										placeholder="Search resources"
+										className="!h-11 rounded-2xl"
+										placeholder="Search resources by name, MIME type, or kind"
 									/>
+									<Select
+										value={resourceKindFilter}
+										onValueChange={(value) =>
+											setResourceKindFilter(
+												value as "all" | "image" | "video" | "document",
+											)
+										}
+									>
+										<SelectTrigger className="!h-11 min-h-11 w-full rounded-2xl px-4">
+											<SelectValue placeholder="All media kinds" />
+										</SelectTrigger>
+										<SelectContent position="popper" align="start">
+											<SelectItem value="all">All media kinds</SelectItem>
+											<SelectItem value="image">Images</SelectItem>
+											<SelectItem value="video">Videos</SelectItem>
+											<SelectItem value="document">Documents</SelectItem>
+										</SelectContent>
+									</Select>
+									<Select
+										value={resourceReadinessFilter}
+										onValueChange={(value) =>
+											setResourceReadinessFilter(
+												value as "all" | "ready" | "warning" | "blocked",
+											)
+										}
+									>
+										<SelectTrigger className="!h-11 min-h-11 w-full rounded-2xl px-4">
+											<SelectValue placeholder="All readiness states" />
+										</SelectTrigger>
+										<SelectContent position="popper" align="start">
+											<SelectItem value="all">All readiness states</SelectItem>
+											<SelectItem value="ready">Ready</SelectItem>
+											<SelectItem value="warning">Warnings</SelectItem>
+											<SelectItem value="blocked">Blocked</SelectItem>
+										</SelectContent>
+									</Select>
 								</div>
 								<div className="grid gap-3 md:grid-cols-2">
 									{filteredResources.map((resource) => (
@@ -526,6 +661,11 @@ export function DashboardLibrarySetFormPage() {
 										</div>
 									))}
 								</div>
+								{filteredResources.length === 0 ? (
+									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+										No resources match the current search and filters.
+									</div>
+								) : null}
 							</div>
 						</div>
 					)}

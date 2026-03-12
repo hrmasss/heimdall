@@ -2,6 +2,7 @@ import {
 	FilePlus2,
 	FolderKanban,
 	FolderPlus,
+	GripVertical,
 	Layers3,
 	PencilLine,
 	RefreshCw,
@@ -24,6 +25,10 @@ import {
 	ResourceSetMembersPreview,
 } from "@/components/resources/resource-set-display";
 import {
+	getIntentSurfaceOptions,
+	getResourceSetIntentOptions,
+} from "@/components/resources/resource-set-intent";
+import {
 	LocalFileThumb,
 	ResourceChipList,
 	ResourceCompatibilityBadge,
@@ -35,6 +40,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type {
 	ApiListResponse,
@@ -113,6 +126,25 @@ function buildBatchSetName(items: UploadQueueItem[]) {
 	return `${baseName || "Upload"} set`;
 }
 
+function reorderQueueItems(
+	items: UploadQueueItem[],
+	draggedItemId: string,
+	targetItemId: string,
+) {
+	if (draggedItemId === targetItemId) {
+		return items;
+	}
+	const fromIndex = items.findIndex((item) => item.id === draggedItemId);
+	const toIndex = items.findIndex((item) => item.id === targetItemId);
+	if (fromIndex === -1 || toIndex === -1) {
+		return items;
+	}
+	const nextItems = [...items];
+	const [item] = nextItems.splice(fromIndex, 1);
+	nextItems.splice(toIndex, 0, item);
+	return nextItems;
+}
+
 export function DashboardLibrary() {
 	const navigate = useNavigate();
 	const { activeWorkspaceId, customerRequest } = useAuth();
@@ -133,6 +165,18 @@ export function DashboardLibrary() {
 	const [batchSetName, setBatchSetName] = useState("");
 	const [batchIntentPlatform, setBatchIntentPlatform] = useState("instagram");
 	const [batchIntentSurface, setBatchIntentSurface] = useState("carousel");
+	const [draggingQueueItemId, setDraggingQueueItemId] = useState<string | null>(
+		null,
+	);
+
+	const batchPlatformOptions = useMemo(
+		() => getResourceSetIntentOptions(capabilities),
+		[capabilities],
+	);
+	const batchSurfaceOptions = useMemo(
+		() => getIntentSurfaceOptions(batchPlatformOptions, batchIntentPlatform),
+		[batchIntentPlatform, batchPlatformOptions],
+	);
 
 	const releasePreview = useCallback((previewUrl: string) => {
 		URL.revokeObjectURL(previewUrl);
@@ -160,6 +204,24 @@ export function DashboardLibrary() {
 		}
 		setCreateSetFromBatch(false);
 	}, [batchSetName, queue]);
+
+	useEffect(() => {
+		if (batchPlatformOptions.length === 0) {
+			return;
+		}
+		if (!batchPlatformOptions.some((option) => option.value === batchIntentPlatform)) {
+			setBatchIntentPlatform(batchPlatformOptions[0].value);
+		}
+	}, [batchIntentPlatform, batchPlatformOptions]);
+
+	useEffect(() => {
+		if (batchSurfaceOptions.length === 0) {
+			return;
+		}
+		if (!batchSurfaceOptions.some((option) => option.value === batchIntentSurface)) {
+			setBatchIntentSurface(batchSurfaceOptions[0].value);
+		}
+	}, [batchIntentSurface, batchSurfaceOptions]);
 
 	const loadData = useCallback(async () => {
 		if (!activeWorkspaceId) {
@@ -209,6 +271,10 @@ export function DashboardLibrary() {
 			}
 			return current.filter((item) => item.id !== itemId);
 		});
+	}
+
+	function reorderQueue(draggedItemId: string, targetItemId: string) {
+		setQueue((current) => reorderQueueItems(current, draggedItemId, targetItemId));
 	}
 
 	function clearCompletedQueue() {
@@ -766,28 +832,52 @@ export function DashboardLibrary() {
 						</div>
 						{createSetFromBatch ? (
 							<div className="mt-4 grid gap-3 md:grid-cols-3">
-								<Input
-									value={batchSetName}
-									onChange={(event) => setBatchSetName(event.target.value)}
-									className="h-11 rounded-2xl"
-									placeholder="Instagram carousel set"
-								/>
-								<Input
-									value={batchIntentPlatform}
-									onChange={(event) =>
-										setBatchIntentPlatform(event.target.value)
-									}
-									className="h-11 rounded-2xl"
-									placeholder="instagram"
-								/>
-								<Input
-									value={batchIntentSurface}
-									onChange={(event) =>
-										setBatchIntentSurface(event.target.value)
-									}
-									className="h-11 rounded-2xl"
-									placeholder="carousel"
-								/>
+								<div className="grid gap-2">
+									<Label htmlFor="batch-set-name">Set name</Label>
+									<Input
+										id="batch-set-name"
+										value={batchSetName}
+										onChange={(event) => setBatchSetName(event.target.value)}
+										className="h-11 rounded-2xl"
+										placeholder="Instagram carousel set"
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label>Platform intent</Label>
+									<Select
+										value={batchIntentPlatform}
+										onValueChange={setBatchIntentPlatform}
+									>
+										<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+											<SelectValue placeholder="Choose a platform" />
+										</SelectTrigger>
+										<SelectContent position="popper" align="start">
+											{batchPlatformOptions.map((option) => (
+												<SelectItem key={option.value} value={option.value}>
+													{option.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="grid gap-2">
+									<Label>Surface intent</Label>
+									<Select
+										value={batchIntentSurface}
+										onValueChange={setBatchIntentSurface}
+									>
+										<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+											<SelectValue placeholder="Choose a surface" />
+										</SelectTrigger>
+										<SelectContent position="popper" align="start">
+											{batchSurfaceOptions.map((option) => (
+												<SelectItem key={option.value} value={option.value}>
+													{option.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
 							</div>
 						) : null}
 					</div>
@@ -802,8 +892,36 @@ export function DashboardLibrary() {
 						queue.map((item) => (
 							<div
 								key={item.id}
-								className="flex flex-wrap items-center gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-4"
+								draggable={queue.length > 1}
+								onDragStart={() => setDraggingQueueItemId(item.id)}
+								onDragEnd={() => setDraggingQueueItemId(null)}
+								onDragOver={(event) => {
+									if (queue.length <= 1 || !draggingQueueItemId) {
+										return;
+									}
+									event.preventDefault();
+								}}
+								onDrop={(event) => {
+									if (!draggingQueueItemId) {
+										return;
+									}
+									event.preventDefault();
+									reorderQueue(draggingQueueItemId, item.id);
+									setDraggingQueueItemId(null);
+								}}
+								className={cn(
+									"flex flex-wrap items-center gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-4",
+									draggingQueueItemId === item.id && "opacity-60",
+								)}
 							>
+								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+									<div className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+										<GripVertical className="size-4" />
+									</div>
+									<span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background px-2 font-medium">
+										{queue.findIndex((queueItem) => queueItem.id === item.id) + 1}
+									</span>
+								</div>
 								<div className="h-24 w-28 overflow-hidden rounded-[18px] bg-muted">
 									<LocalFileThumb
 										file={item.file}
@@ -869,6 +987,11 @@ export function DashboardLibrary() {
 						))
 					)}
 				</div>
+				{queue.length > 1 ? (
+					<div className="mt-3 text-sm text-muted-foreground">
+						Drag queued files to set their upload and initial asset-set order.
+					</div>
+				) : null}
 			</DashboardPanel>
 
 			{error ? (
