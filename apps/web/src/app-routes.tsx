@@ -79,6 +79,16 @@ const DashboardLibraryEdit = lazy(async () =>
 		default: module.DashboardLibraryFormPage,
 	})),
 );
+const DashboardLibrarySetDetail = lazy(async () =>
+	import("@/pages/dashboard/library-set-detail").then((module) => ({
+		default: module.DashboardLibrarySetDetailPage,
+	})),
+);
+const DashboardLibrarySetForm = lazy(async () =>
+	import("@/pages/dashboard/library-set-form").then((module) => ({
+		default: module.DashboardLibrarySetFormPage,
+	})),
+);
 const DashboardTeam = lazy(async () =>
 	import("@/pages/dashboard/team").then((module) => ({
 		default: module.DashboardTeam,
@@ -240,6 +250,12 @@ export function AppRoutes() {
 						<Route path="analytics" element={<DashboardAnalytics />} />
 						<Route path="automations" element={<DashboardAutomations />} />
 						<Route path="library" element={<DashboardLibrary />} />
+						<Route path="library/sets/new" element={<DashboardLibrarySetForm />} />
+						<Route path="library/sets/:id" element={<DashboardLibrarySetDetail />} />
+						<Route
+							path="library/sets/:id/edit"
+							element={<DashboardLibrarySetForm />}
+						/>
 						<Route path="library/:id" element={<DashboardLibraryDetail />} />
 						<Route path="library/:id/edit" element={<DashboardLibraryEdit />} />
 						<Route path="team" element={<DashboardTeam />} />

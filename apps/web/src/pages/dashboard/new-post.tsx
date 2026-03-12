@@ -11,23 +11,31 @@ import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { ApiListResponse, ResourceRecord } from "@/lib/api-types";
+import type {
+	ApiListResponse,
+	ResourceRecord,
+	ResourceSetDetail,
+	ResourceSetSummary,
+} from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 
 export function DashboardNewPost() {
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
+	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
 
 	useEffect(() => {
 		if (!activeWorkspaceId) {
 			return;
 		}
-		void customerRequest<ApiListResponse<ResourceRecord>>("/resources").then(
-			(response) => {
-				setResources(response.items);
-			},
-		);
+		void Promise.all([
+			customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+			customerRequest<ApiListResponse<ResourceSetSummary>>("/resource-sets"),
+		]).then(([resourceResponse, setResponse]) => {
+			setResources(resourceResponse.items);
+			setResourceSets(setResponse.items);
+		});
 	}, [activeWorkspaceId, customerRequest]);
 
 	const selectedResources = useMemo(
@@ -39,6 +47,13 @@ export function DashboardNewPost() {
 				.filter((resource): resource is ResourceRecord => Boolean(resource)),
 		[selectedResourceIds, resources],
 	);
+
+	async function resolveResourceSetIds(resourceSetId: string) {
+		const response = await customerRequest<ResourceSetDetail>(
+			`/resource-sets/${resourceSetId}`,
+		);
+		return response.items.map((item) => item.resourceId);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -89,6 +104,8 @@ export function DashboardNewPost() {
 								</div>
 								<ResourcePicker
 									resources={resources}
+									resourceSets={resourceSets}
+									resolveResourceSetIds={resolveResourceSetIds}
 									value={selectedResourceIds}
 									onChange={setSelectedResourceIds}
 									triggerLabel="Attach from library"

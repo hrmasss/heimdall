@@ -177,6 +177,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceDetail'
+    patch:
+      operationId: updateResource
+      summary: Update Resource
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
     delete:
       operationId: deleteResource
       summary: Delete Resource
@@ -233,6 +252,128 @@ paths:
                   type: boolean
                 transformRecipe:
                   type: string
+  /api/v1/resource-sets:
+    get:
+      operationId: listResourceSets
+      summary: List Resource Sets
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+      responses:
+        '200':
+          description: Workspace asset sets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetListResponse'
+    post:
+      operationId: createResourceSet
+      summary: Create Resource Set
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceSetUpsert'
+      responses:
+        '201':
+          description: Created asset set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetDetail'
+  /api/v1/resource-sets/{id}:
+    get:
+      operationId: getResourceSet
+      summary: Get Resource Set
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Resource set detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetDetail'
+    patch:
+      operationId: updateResourceSet
+      summary: Update Resource Set
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceSetUpdate'
+      responses:
+        '200':
+          description: Updated resource set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetDetail'
+    delete:
+      operationId: deleteResourceSet
+      summary: Delete Resource Set
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '204':
+          description: Resource set deleted
+  /api/v1/resource-sets/{id}/items:
+    put:
+      operationId: replaceResourceSetItems
+      summary: Replace Resource Set Items
+      tags:
+        - Resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ResourceSetItemInput'
+      responses:
+        '200':
+          description: Updated resource set membership
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetDetail'
 
 components:
   securitySchemes:
@@ -419,6 +560,8 @@ components:
           type: integer
         childCount:
           type: integer
+        setCount:
+          type: integer
         compatibility:
           type: array
           items:
@@ -438,6 +581,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ResourceRecord'
+            sets:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResourceSetSummary'
     ResourceListResponse:
       type: object
       properties:
@@ -445,6 +592,128 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceRecord'
+    ResourceSetItemInput:
+      type: object
+      properties:
+        resourceId:
+          type: string
+          format: uuid
+        role:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    ResourceSetSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        intentType:
+          type: string
+          enum: [generic, social_surface]
+        intentPlatform:
+          type: string
+        intentSurface:
+          type: string
+        coverResourceId:
+          type: string
+          format: uuid
+        coverPreviewUrl:
+          type: string
+        sourceType:
+          type: string
+        itemCount:
+          type: integer
+        membersPreview:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRecord'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ResourceSetItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resourceId:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        role:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        resource:
+          $ref: '#/components/schemas/ResourceRecord'
+    ResourceSetDetail:
+      allOf:
+        - $ref: '#/components/schemas/ResourceSetSummary'
+        - type: object
+          properties:
+            metadata:
+              type: object
+              additionalProperties: true
+            coverResource:
+              $ref: '#/components/schemas/ResourceRecord'
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResourceSetItem'
+    ResourceSetUpsert:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        intentType:
+          type: string
+          enum: [generic, social_surface]
+        intentPlatform:
+          type: string
+        intentSurface:
+          type: string
+        coverResourceId:
+          type: string
+          format: uuid
+        sourceType:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceSetItemInput'
+    ResourceSetUpdate:
+      allOf:
+        - $ref: '#/components/schemas/ResourceSetUpsert'
+        - type: object
+          properties:
+            clearCover:
+              type: boolean
+    ResourceSetListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceSetSummary'
     ResourceUploadOptimization:
       type: object
       properties:

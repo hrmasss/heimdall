@@ -35,6 +35,15 @@ export function getDashboardContextLabel(pathname: string) {
 }
 
 function resolveDashboardLabel(pathname: string) {
+	if (/^\/dashboard\/library\/sets\/new$/.test(pathname)) {
+		return "Create asset set";
+	}
+	if (/^\/dashboard\/library\/sets\/[^/]+\/edit$/.test(pathname)) {
+		return "Edit asset set";
+	}
+	if (/^\/dashboard\/library\/sets\/[^/]+$/.test(pathname)) {
+		return "Asset set detail";
+	}
 	if (/^\/dashboard\/library\/[^/]+\/edit$/.test(pathname)) {
 		return "Edit resource";
 	}

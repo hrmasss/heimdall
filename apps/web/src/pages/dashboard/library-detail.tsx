@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
+import { ResourceSetSummaryStrip } from "@/components/resources/resource-set-display";
 import {
 	ResourceCompatibilityBadge,
 	ResourceThumb,
@@ -149,7 +150,7 @@ export function DashboardLibraryDetailPage() {
 			{
 				label: "Reuse",
 				value: `${resource.usageCount} uses`,
-				detail: `${resource.childCount} variants`,
+				detail: `${resource.setCount} sets · ${resource.childCount} variants`,
 			},
 		];
 	}, [resource]);
@@ -446,6 +447,43 @@ export function DashboardLibraryDetailPage() {
 							) : (
 								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
 									No child variants exist yet.
+								</div>
+							)}
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard className="p-5">
+						<div className="space-y-4">
+							<div className="flex items-center gap-2">
+								<Info className="size-4 text-primary" />
+								<div className="text-lg font-semibold">Related asset sets</div>
+							</div>
+							<div className="text-sm text-muted-foreground">
+								Reusable ordered groups that include this resource, such as
+								carousels or coordinated campaign bundles.
+							</div>
+							{loading || !resource ? (
+								<div className="text-sm text-muted-foreground">
+									Loading related asset sets...
+								</div>
+							) : resource.sets?.length ? (
+								<div className="space-y-3">
+									{resource.sets.map((set) => (
+										<button
+											key={set.id}
+											type="button"
+											onClick={() =>
+												navigate(`/dashboard/library/sets/${set.id}`)
+											}
+											className="w-full text-left"
+										>
+											<ResourceSetSummaryStrip set={set} />
+										</button>
+									))}
+								</div>
+							) : (
+								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+									This resource does not belong to any asset sets yet.
 								</div>
 							)}
 						</div>

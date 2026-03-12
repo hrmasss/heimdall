@@ -1,6 +1,8 @@
 import {
 	FilePlus2,
 	FolderKanban,
+	FolderPlus,
+	Layers3,
 	PencilLine,
 	RefreshCw,
 	Trash2,
@@ -16,6 +18,12 @@ import {
 } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import {
+	formatAssetSetIntent,
+	ResourceSetCover,
+	ResourceSetIntentBadge,
+	ResourceSetMembersPreview,
+} from "@/components/resources/resource-set-display";
+import {
 	LocalFileThumb,
 	ResourceChipList,
 	ResourceCompatibilityBadge,
@@ -26,11 +34,14 @@ import {
 } from "@/components/resources/resource-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type {
 	ApiListResponse,
 	ResourceCapabilityMatrix,
 	ResourceRecord,
+	ResourceSetDetail,
+	ResourceSetSummary,
 	ResourceUploadResponse,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
@@ -47,6 +58,8 @@ type UploadQueueItem = {
 	error?: string;
 	uploadedResourceId?: string;
 };
+
+type LibraryMode = "resources" | "sets";
 
 function getFileExtension(name: string) {
 	return name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -88,12 +101,26 @@ function QueueStatusBadge({ item }: { item: UploadQueueItem }) {
 	);
 }
 
+function buildBatchSetName(items: UploadQueueItem[]) {
+	const namedItem = items.find((item) => item.file.name.trim().length > 0);
+	if (!namedItem) {
+		return "Upload batch";
+	}
+	const baseName = namedItem.file.name.replace(/\.[^.]+$/, "").trim();
+	if (items.length === 1) {
+		return baseName || "Upload batch";
+	}
+	return `${baseName || "Upload"} set`;
+}
+
 export function DashboardLibrary() {
 	const navigate = useNavigate();
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const queueRef = useRef<UploadQueueItem[]>([]);
+	const [libraryMode, setLibraryMode] = useState<LibraryMode>("resources");
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
+	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [capabilities, setCapabilities] =
 		useState<ResourceCapabilityMatrix | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -102,6 +129,10 @@ export function DashboardLibrary() {
 	const [queue, setQueue] = useState<UploadQueueItem[]>([]);
 	const [optimizeImages, setOptimizeImages] = useState(true);
 	const [uploading, setUploading] = useState(false);
+	const [createSetFromBatch, setCreateSetFromBatch] = useState(false);
+	const [batchSetName, setBatchSetName] = useState("");
+	const [batchIntentPlatform, setBatchIntentPlatform] = useState("instagram");
+	const [batchIntentSurface, setBatchIntentSurface] = useState("carousel");
 
 	const releasePreview = useCallback((previewUrl: string) => {
 		URL.revokeObjectURL(previewUrl);
@@ -119,6 +150,17 @@ export function DashboardLibrary() {
 		};
 	}, [releasePreview]);
 
+	useEffect(() => {
+		if (queue.length >= 2) {
+			setCreateSetFromBatch(true);
+			if (!batchSetName.trim()) {
+				setBatchSetName(buildBatchSetName(queue));
+			}
+			return;
+		}
+		setCreateSetFromBatch(false);
+	}, [batchSetName, queue]);
+
 	const loadData = useCallback(async () => {
 		if (!activeWorkspaceId) {
 			return;
@@ -126,12 +168,15 @@ export function DashboardLibrary() {
 		setLoading(true);
 		setError(null);
 		try {
-			const [resourceResponse, capabilityResponse] = await Promise.all([
-				customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-				customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-			]);
+			const [resourceResponse, capabilityResponse, setResponse] =
+				await Promise.all([
+					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
+					customerRequest<ApiListResponse<ResourceSetSummary>>("/resource-sets"),
+				]);
 			setResources(resourceResponse.items);
 			setCapabilities(capabilityResponse);
+			setResourceSets(setResponse.items);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
@@ -201,6 +246,42 @@ export function DashboardLibrary() {
 		setQueue((current) => [...nextItems, ...current]);
 	}
 
+	async function maybeCreateBatchSet(uploadedResources: ResourceRecord[]) {
+		if (!createSetFromBatch || uploadedResources.length < 2) {
+			return null;
+		}
+
+		try {
+			const createdSet = await customerRequest<ResourceSetDetail>("/resource-sets", {
+				method: "POST",
+				body: {
+					name: batchSetName.trim() || buildBatchSetName(queue),
+					description:
+						"Created from a multi-file upload batch in the workspace library.",
+					intentType: "social_surface",
+					intentPlatform: batchIntentPlatform,
+					intentSurface: batchIntentSurface,
+					sourceType: "upload_batch",
+					items: uploadedResources.map((resource) => ({
+						resourceId: resource.id,
+					})),
+				},
+			});
+			setResourceSets((current) => [
+				createdSet,
+				...current.filter((item) => item.id !== createdSet.id),
+			]);
+			return createdSet;
+		} catch (setError) {
+			const message =
+				setError instanceof Error
+					? setError.message
+					: "Resources uploaded, but asset-set creation failed.";
+			setNotice(message);
+			return null;
+		}
+	}
+
 	async function uploadQueue() {
 		const pendingItems = queue.filter((item) => item.status === "pending");
 		if (pendingItems.length === 0) {
@@ -210,6 +291,7 @@ export function DashboardLibrary() {
 		setUploading(true);
 		setError(null);
 		setNotice(null);
+		const uploadedResources: ResourceRecord[] = [];
 		for (const item of pendingItems) {
 			updateQueueItem(item.id, (entry) => ({
 				...entry,
@@ -231,6 +313,7 @@ export function DashboardLibrary() {
 						body: formData,
 					},
 				);
+				uploadedResources.push(response.resource);
 				setResources((current) => [
 					response.resource,
 					...current.filter((resource) => resource.id !== response.resource.id),
@@ -251,8 +334,16 @@ export function DashboardLibrary() {
 				setError(message);
 			}
 		}
+
+		const createdSet = await maybeCreateBatchSet(uploadedResources);
 		setUploading(false);
-		setNotice("Upload queue processed.");
+		if (createdSet) {
+			setNotice(
+				`Upload queue processed and "${createdSet.name}" was created as an ordered asset set.`,
+			);
+		} else {
+			setNotice("Upload queue processed.");
+		}
 	}
 
 	const removeResource = useCallback(
@@ -263,6 +354,29 @@ export function DashboardLibrary() {
 				await customerRequest(`/resources/${resourceId}`, { method: "DELETE" });
 				setResources((current) =>
 					current.filter((resource) => resource.id !== resourceId),
+				);
+				setResourceSets((current) =>
+					current.map((set) => ({
+						...set,
+						itemCount: Math.max(
+							0,
+							set.membersPreview.some((member) => member.id === resourceId)
+								? set.itemCount - 1
+								: set.itemCount,
+						),
+						membersPreview: set.membersPreview.filter(
+							(member) => member.id !== resourceId,
+						),
+						coverPreviewUrl:
+							set.coverResourceId === resourceId
+								? set.membersPreview.find((member) => member.id !== resourceId)
+										?.previewUrl
+								: set.coverPreviewUrl,
+						coverResourceId:
+							set.coverResourceId === resourceId
+								? set.membersPreview.find((member) => member.id !== resourceId)?.id
+								: set.coverResourceId,
+					})),
 				);
 				setNotice("Resource deleted.");
 			} catch (deleteError) {
@@ -276,7 +390,30 @@ export function DashboardLibrary() {
 		[customerRequest],
 	);
 
-	const columns: DataTableColumn<ResourceRecord>[] = useMemo(
+	const removeResourceSet = useCallback(
+		async (resourceSetId: string) => {
+			setError(null);
+			setNotice(null);
+			try {
+				await customerRequest(`/resource-sets/${resourceSetId}`, {
+					method: "DELETE",
+				});
+				setResourceSets((current) =>
+					current.filter((item) => item.id !== resourceSetId),
+				);
+				setNotice("Asset set deleted.");
+			} catch (deleteError) {
+				setError(
+					deleteError instanceof Error
+						? deleteError.message
+						: "Unable to delete the asset set.",
+				);
+			}
+		},
+		[customerRequest],
+	);
+
+	const resourceColumns: DataTableColumn<ResourceRecord>[] = useMemo(
 		() => [
 			{
 				id: "resource",
@@ -331,13 +468,14 @@ export function DashboardLibrary() {
 					<div className="space-y-1 text-sm">
 						<div>{resource.usageCount} references</div>
 						<div className="text-muted-foreground">
+							{resource.setCount} sets ·{" "}
 							{resource.parentResourceId
-								? "Derived variant"
+								? "derived variant"
 								: `${resource.childCount} child variants`}
 						</div>
 					</div>
 				),
-				getSortValue: (resource) => resource.usageCount,
+				getSortValue: (resource) => resource.usageCount + resource.setCount,
 			},
 			{
 				id: "updated",
@@ -397,12 +535,116 @@ export function DashboardLibrary() {
 		[navigate, removeResource],
 	);
 
+	const resourceSetColumns: DataTableColumn<ResourceSetSummary>[] = useMemo(
+		() => [
+			{
+				id: "set",
+				label: "Asset set",
+				width: 360,
+				accessor: (set) => (
+					<div className="flex items-center gap-3">
+						<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+							<ResourceSetCover set={set} compact className="rounded-[18px]" />
+						</div>
+						<div className="min-w-0">
+							<div className="truncate font-medium">{set.name}</div>
+							<div className="truncate text-sm text-muted-foreground">
+								{set.description || formatAssetSetIntent(set)}
+							</div>
+						</div>
+					</div>
+				),
+				getSortValue: (set) => set.name,
+			},
+			{
+				id: "intent",
+				label: "Intended use",
+				width: 220,
+				accessor: (set) => (
+					<div className="space-y-2">
+						<ResourceSetIntentBadge set={set} />
+						<div className="text-sm text-muted-foreground capitalize">
+							{set.sourceType.replaceAll("_", " ")}
+						</div>
+					</div>
+				),
+				getSortValue: (set) => formatAssetSetIntent(set),
+			},
+			{
+				id: "members",
+				label: "Members",
+				width: 260,
+				accessor: (set) => (
+					<div className="space-y-2">
+						<div className="text-sm">{set.itemCount} ordered items</div>
+						<ResourceSetMembersPreview resources={set.membersPreview} max={3} />
+					</div>
+				),
+				getSortValue: (set) => set.itemCount,
+			},
+			{
+				id: "updated",
+				label: "Updated",
+				width: 170,
+				accessor: (set) => new Date(set.updatedAt).toLocaleDateString(),
+				getSortValue: (set) => new Date(set.updatedAt).getTime(),
+			},
+			{
+				id: "actions",
+				label: "Manage",
+				width: 260,
+				className: "text-right",
+				headerClassName: "text-right",
+				accessor: (set) => (
+					<div className="flex items-center justify-end gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-full"
+							onClick={(event) => {
+								event.stopPropagation();
+								navigate(`/dashboard/library/sets/${set.id}`);
+							}}
+						>
+							Open
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-full"
+							onClick={(event) => {
+								event.stopPropagation();
+								navigate(`/dashboard/library/sets/${set.id}/edit`);
+							}}
+						>
+							<PencilLine className="size-4" />
+							Edit
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="rounded-full text-red-600"
+							onClick={(event) => {
+								event.stopPropagation();
+								void removeResourceSet(set.id);
+							}}
+						>
+							<Trash2 className="size-4" />
+							Delete
+						</Button>
+					</div>
+				),
+			},
+		],
+		[navigate, removeResourceSet],
+	);
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
 				eyebrow="Workspace resources"
 				title="Library"
-				description="Upload, preview, inspect, and reuse workspace-scoped media from a dedicated shared library before composing platform-specific posts."
+				description="Upload, preview, inspect, and reuse workspace-scoped media. Ordered asset sets keep related resources together for surfaces like carousels and story sequences."
 				actions={
 					<>
 						<Button
@@ -412,6 +654,14 @@ export function DashboardLibrary() {
 						>
 							<RefreshCw className="size-4" />
 							Refresh
+						</Button>
+						<Button
+							variant="outline"
+							className="rounded-full"
+							onClick={() => navigate("/dashboard/library/sets/new")}
+						>
+							<FolderPlus className="size-4" />
+							New asset set
 						</Button>
 						<Button
 							className="rounded-full border-0 bg-gradient-brand text-white"
@@ -439,7 +689,7 @@ export function DashboardLibrary() {
 
 			<DashboardPanel
 				title="Upload queue"
-				description="Preview files before they enter the workspace library. Image optimization stays enabled by default to reduce storage usage."
+				description="Preview files before they enter the workspace library. Multi-file uploads can create an ordered asset set automatically."
 				action={
 					<div className="flex flex-wrap items-center gap-3">
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -490,9 +740,58 @@ export function DashboardLibrary() {
 					</div>
 					<p className="mt-2 text-sm text-muted-foreground">
 						Images, videos, and documents become reusable workspace resources.
-						Composed surfaces like carousels and reels are assembled later.
+						If you upload multiple files together, their drag order becomes the
+						initial asset-set order.
 					</p>
 				</div>
+				{queue.length >= 2 ? (
+					<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<div className="font-medium">Create asset set from this batch</div>
+								<div className="text-sm text-muted-foreground">
+									Group related resources now so carousels, story sequences, and
+									ordered picks stay intact later.
+								</div>
+							</div>
+							<div className="flex items-center gap-2 text-sm text-muted-foreground">
+								<Switch
+									checked={createSetFromBatch}
+									onCheckedChange={(checked) =>
+										setCreateSetFromBatch(Boolean(checked))
+									}
+								/>
+								Auto-create ordered set
+							</div>
+						</div>
+						{createSetFromBatch ? (
+							<div className="mt-4 grid gap-3 md:grid-cols-3">
+								<Input
+									value={batchSetName}
+									onChange={(event) => setBatchSetName(event.target.value)}
+									className="h-11 rounded-2xl"
+									placeholder="Instagram carousel set"
+								/>
+								<Input
+									value={batchIntentPlatform}
+									onChange={(event) =>
+										setBatchIntentPlatform(event.target.value)
+									}
+									className="h-11 rounded-2xl"
+									placeholder="instagram"
+								/>
+								<Input
+									value={batchIntentSurface}
+									onChange={(event) =>
+										setBatchIntentSurface(event.target.value)
+									}
+									className="h-11 rounded-2xl"
+									placeholder="carousel"
+								/>
+							</div>
+						) : null}
+					</div>
+				) : null}
 
 				<div className="mt-4 space-y-3">
 					{queue.length === 0 ? (
@@ -509,6 +808,7 @@ export function DashboardLibrary() {
 									<LocalFileThumb
 										file={item.file}
 										previewUrl={item.previewUrl}
+										variant="compact"
 									/>
 								</div>
 								<div className="min-w-0 flex-1">
@@ -582,137 +882,270 @@ export function DashboardLibrary() {
 				</SurfaceCard>
 			) : null}
 
+			<SurfaceCard className="p-4">
+				<div className="flex flex-wrap items-center gap-2">
+					<Button
+						variant={libraryMode === "resources" ? "secondary" : "outline"}
+						className="rounded-full"
+						onClick={() => setLibraryMode("resources")}
+					>
+						<Layers3 className="size-4" />
+						Resources
+					</Button>
+					<Button
+						variant={libraryMode === "sets" ? "secondary" : "outline"}
+						className="rounded-full"
+						onClick={() => setLibraryMode("sets")}
+					>
+						<FolderKanban className="size-4" />
+						Asset sets
+					</Button>
+				</div>
+			</SurfaceCard>
+
 			<SurfaceCard className="p-5 md:p-6">
-				<DataTable
-					title="Workspace asset library"
-					description={`Tracking ${capabilities?.rules.length ?? 0} backend-owned platform surface rules. Grid view is the default because previews matter here.`}
-					rows={resources}
-					columns={columns}
-					getRowId={(resource) => resource.id}
-					getSearchText={(resource) =>
-						[
-							resource.displayName,
-							resource.originalName,
-							resource.mediaKind,
-							resource.mimeType,
-							getResourceHealth(resource),
-						].join(" ")
-					}
-					filters={[
-						{
-							id: "media",
-							label: "Media",
-							options: [
-								{ label: "Images", value: "image" },
-								{ label: "Videos", value: "video" },
-								{ label: "Documents", value: "document" },
-							],
-							getValue: (resource) => resource.mediaKind,
-						},
-						{
-							id: "health",
-							label: "Readiness",
-							options: [
-								{ label: "Ready", value: "ready" },
-								{ label: "Warnings", value: "warning" },
-								{ label: "Blocked", value: "blocked" },
-							],
-							getValue: (resource) => getResourceHealth(resource),
-						},
-					]}
-					loading={loading}
-					error={null}
-					initialView="grid"
-					pageSizeOptions={[6, 12, 24]}
-					searchPlaceholder="Search resources, filenames, media types, or MIME types..."
-					emptyState={{
-						title: "No resources found",
-						description:
-							"Upload your first image, video, or document to start building the shared workspace media library.",
-						actionLabel: "Add resources",
-						onAction: () => fileInputRef.current?.click(),
-					}}
-					onRowClick={(resource) =>
-						navigate(`/dashboard/library/${resource.id}`)
-					}
-					renderGridCard={(resource) => (
-						<>
-							<div className="aspect-[16/10] overflow-hidden bg-muted">
-								<ResourceThumb resource={resource} variant="minimal" />
-							</div>
-							<div className="space-y-4 p-5">
-								<div className="flex items-start justify-between gap-3">
-									<div className="min-w-0">
-										<div className="truncate text-lg font-medium">
-											{resource.displayName}
+				{libraryMode === "resources" ? (
+					<DataTable
+						title="Workspace resources"
+						description={`Tracking ${capabilities?.rules.length ?? 0} backend-owned platform surface rules. Grid view stays the default because previews matter here.`}
+						rows={resources}
+						columns={resourceColumns}
+						getRowId={(resource) => resource.id}
+						getSearchText={(resource) =>
+							[
+								resource.displayName,
+								resource.originalName,
+								resource.mediaKind,
+								resource.mimeType,
+								getResourceHealth(resource),
+							].join(" ")
+						}
+						filters={[
+							{
+								id: "media",
+								label: "Media",
+								options: [
+									{ label: "Images", value: "image" },
+									{ label: "Videos", value: "video" },
+									{ label: "Documents", value: "document" },
+								],
+								getValue: (resource) => resource.mediaKind,
+							},
+							{
+								id: "health",
+								label: "Readiness",
+								options: [
+									{ label: "Ready", value: "ready" },
+									{ label: "Warnings", value: "warning" },
+									{ label: "Blocked", value: "blocked" },
+								],
+								getValue: (resource) => getResourceHealth(resource),
+							},
+						]}
+						loading={loading}
+						error={null}
+						initialView="grid"
+						pageSizeOptions={[6, 12, 24]}
+						searchPlaceholder="Search resources, filenames, media types, or MIME types..."
+						emptyState={{
+							title: "No resources found",
+							description:
+								"Upload your first image, video, or document to start building the shared workspace media library.",
+							actionLabel: "Add resources",
+							onAction: () => fileInputRef.current?.click(),
+						}}
+						onRowClick={(resource) =>
+							navigate(`/dashboard/library/${resource.id}`)
+						}
+						renderGridCard={(resource) => (
+							<>
+								<div className="aspect-[16/10] overflow-hidden bg-muted">
+									<ResourceThumb resource={resource} variant="minimal" />
+								</div>
+								<div className="space-y-4 p-5">
+									<div className="flex items-start justify-between gap-3">
+										<div className="min-w-0">
+											<div className="truncate text-lg font-medium">
+												{resource.displayName}
+											</div>
+											<div className="mt-1 text-sm text-muted-foreground">
+												{formatResourceMeta(resource)}
+											</div>
 										</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											{formatResourceMeta(resource)}
-										</div>
+										<ResourceCompatibilityBadge resource={resource} />
 									</div>
-									<ResourceCompatibilityBadge resource={resource} />
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<Badge variant="outline" className="rounded-full capitalize">
-										{resource.mediaKind}
-									</Badge>
-									<Badge variant="outline" className="rounded-full">
-										{resource.usageCount} uses
-									</Badge>
-									{resource.parentResourceId ? (
-										<Badge variant="outline" className="rounded-full">
-											Variant
+									<div className="flex flex-wrap gap-2">
+										<Badge variant="outline" className="rounded-full capitalize">
+											{resource.mediaKind}
 										</Badge>
-									) : null}
-									{resource.childCount > 0 ? (
 										<Badge variant="outline" className="rounded-full">
-											{resource.childCount} variants
+											{resource.usageCount} uses
 										</Badge>
-									) : null}
+										<Badge variant="outline" className="rounded-full">
+											{resource.setCount} sets
+										</Badge>
+										{resource.parentResourceId ? (
+											<Badge variant="outline" className="rounded-full">
+												Variant
+											</Badge>
+										) : null}
+									</div>
+									<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={(event) => {
+												event.stopPropagation();
+												navigate(`/dashboard/library/${resource.id}`);
+											}}
+										>
+											Open
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={(event) => {
+												event.stopPropagation();
+												navigate(`/dashboard/library/${resource.id}/edit`);
+											}}
+										>
+											<PencilLine className="size-4" />
+											Edit
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="rounded-full text-red-600"
+											onClick={(event) => {
+												event.stopPropagation();
+												void removeResource(resource.id);
+											}}
+										>
+											<Trash2 className="size-4" />
+											Delete
+										</Button>
+									</div>
 								</div>
-								<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
-									<Button
-										variant="outline"
-										size="sm"
-										className="rounded-full"
-										onClick={(event) => {
-											event.stopPropagation();
-											navigate(`/dashboard/library/${resource.id}`);
-										}}
-									>
-										Open
-									</Button>
-									<Button
-										variant="outline"
-										size="sm"
-										className="rounded-full"
-										onClick={(event) => {
-											event.stopPropagation();
-											navigate(`/dashboard/library/${resource.id}/edit`);
-										}}
-									>
-										<PencilLine className="size-4" />
-										Edit
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="rounded-full text-red-600"
-										onClick={(event) => {
-											event.stopPropagation();
-											void removeResource(resource.id);
-										}}
-									>
-										<Trash2 className="size-4" />
-										Delete
-									</Button>
+							</>
+						)}
+						gridClassName="xl:grid-cols-3"
+						gridCardClassName="overflow-hidden p-0"
+					/>
+				) : (
+					<DataTable
+						title="Asset sets"
+						description="Reusable ordered groups for sequences like Instagram carousels, story frames, or coordinated document bundles."
+						rows={resourceSets}
+						columns={resourceSetColumns}
+						getRowId={(set) => set.id}
+						getSearchText={(set) =>
+							[
+								set.name,
+								set.description,
+								set.intentType,
+								set.intentPlatform ?? "",
+								set.intentSurface ?? "",
+							].join(" ")
+						}
+						filters={[
+							{
+								id: "intent",
+								label: "Intent",
+								options: [
+									{ label: "Generic", value: "generic" },
+									{ label: "Social surface", value: "social_surface" },
+								],
+								getValue: (set) => set.intentType,
+							},
+						]}
+						loading={loading}
+						error={null}
+						initialView="grid"
+						pageSizeOptions={[6, 12, 24]}
+						searchPlaceholder="Search asset sets, descriptions, platforms, or surfaces..."
+						emptyState={{
+							title: "No asset sets yet",
+							description:
+								"Create a set manually or upload multiple related files together to preserve order and reuse them as a group.",
+							actionLabel: "New asset set",
+							onAction: () => navigate("/dashboard/library/sets/new"),
+						}}
+						onRowClick={(set) => navigate(`/dashboard/library/sets/${set.id}`)}
+						renderGridCard={(set) => (
+							<>
+								<div className="aspect-[16/10] overflow-hidden bg-muted">
+									<ResourceSetCover set={set} />
 								</div>
-							</div>
-						</>
-					)}
-					gridClassName="xl:grid-cols-3"
-					gridCardClassName="overflow-hidden p-0"
-				/>
+								<div className="space-y-4 p-5">
+									<div className="flex items-start justify-between gap-3">
+										<div className="min-w-0">
+											<div className="truncate text-lg font-medium">
+												{set.name}
+											</div>
+											<div className="mt-1 text-sm text-muted-foreground">
+												{set.description || formatAssetSetIntent(set)}
+											</div>
+										</div>
+										<ResourceSetIntentBadge set={set} />
+									</div>
+									<ResourceSetMembersPreview
+										resources={set.membersPreview}
+										max={4}
+									/>
+									<div className="flex flex-wrap gap-2">
+										<Badge variant="outline" className="rounded-full">
+											{set.itemCount} ordered items
+										</Badge>
+										<Badge variant="outline" className="rounded-full capitalize">
+											{set.sourceType.replaceAll("_", " ")}
+										</Badge>
+									</div>
+									<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={(event) => {
+												event.stopPropagation();
+												navigate(`/dashboard/library/sets/${set.id}`);
+											}}
+										>
+											Open
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={(event) => {
+												event.stopPropagation();
+												navigate(`/dashboard/library/sets/${set.id}/edit`);
+											}}
+										>
+											<PencilLine className="size-4" />
+											Edit
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="rounded-full text-red-600"
+											onClick={(event) => {
+												event.stopPropagation();
+												void removeResourceSet(set.id);
+											}}
+										>
+											<Trash2 className="size-4" />
+											Delete
+										</Button>
+									</div>
+								</div>
+							</>
+						)}
+						gridClassName="xl:grid-cols-3"
+						gridCardClassName="overflow-hidden p-0"
+					/>
+				)}
 			</SurfaceCard>
 
 			<SurfaceCard tone="muted" className="space-y-4 p-5">
@@ -721,15 +1154,21 @@ export function DashboardLibrary() {
 						<FolderKanban className="size-5" />
 					</div>
 					<div>
-						<div className="font-medium">Shared resource reuse</div>
+						<div className="font-medium">Resource reuse and grouping</div>
 						<p className="mt-2 text-sm leading-6 text-muted-foreground">
-							This library stays separate from post entities so the same media
-							can be attached to multiple destination-specific posts and future
-							edited variants.
+							Resources stay separate from post entities so the same media can
+							be attached to multiple destination-specific posts. Asset sets add
+							ordered, reusable relationships on top when files belong together.
 						</p>
 					</div>
 				</div>
-				<ResourceChipList resources={resources.slice(0, 4)} />
+				{libraryMode === "resources" ? (
+					<ResourceChipList resources={resources.slice(0, 4)} />
+				) : (
+					<ResourceSetMembersPreview
+						resources={resourceSets.flatMap((set) => set.membersPreview).slice(0, 4)}
+					/>
+				)}
 			</SurfaceCard>
 		</div>
 	);

@@ -133,6 +133,7 @@ export type ResourceRecord = {
 	previewUrl: string;
 	usageCount: number;
 	childCount: number;
+	setCount: number;
 	transformRecipe?: Record<string, unknown>;
 	compatibility: ResourceCompatibility[];
 	processingError?: string;
@@ -140,8 +141,41 @@ export type ResourceRecord = {
 	updatedAt: string;
 };
 
+export type ResourceSetSummary = {
+	id: string;
+	workspaceId: string;
+	name: string;
+	description: string;
+	intentType: "generic" | "social_surface";
+	intentPlatform?: string;
+	intentSurface?: string;
+	coverResourceId?: string;
+	coverPreviewUrl?: string;
+	sourceType: string;
+	itemCount: number;
+	membersPreview: ResourceRecord[];
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type ResourceSetItem = {
+	id: string;
+	resourceId: string;
+	position: number;
+	role: string;
+	metadata?: Record<string, unknown>;
+	resource: ResourceRecord;
+};
+
+export type ResourceSetDetail = ResourceSetSummary & {
+	metadata?: Record<string, unknown>;
+	coverResource?: ResourceRecord;
+	items: ResourceSetItem[];
+};
+
 export type ResourceDetail = ResourceRecord & {
 	variants: ResourceRecord[];
+	sets?: ResourceSetSummary[];
 };
 
 export type ResourceUploadResponse = {

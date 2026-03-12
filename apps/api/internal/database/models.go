@@ -182,6 +182,38 @@ type ResourceReference struct {
 	UpdatedAt   time.Time `bun:"updated_at,notnull"`
 }
 
+type ResourceSet struct {
+	bun.BaseModel `bun:"table:resource_sets"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Name            string     `bun:"name,notnull"`
+	Description     string     `bun:"description,notnull"`
+	IntentType      string     `bun:"intent_type,notnull"`
+	IntentPlatform  *string    `bun:"intent_platform"`
+	IntentSurface   *string    `bun:"intent_surface"`
+	CoverResourceID *uuid.UUID `bun:"cover_resource_id,type:uuid"`
+	SourceType      string     `bun:"source_type,notnull"`
+	Metadata        string     `bun:"metadata,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type ResourceSetItem struct {
+	bun.BaseModel `bun:"table:resource_set_items"`
+
+	ID            uuid.UUID `bun:"id,pk,type:uuid"`
+	ResourceSetID uuid.UUID `bun:"resource_set_id,notnull,type:uuid"`
+	ResourceID    uuid.UUID `bun:"resource_id,notnull,type:uuid"`
+	Position      int       `bun:"position,notnull"`
+	Role          string    `bun:"role,notnull"`
+	Metadata      string    `bun:"metadata,notnull"`
+	CreatedAt     time.Time `bun:"created_at,notnull"`
+	UpdatedAt     time.Time `bun:"updated_at,notnull"`
+}
+
 type ResourceCleanupJob struct {
 	bun.BaseModel `bun:"table:resource_cleanup_jobs"`
 

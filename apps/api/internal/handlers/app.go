@@ -69,6 +69,12 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/resources/:id", h.requireAuth, h.getResource)
 	api.Patch("/resources/:id", h.requireAuth, h.updateResource)
 	api.Delete("/resources/:id", h.requireAuth, h.deleteResource)
+	api.Get("/resource-sets", h.requireAuth, h.listResourceSets)
+	api.Post("/resource-sets", h.requireAuth, h.createResourceSet)
+	api.Get("/resource-sets/:id", h.requireAuth, h.getResourceSet)
+	api.Patch("/resource-sets/:id", h.requireAuth, h.updateResourceSet)
+	api.Put("/resource-sets/:id/items", h.requireAuth, h.replaceResourceSetItems)
+	api.Delete("/resource-sets/:id", h.requireAuth, h.deleteResourceSet)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
@@ -593,6 +599,129 @@ func (h *AppHandler) updateResource(c fiber.Ctx) error {
 	return c.JSON(record)
 }
 
+func (h *AppHandler) listResourceSets(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	items, err := h.resourceService.ListResourceSets(c.Context(), principal, workspaceID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(fiber.Map{"items": items})
+}
+
+func (h *AppHandler) getResourceSet(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceSetID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	item, err := h.resourceService.GetResourceSet(c.Context(), principal, workspaceID, resourceSetID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(item)
+}
+
+func (h *AppHandler) createResourceSet(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	input, err := h.bindCreateResourceSet(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.resourceService.CreateResourceSet(c.Context(), principal, workspaceID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) updateResourceSet(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceSetID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	input, err := h.bindUpdateResourceSet(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.resourceService.UpdateResourceSet(c.Context(), principal, workspaceID, resourceSetID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) replaceResourceSetItems(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceSetID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	input, err := h.bindResourceSetItems(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.resourceService.ReplaceResourceSetItems(c.Context(), principal, workspaceID, resourceSetID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) deleteResourceSet(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resourceSetID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.resourceService.DeleteResourceSet(c.Context(), principal, workspaceID, resourceSetID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func (h *AppHandler) serveResourceBlob(c fiber.Ctx) error {
 	if h.blobServer == nil {
 		return c.SendStatus(fiber.StatusNotFound)
@@ -638,6 +767,115 @@ func (h *AppHandler) bindResourceUpload(c fiber.Ctx) (resources.UploadInput, err
 		TransformRecipe: strings.TrimSpace(c.FormValue("transformRecipe")),
 		Body:            file,
 	}, nil
+}
+
+func (h *AppHandler) bindCreateResourceSet(c fiber.Ctx) (resources.CreateResourceSetInput, error) {
+	var body struct {
+		Name            string           `json:"name"`
+		Description     string           `json:"description"`
+		IntentType      string           `json:"intentType"`
+		IntentPlatform  string           `json:"intentPlatform"`
+		IntentSurface   string           `json:"intentSurface"`
+		CoverResourceID string           `json:"coverResourceId"`
+		SourceType      string           `json:"sourceType"`
+		Metadata        map[string]any   `json:"metadata"`
+		Items           []map[string]any `json:"items"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return resources.CreateResourceSetInput{}, iam.ErrValidation
+	}
+	items, err := parseResourceSetItems(body.Items)
+	if err != nil {
+		return resources.CreateResourceSetInput{}, err
+	}
+	var coverResourceID *uuid.UUID
+	if strings.TrimSpace(body.CoverResourceID) != "" {
+		parsed, err := uuid.Parse(body.CoverResourceID)
+		if err != nil {
+			return resources.CreateResourceSetInput{}, iam.ErrValidation
+		}
+		coverResourceID = &parsed
+	}
+	return resources.CreateResourceSetInput{
+		Name:            body.Name,
+		Description:     body.Description,
+		IntentType:      body.IntentType,
+		IntentPlatform:  body.IntentPlatform,
+		IntentSurface:   body.IntentSurface,
+		CoverResourceID: coverResourceID,
+		SourceType:      body.SourceType,
+		Metadata:        body.Metadata,
+		Items:           items,
+	}, nil
+}
+
+func (h *AppHandler) bindUpdateResourceSet(c fiber.Ctx) (resources.UpdateResourceSetInput, error) {
+	var body struct {
+		Name            string         `json:"name"`
+		Description     string         `json:"description"`
+		IntentType      string         `json:"intentType"`
+		IntentPlatform  string         `json:"intentPlatform"`
+		IntentSurface   string         `json:"intentSurface"`
+		CoverResourceID *string        `json:"coverResourceId"`
+		ClearCover      bool           `json:"clearCover"`
+		Metadata        map[string]any `json:"metadata"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return resources.UpdateResourceSetInput{}, iam.ErrValidation
+	}
+	var coverResourceID *uuid.UUID
+	if body.CoverResourceID != nil && strings.TrimSpace(*body.CoverResourceID) != "" {
+		parsed, err := uuid.Parse(strings.TrimSpace(*body.CoverResourceID))
+		if err != nil {
+			return resources.UpdateResourceSetInput{}, iam.ErrValidation
+		}
+		coverResourceID = &parsed
+	}
+	return resources.UpdateResourceSetInput{
+		Name:            body.Name,
+		Description:     body.Description,
+		IntentType:      body.IntentType,
+		IntentPlatform:  body.IntentPlatform,
+		IntentSurface:   body.IntentSurface,
+		CoverResourceID: coverResourceID,
+		ClearCover:      body.ClearCover,
+		Metadata:        body.Metadata,
+	}, nil
+}
+
+func (h *AppHandler) bindResourceSetItems(c fiber.Ctx) ([]resources.ResourceSetItemInput, error) {
+	var body struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return nil, iam.ErrValidation
+	}
+	return parseResourceSetItems(body.Items)
+}
+
+func parseResourceSetItems(rawItems []map[string]any) ([]resources.ResourceSetItemInput, error) {
+	items := make([]resources.ResourceSetItemInput, 0, len(rawItems))
+	for _, raw := range rawItems {
+		idValue, ok := raw["resourceId"].(string)
+		if !ok || strings.TrimSpace(idValue) == "" {
+			return nil, fmt.Errorf("%w: resourceId is required for each item", iam.ErrValidation)
+		}
+		resourceID, err := uuid.Parse(strings.TrimSpace(idValue))
+		if err != nil {
+			return nil, iam.ErrValidation
+		}
+		role, _ := raw["role"].(string)
+		metadata := map[string]any{}
+		if parsedMetadata, ok := raw["metadata"].(map[string]any); ok {
+			metadata = parsedMetadata
+		}
+		items = append(items, resources.ResourceSetItemInput{
+			ResourceID: resourceID,
+			Role:       role,
+			Metadata:   metadata,
+		})
+	}
+	return items, nil
 }
 
 func (h *AppHandler) listPlatformUsers(c fiber.Ctx) error {

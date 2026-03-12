@@ -2,6 +2,10 @@ import { Layers3, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
+	ResourceSetIntentBadge,
+	ResourceSetMembersPreview,
+} from "@/components/resources/resource-set-display";
+import {
 	ResourceCompatibilityBadge,
 	ResourceKindIcon,
 	ResourceThumb,
@@ -17,17 +21,21 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { ResourceRecord } from "@/lib/api-types";
+import type { ResourceRecord, ResourceSetSummary } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
 export function ResourcePicker({
 	resources,
+	resourceSets = [],
+	resolveResourceSetIds,
 	value,
 	onChange,
 	triggerLabel = "Select resources",
 	emptyMessage = "Upload resources in the library first.",
 }: {
 	resources: ResourceRecord[];
+	resourceSets?: ResourceSetSummary[];
+	resolveResourceSetIds?: (resourceSetId: string) => Promise<string[]>;
 	value: string[];
 	onChange: (resourceIds: string[]) => void;
 	triggerLabel?: string;
@@ -36,6 +44,7 @@ export function ResourcePicker({
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [draftValue, setDraftValue] = useState<string[]>(value);
+	const [loadingSetId, setLoadingSetId] = useState<string | null>(null);
 
 	const filteredResources = useMemo(() => {
 		const needle = query.trim().toLowerCase();
@@ -54,6 +63,40 @@ export function ResourcePicker({
 				.includes(needle),
 		);
 	}, [resources, query]);
+
+	const filteredSets = useMemo(() => {
+		const needle = query.trim().toLowerCase();
+		if (!needle) {
+			return resourceSets;
+		}
+		return resourceSets.filter((set) =>
+			[
+				set.name,
+				set.description,
+				set.intentType,
+				set.intentPlatform ?? "",
+				set.intentSurface ?? "",
+			]
+				.join(" ")
+				.toLowerCase()
+				.includes(needle),
+		);
+	}, [query, resourceSets]);
+
+	async function addAssetSetMembers(resourceSet: ResourceSetSummary) {
+		const orderedIds = resolveResourceSetIds
+			? await resolveResourceSetIds(resourceSet.id)
+			: resourceSet.membersPreview.map((resource) => resource.id);
+		setDraftValue((current) => {
+			const next = [...current];
+			for (const resourceId of orderedIds) {
+				if (!next.includes(resourceId)) {
+					next.push(resourceId);
+				}
+			}
+			return next;
+		});
+	}
 
 	return (
 		<Dialog
@@ -88,58 +131,117 @@ export function ResourcePicker({
 							placeholder="Search resources"
 						/>
 					</div>
-					{filteredResources.length === 0 ? (
+					{filteredSets.length === 0 && filteredResources.length === 0 ? (
 						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
 							{emptyMessage}
 						</div>
 					) : (
-						<div className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
-							{filteredResources.map((resource) => {
-								const selected = draftValue.includes(resource.id);
-								return (
-									<button
-										key={resource.id}
-										type="button"
-										onClick={() =>
-											setDraftValue((current) =>
-												current.includes(resource.id)
-													? current.filter((item) => item !== resource.id)
-													: [...current, resource.id],
-											)
-										}
-										className={cn(
-											"overflow-hidden rounded-[24px] border text-left transition-colors",
-											selected
-												? "border-primary bg-primary/5"
-												: "border-[var(--brand-border-soft)] bg-background/70 hover:bg-accent/40",
-										)}
-									>
-										<div className="aspect-[16/10] overflow-hidden">
-											<ResourceThumb resource={resource} />
-										</div>
-										<div className="space-y-3 p-4">
-											<div className="flex items-start justify-between gap-3">
-												<div className="min-w-0">
-													<div className="truncate font-medium">
-														{resource.displayName}
+						<div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
+							{filteredSets.length > 0 ? (
+								<div className="space-y-3">
+									<div className="text-sm font-medium">Asset sets</div>
+									<div className="grid gap-3 md:grid-cols-2">
+										{filteredSets.map((resourceSet) => (
+											<div
+												key={resourceSet.id}
+												className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
+											>
+												<div className="flex items-start justify-between gap-3">
+													<div className="min-w-0">
+														<div className="truncate font-medium">
+															{resourceSet.name}
+														</div>
+														<div className="mt-1 text-xs text-muted-foreground">
+															{resourceSet.itemCount} ordered items
+														</div>
 													</div>
-													<div className="mt-1 text-xs text-muted-foreground">
-														{formatResourceMeta(resource)}
-													</div>
+													<ResourceSetIntentBadge set={resourceSet} />
 												</div>
-												<ResourceCompatibilityBadge resource={resource} />
+												<div className="mt-3">
+													<ResourceSetMembersPreview
+														resources={resourceSet.membersPreview}
+														max={3}
+													/>
+												</div>
+												<div className="mt-3 flex justify-end">
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														className="rounded-full"
+														disabled={loadingSetId === resourceSet.id}
+														onClick={async () => {
+															setLoadingSetId(resourceSet.id);
+															try {
+																await addAssetSetMembers(resourceSet);
+															} finally {
+																setLoadingSetId(null);
+															}
+														}}
+													>
+														{loadingSetId === resourceSet.id
+															? "Loading..."
+															: "Add set members"}
+													</Button>
+												</div>
 											</div>
-											<div className="flex items-center justify-between text-xs text-muted-foreground">
-												<span className="inline-flex items-center gap-1.5 capitalize">
-													<ResourceKindIcon mediaKind={resource.mediaKind} />
-													{resource.mediaKind}
-												</span>
-												<span>{resource.usageCount} uses</span>
-											</div>
-										</div>
-									</button>
-								);
-							})}
+										))}
+									</div>
+								</div>
+							) : null}
+							{filteredResources.length > 0 ? (
+								<div className="space-y-3">
+									<div className="text-sm font-medium">Single resources</div>
+									<div className="grid gap-3 md:grid-cols-2">
+										{filteredResources.map((resource) => {
+											const selected = draftValue.includes(resource.id);
+											return (
+												<button
+													key={resource.id}
+													type="button"
+													onClick={() =>
+														setDraftValue((current) =>
+															current.includes(resource.id)
+																? current.filter((item) => item !== resource.id)
+																: [...current, resource.id],
+														)
+													}
+													className={cn(
+														"overflow-hidden rounded-[24px] border text-left transition-colors",
+														selected
+															? "border-primary bg-primary/5"
+															: "border-[var(--brand-border-soft)] bg-background/70 hover:bg-accent/40",
+													)}
+												>
+													<div className="aspect-[16/10] overflow-hidden">
+														<ResourceThumb resource={resource} />
+													</div>
+													<div className="space-y-3 p-4">
+														<div className="flex items-start justify-between gap-3">
+															<div className="min-w-0">
+																<div className="truncate font-medium">
+																	{resource.displayName}
+																</div>
+																<div className="mt-1 text-xs text-muted-foreground">
+																	{formatResourceMeta(resource)}
+																</div>
+															</div>
+															<ResourceCompatibilityBadge resource={resource} />
+														</div>
+														<div className="flex items-center justify-between text-xs text-muted-foreground">
+															<span className="inline-flex items-center gap-1.5 capitalize">
+																<ResourceKindIcon mediaKind={resource.mediaKind} />
+																{resource.mediaKind}
+															</span>
+															<span>{resource.usageCount} uses</span>
+														</div>
+													</div>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							) : null}
 						</div>
 					)}
 					<div className="flex items-center justify-between border-t border-border pt-4">

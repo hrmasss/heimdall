@@ -49,6 +49,35 @@ type UpdateInput struct {
 	DisplayName string
 }
 
+type ResourceSetItemInput struct {
+	ResourceID uuid.UUID
+	Role       string
+	Metadata   map[string]any
+}
+
+type CreateResourceSetInput struct {
+	Name            string
+	Description     string
+	IntentType      string
+	IntentPlatform  string
+	IntentSurface   string
+	CoverResourceID *uuid.UUID
+	SourceType      string
+	Metadata        map[string]any
+	Items           []ResourceSetItemInput
+}
+
+type UpdateResourceSetInput struct {
+	Name            string
+	Description     string
+	IntentType      string
+	IntentPlatform  string
+	IntentSurface   string
+	CoverResourceID *uuid.UUID
+	ClearCover      bool
+	Metadata        map[string]any
+}
+
 type ReferenceInput struct {
 	ResourceID uuid.UUID
 	Metadata   map[string]any
@@ -79,6 +108,7 @@ type ResourceListItem struct {
 	PreviewURL       string                  `json:"previewUrl"`
 	UsageCount       int                     `json:"usageCount"`
 	ChildCount       int                     `json:"childCount"`
+	SetCount         int                     `json:"setCount"`
 	TransformRecipe  map[string]any          `json:"transformRecipe,omitempty"`
 	Compatibility    []ResourceCompatibility `json:"compatibility"`
 	ProcessingError  string                  `json:"processingError,omitempty"`
@@ -88,7 +118,41 @@ type ResourceListItem struct {
 
 type ResourceDetail struct {
 	ResourceListItem
-	Variants []ResourceListItem `json:"variants"`
+	Variants []ResourceListItem   `json:"variants"`
+	Sets     []ResourceSetSummary `json:"sets,omitempty"`
+}
+
+type ResourceSetSummary struct {
+	ID              string             `json:"id"`
+	WorkspaceID     string             `json:"workspaceId"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description,omitempty"`
+	IntentType      string             `json:"intentType"`
+	IntentPlatform  string             `json:"intentPlatform,omitempty"`
+	IntentSurface   string             `json:"intentSurface,omitempty"`
+	CoverResourceID string             `json:"coverResourceId,omitempty"`
+	SourceType      string             `json:"sourceType"`
+	ItemCount       int                `json:"itemCount"`
+	CoverPreviewURL string             `json:"coverPreviewUrl,omitempty"`
+	MembersPreview  []ResourceListItem `json:"membersPreview,omitempty"`
+	CreatedAt       string             `json:"createdAt"`
+	UpdatedAt       string             `json:"updatedAt"`
+}
+
+type ResourceSetItem struct {
+	ID         string           `json:"id"`
+	ResourceID string           `json:"resourceId"`
+	Position   int              `json:"position"`
+	Role       string           `json:"role,omitempty"`
+	Metadata   map[string]any   `json:"metadata,omitempty"`
+	Resource   ResourceListItem `json:"resource"`
+}
+
+type ResourceSetDetail struct {
+	ResourceSetSummary
+	Metadata      map[string]any    `json:"metadata,omitempty"`
+	Items         []ResourceSetItem `json:"items"`
+	CoverResource *ResourceListItem `json:"coverResource,omitempty"`
 }
 
 type UploadResponse struct {
@@ -160,6 +224,11 @@ func (s *Service) GetResource(ctx context.Context, principal *iam.Principal, wor
 		ResourceListItem: items[0],
 		Variants:         childItems,
 	}
+	relatedSets, err := s.listResourceSetSummariesByResource(ctx, workspaceID, resourceID)
+	if err != nil {
+		return nil, err
+	}
+	detail.Sets = relatedSets
 	return detail, nil
 }
 
@@ -527,9 +596,27 @@ func (s *Service) hydrateResources(ctx context.Context, records []database.Resou
 		childCounts[row.ParentResourceID.String()] = row.Count
 	}
 
+	setCounts := map[string]int{}
+	var setRows []struct {
+		ResourceID uuid.UUID `bun:"resource_id"`
+		Count      int       `bun:"count"`
+	}
+	if err := s.db.NewSelect().
+		TableExpr("resource_set_items").
+		Column("resource_id").
+		ColumnExpr("COUNT(*) AS count").
+		Where("resource_id IN (?)", bun.In(resourceIDs)).
+		Group("resource_id").
+		Scan(ctx, &setRows); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, row := range setRows {
+		setCounts[row.ResourceID.String()] = row.Count
+	}
+
 	items := make([]ResourceListItem, 0, len(records))
 	for _, record := range records {
-		item, err := s.mapResourceRecord(ctx, record, usageCounts[record.ID.String()], childCounts[record.ID.String()])
+		item, err := s.mapResourceRecord(ctx, record, usageCounts[record.ID.String()], childCounts[record.ID.String()], setCounts[record.ID.String()])
 		if err != nil {
 			return nil, err
 		}
@@ -538,7 +625,7 @@ func (s *Service) hydrateResources(ctx context.Context, records []database.Resou
 	return items, nil
 }
 
-func (s *Service) mapResourceRecord(ctx context.Context, record database.Resource, usageCount, childCount int) (ResourceListItem, error) {
+func (s *Service) mapResourceRecord(ctx context.Context, record database.Resource, usageCount, childCount, setCount int) (ResourceListItem, error) {
 	downloadURL, err := s.storage.SignedURL(ctx, record.StorageKey, SignedURLOptions{
 		Filename:    record.OriginalName,
 		ContentType: record.MIMEType,
@@ -575,6 +662,7 @@ func (s *Service) mapResourceRecord(ctx context.Context, record database.Resourc
 		PreviewURL:      downloadURL,
 		UsageCount:      usageCount,
 		ChildCount:      childCount,
+		SetCount:        setCount,
 		TransformRecipe: transform,
 		Compatibility:   evaluateCompatibility(s.capabilities, record),
 		CreatedAt:       record.CreatedAt.Format(time.RFC3339),
