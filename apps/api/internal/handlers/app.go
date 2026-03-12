@@ -91,8 +91,9 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Put("/posts/variants/:variantId/assets", h.requireAuth, h.syncPostVariantAssets)
 	api.Post("/posts/variants/:variantId/reviews/submit", h.requireAuth, h.submitPostVariantReview)
 	api.Post("/posts/variants/:variantId/reviews/decision", h.requireAuth, h.decidePostVariantReview)
-	api.Put("/posts/variants/:variantId/publication", h.requireAuth, h.upsertPostVariantPublication)
-	api.Delete("/posts/variants/:variantId/publication", h.requireAuth, h.deletePostVariantPublication)
+	api.Post("/posts/variants/:variantId/publication/schedule", h.requireAuth, h.schedulePostVariantPublication)
+	api.Post("/posts/variants/:variantId/publication/unschedule", h.requireAuth, h.unschedulePostVariantPublication)
+	api.Post("/posts/variants/:variantId/publication/record-published", h.requireAuth, h.recordPostVariantPublication)
 	api.Get("/posts/variants/:variantId/metrics", h.requireAuth, h.listPostVariantMetrics)
 	api.Post("/posts/variants/:variantId/metrics", h.requireAuth, h.recordPostVariantMetric)
 

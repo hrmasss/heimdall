@@ -30,14 +30,28 @@ function normalizeVariant(variant: PostVariant): NormalizedResult<PostVariant> {
 	const reviewHistory = ensureArray(variant.reviewHistory);
 	const metricSnapshot = ensureArray(variant.metricSnapshot);
 	const contentPayload = ensureRecord(variant.contentPayload);
+	const readiness = variant.readiness ?? {
+		draftIssues: [],
+		scheduleBlockers: [],
+		publishBlockers: [],
+	};
+	const draftIssues = ensureArray(readiness.draftIssues);
+	const scheduleBlockers = ensureArray(readiness.scheduleBlockers);
+	const publishBlockers = ensureArray(readiness.publishBlockers);
 
 	return {
 		value: {
 			...variant,
+			inheritSource: variant.inheritSource || "shared",
 			removedInheritedResourceIds: removedInheritedResourceIds.value,
 			assets: assets.value,
 			effectiveAssets: effectiveAssets.value,
 			reviewHistory: reviewHistory.value,
+			readiness: {
+				draftIssues: draftIssues.value,
+				scheduleBlockers: scheduleBlockers.value,
+				publishBlockers: publishBlockers.value,
+			},
 			metricSnapshot: metricSnapshot.value,
 			contentPayload: contentPayload.value,
 		},
@@ -46,8 +60,12 @@ function normalizeVariant(variant: PostVariant): NormalizedResult<PostVariant> {
 			assets.coerced ||
 			effectiveAssets.coerced ||
 			reviewHistory.coerced ||
+			draftIssues.coerced ||
+			scheduleBlockers.coerced ||
+			publishBlockers.coerced ||
 			metricSnapshot.coerced ||
-			contentPayload.coerced,
+			contentPayload.coerced ||
+			!variant.inheritSource,
 	};
 }
 
@@ -59,9 +77,10 @@ export function normalizePostSummary(
 	return {
 		value: {
 			...post,
+			requiresApproval: Boolean(post.requiresApproval),
 			metricSnapshot: metricSnapshot.value,
 		},
-		coerced: metricSnapshot.coerced,
+		coerced: metricSnapshot.coerced || post.requiresApproval === undefined,
 	};
 }
 
@@ -72,6 +91,7 @@ export function normalizePostDetail(
 
 	const assets = ensureArray(post.assets);
 	const variants = ensureArray(post.variants);
+	const legacyVariants = ensureArray(post.legacyVariants);
 	const metricSnapshot = ensureArray(post.metricSnapshot);
 	const contentPayload = ensureRecord(post.contentPayload);
 
@@ -82,12 +102,21 @@ export function normalizePostDetail(
 		}
 		return result.value;
 	});
+	const normalizedLegacyVariants = legacyVariants.value.map((variant) => {
+		const result = normalizeVariant(variant);
+		if (result.coerced) {
+			coerced = true;
+		}
+		return result.value;
+	});
 
 	return {
 		value: {
 			...post,
+			requiresApproval: Boolean(post.requiresApproval),
 			assets: assets.value,
 			variants: normalizedVariants,
+			legacyVariants: normalizedLegacyVariants,
 			metricSnapshot: metricSnapshot.value,
 			contentPayload: contentPayload.value,
 		},
@@ -95,6 +124,7 @@ export function normalizePostDetail(
 			coerced ||
 			assets.coerced ||
 			variants.coerced ||
+			legacyVariants.coerced ||
 			metricSnapshot.coerced ||
 			contentPayload.coerced,
 	};

@@ -22,12 +22,13 @@ type User struct {
 type Workspace struct {
 	bun.BaseModel `bun:"table:workspaces"`
 
-	ID        uuid.UUID `bun:"id,pk,type:uuid"`
-	Name      string    `bun:"name,notnull"`
-	Slug      string    `bun:"slug,notnull"`
-	Status    string    `bun:"status,notnull"`
-	CreatedAt time.Time `bun:"created_at,notnull"`
-	UpdatedAt time.Time `bun:"updated_at,notnull"`
+	ID                 uuid.UUID `bun:"id,pk,type:uuid"`
+	Name               string    `bun:"name,notnull"`
+	Slug               string    `bun:"slug,notnull"`
+	Status             string    `bun:"status,notnull"`
+	RequirePostApproval bool     `bun:"require_post_approval,notnull"`
+	CreatedAt          time.Time `bun:"created_at,notnull"`
+	UpdatedAt          time.Time `bun:"updated_at,notnull"`
 }
 
 type WorkspaceMembership struct {
@@ -239,6 +240,7 @@ type Post struct {
 	ContentPayload  string     `bun:"content_payload,notnull"`
 	OriginPlatform  *string    `bun:"origin_platform"`
 	OriginSurface   *string    `bun:"origin_surface"`
+	RequiresApproval bool      `bun:"requires_approval,notnull"`
 	Notes           string     `bun:"notes,notnull"`
 	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
 	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
@@ -254,6 +256,7 @@ type PostVariant struct {
 	PostID          uuid.UUID  `bun:"post_id,notnull,type:uuid"`
 	Platform        string     `bun:"platform,notnull"`
 	Surface         string     `bun:"surface,notnull"`
+	InheritSource   string     `bun:"inherit_source,notnull"`
 	ContentMode     string     `bun:"content_mode,notnull"`
 	ContentKind     *string    `bun:"content_kind"`
 	ContentPayload  string     `bun:"content_payload,notnull"`

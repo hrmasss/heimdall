@@ -203,6 +203,7 @@ var schemaStatements = []string{
 		name text NOT NULL,
 		slug text NOT NULL UNIQUE,
 		status text NOT NULL DEFAULT 'active',
+		require_post_approval boolean NOT NULL DEFAULT false,
 		created_at timestamptz NOT NULL DEFAULT now(),
 		updated_at timestamptz NOT NULL DEFAULT now()
 	)`,
@@ -384,6 +385,7 @@ var schemaStatements = []string{
 		content_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
 		origin_platform text,
 		origin_surface text,
+		requires_approval boolean NOT NULL DEFAULT false,
 		notes text NOT NULL DEFAULT '',
 		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
 		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -397,6 +399,7 @@ var schemaStatements = []string{
 		post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
 		platform text NOT NULL,
 		surface text NOT NULL,
+		inherit_source text NOT NULL DEFAULT 'shared',
 		content_mode text NOT NULL DEFAULT 'inherit',
 		content_kind text,
 		content_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -484,6 +487,15 @@ func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 	}
 	if _, err := db.ExecContext(ctx, `ALTER TABLE auth_sessions ADD COLUMN IF NOT EXISTS impersonator_user_id uuid REFERENCES users(id) ON DELETE SET NULL`); err != nil {
 		return fmt.Errorf("ensure auth_sessions.impersonator_user_id: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS require_post_approval boolean NOT NULL DEFAULT false`); err != nil {
+		return fmt.Errorf("ensure workspaces.require_post_approval: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE posts ADD COLUMN IF NOT EXISTS requires_approval boolean NOT NULL DEFAULT false`); err != nil {
+		return fmt.Errorf("ensure posts.requires_approval: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE post_variants ADD COLUMN IF NOT EXISTS inherit_source text NOT NULL DEFAULT 'shared'`); err != nil {
+		return fmt.Errorf("ensure post_variants.inherit_source: %w", err)
 	}
 
 	if err := seedPermissions(ctx, db); err != nil {

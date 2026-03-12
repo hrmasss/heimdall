@@ -3,6 +3,7 @@ import {
 	ArrowLeft,
 	CalendarRange,
 	CheckCircle2,
+	Clock3,
 	FileText,
 	PencilLine,
 	Send,
@@ -75,6 +76,28 @@ function MetricStrip({
 	);
 }
 
+function IssueBlock({
+	title,
+	items,
+}: {
+	title: string;
+	items: { code: string; message: string }[];
+}) {
+	if (items.length === 0) {
+		return null;
+	}
+	return (
+		<div className="rounded-[22px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-700">
+			<div className="mb-2 font-medium">{title}</div>
+			<div className="space-y-2">
+				{items.map((item) => (
+					<div key={item.code}>{item.message}</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
 export function DashboardPostDetailPage() {
 	const navigate = useNavigate();
 	const { id = "" } = useParams();
@@ -134,9 +157,14 @@ export function DashboardPostDetailPage() {
 		}
 	}
 
-	async function updateReviewState(
+	async function runVariantAction(
 		variant: PostVariant,
-		action: "submit" | "approved" | "changes_requested",
+		action:
+			| "submit"
+			| "approved"
+			| "changes_requested"
+			| "unschedule"
+			| "record",
 	) {
 		setSaving(true);
 		setError(null);
@@ -146,13 +174,23 @@ export function DashboardPostDetailPage() {
 					method: "POST",
 					body: { comment: "" },
 				});
-			} else {
+			} else if (action === "approved" || action === "changes_requested") {
 				await customerRequest(
 					`/posts/variants/${variant.id}/reviews/decision`,
 					{
 						method: "POST",
 						body: { approvalState: action, comment: "" },
 					},
+				);
+			} else if (action === "unschedule") {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/unschedule`,
+					{ method: "POST" },
+				);
+			} else {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/record-published`,
+					{ method: "POST" },
 				);
 			}
 			await loadPost();
@@ -296,7 +334,7 @@ export function DashboardPostDetailPage() {
 													className="rounded-full"
 													disabled={saving}
 													onClick={() =>
-														void updateReviewState(variant, "submit")
+														void runVariantAction(variant, "submit")
 													}
 												>
 													<Send className="size-4" />
@@ -308,7 +346,7 @@ export function DashboardPostDetailPage() {
 													className="rounded-full"
 													disabled={saving}
 													onClick={() =>
-														void updateReviewState(variant, "approved")
+														void runVariantAction(variant, "approved")
 													}
 												>
 													<CheckCircle2 className="size-4" />
@@ -320,14 +358,48 @@ export function DashboardPostDetailPage() {
 													className="rounded-full"
 													disabled={saving}
 													onClick={() =>
-														void updateReviewState(variant, "changes_requested")
+														void runVariantAction(variant, "changes_requested")
 													}
 												>
 													<XCircle className="size-4" />
 													Request changes
 												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="rounded-full"
+													disabled={saving}
+													onClick={() =>
+														void runVariantAction(variant, "unschedule")
+													}
+												>
+													<Clock3 className="size-4" />
+													Unschedule
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="rounded-full"
+													disabled={
+														saving ||
+														variant.readiness.publishBlockers.length > 0
+													}
+													onClick={() =>
+														void runVariantAction(variant, "record")
+													}
+												>
+													Record as published
+												</Button>
 											</div>
 										</div>
+										<IssueBlock
+											title="Schedule blockers"
+											items={variant.readiness.scheduleBlockers}
+										/>
+										<IssueBlock
+											title="Publish blockers"
+											items={variant.readiness.publishBlockers}
+										/>
 
 										{variant.contentMode === "custom" ? (
 											<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm">
@@ -401,6 +473,33 @@ export function DashboardPostDetailPage() {
 							</div>
 						)}
 					</SurfaceCard>
+					{post && post.legacyVariants.length > 0 ? (
+						<SurfaceCard className="space-y-4 p-5 md:p-6">
+							<div className="text-lg font-semibold">
+								Legacy / advanced variants
+							</div>
+							<div className="grid gap-4 md:grid-cols-2">
+								{post.legacyVariants.map((variant) => (
+									<div
+										key={variant.id}
+										className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm"
+									>
+										<div className="font-medium">
+											{variant.platform} · {variant.surface}
+										</div>
+										<div className="mt-2 text-muted-foreground">
+											Approval: {variant.approvalState}
+										</div>
+										<div className="mt-1 text-muted-foreground">
+											Publication:{" "}
+											{variant.latestPublication?.publicationState ??
+												"unscheduled"}
+										</div>
+									</div>
+								))}
+							</div>
+						</SurfaceCard>
+					) : null}
 				</div>
 
 				<div className="space-y-6">
@@ -416,6 +515,14 @@ export function DashboardPostDetailPage() {
 									</div>
 									<div className="mt-2 text-xl font-semibold">
 										{post.aggregateApprovalState}
+									</div>
+								</div>
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+										Approval required
+									</div>
+									<div className="mt-2 text-xl font-semibold">
+										{post.requiresApproval ? "Yes" : "No"}
 									</div>
 								</div>
 								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">

@@ -101,6 +101,9 @@ export type ResourceCapabilityRule = {
 	accepts: string[];
 	hardLimit: string[];
 	preferred: string[];
+	supportedContentKinds: Array<"text" | "article" | "thread">;
+	assetRequired: boolean;
+	minItems?: number;
 	maxItems?: number;
 };
 
@@ -228,6 +231,17 @@ export type PublicationPlan = {
 	updatedAt: string;
 };
 
+export type ReadinessIssue = {
+	code: string;
+	message: string;
+};
+
+export type VariantReadiness = {
+	draftIssues: ReadinessIssue[];
+	scheduleBlockers: ReadinessIssue[];
+	publishBlockers: ReadinessIssue[];
+};
+
 export type MetricDefinition = {
 	id: string;
 	code: string;
@@ -256,6 +270,7 @@ export type PostVariant = {
 	postId: string;
 	platform: string;
 	surface: string;
+	inheritSource: string;
 	contentMode: "inherit" | "custom";
 	contentKind?: "text" | "article" | "thread";
 	contentPayload?: Record<string, unknown>;
@@ -267,6 +282,7 @@ export type PostVariant = {
 	latestReview?: ReviewRecord;
 	reviewHistory: ReviewRecord[];
 	latestPublication?: PublicationPlan;
+	readiness: VariantReadiness;
 	metricSnapshot: MetricSnapshotItem[];
 	notes?: string;
 	createdAt: string;
@@ -280,6 +296,7 @@ export type PostSummary = {
 	contentKind: "text" | "article" | "thread";
 	originPlatform?: string;
 	originSurface?: string;
+	requiresApproval: boolean;
 	aggregateApprovalState:
 		| "draft"
 		| "in_review"
@@ -303,5 +320,6 @@ export type PostDetail = PostSummary & {
 	contentPayload: Record<string, unknown>;
 	assets: ResourceRecord[];
 	variants: PostVariant[];
+	legacyVariants: PostVariant[];
 	notes?: string;
 };

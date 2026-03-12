@@ -32,6 +32,7 @@ type WorkspaceAuthorizer interface {
 type ResourceLibrary interface {
 	ResolveResources(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, resourceIDs []uuid.UUID) ([]resources.ResourceListItem, error)
 	SyncReferences(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, entityType, entityID, slot string, refs []resources.ReferenceInput) error
+	Capabilities() resources.CapabilityMatrix
 }
 
 type Service struct {
@@ -46,12 +47,14 @@ type UpsertPostInput struct {
 	ContentPayload map[string]any
 	OriginPlatform string
 	OriginSurface  string
+	RequiresApproval bool
 	Notes          string
 }
 
 type UpsertVariantInput struct {
 	Platform       string
 	Surface        string
+	InheritSource  string
 	ContentMode    string
 	ContentKind    string
 	ContentPayload map[string]any
@@ -74,15 +77,9 @@ type DecisionInput struct {
 	Comment       string
 }
 
-type UpsertPublicationInput struct {
-	PublicationState  string
-	PlannedAt         *time.Time
-	PublishedAt       *time.Time
-	ExternalPostID    string
-	ExternalAccountID string
-	Source            string
-	LastError         string
-	Metadata          map[string]any
+type SchedulePublicationInput struct {
+	PlannedAt *time.Time
+	Source    string
 }
 
 type RecordMetricObservationInput struct {
@@ -110,6 +107,17 @@ type ReviewRecord struct {
 	Comment       string `json:"comment,omitempty"`
 	ActorUserID   string `json:"actorUserId,omitempty"`
 	CreatedAt     string `json:"createdAt"`
+}
+
+type ReadinessIssue struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type VariantReadiness struct {
+	DraftIssues      []ReadinessIssue `json:"draftIssues"`
+	ScheduleBlockers []ReadinessIssue `json:"scheduleBlockers"`
+	PublishBlockers  []ReadinessIssue `json:"publishBlockers"`
 }
 
 type PublicationPlan struct {
@@ -155,6 +163,7 @@ type PostVariant struct {
 	PostID                      string                       `json:"postId"`
 	Platform                    string                       `json:"platform"`
 	Surface                     string                       `json:"surface"`
+	InheritSource               string                       `json:"inheritSource"`
 	ContentMode                 string                       `json:"contentMode"`
 	ContentKind                 string                       `json:"contentKind,omitempty"`
 	ContentPayload              map[string]any               `json:"contentPayload,omitempty"`
@@ -166,6 +175,7 @@ type PostVariant struct {
 	LatestReview                *ReviewRecord                `json:"latestReview,omitempty"`
 	ReviewHistory               []ReviewRecord               `json:"reviewHistory"`
 	LatestPublication           *PublicationPlan             `json:"latestPublication,omitempty"`
+	Readiness                   VariantReadiness             `json:"readiness"`
 	MetricSnapshot              []MetricSnapshotItem         `json:"metricSnapshot"`
 	Notes                       string                       `json:"notes,omitempty"`
 	CreatedAt                   string                       `json:"createdAt"`
@@ -179,6 +189,7 @@ type PostSummary struct {
 	ContentKind               string               `json:"contentKind"`
 	OriginPlatform            string               `json:"originPlatform,omitempty"`
 	OriginSurface             string               `json:"originSurface,omitempty"`
+	RequiresApproval          bool                 `json:"requiresApproval"`
 	AggregateApprovalState    string               `json:"aggregateApprovalState"`
 	AggregatePublicationState string               `json:"aggregatePublicationState"`
 	VariantCount              int                  `json:"variantCount"`
@@ -193,6 +204,7 @@ type PostDetail struct {
 	ContentPayload map[string]any               `json:"contentPayload"`
 	Assets         []resources.ResourceListItem `json:"assets"`
 	Variants       []PostVariant                `json:"variants"`
+	LegacyVariants []PostVariant                `json:"legacyVariants"`
 	Notes          string                       `json:"notes,omitempty"`
 }
 
@@ -216,6 +228,22 @@ type metricObservationRow struct {
 	Value         float64   `bun:"value"`
 	Source        string    `bun:"source"`
 	Metadata      string    `bun:"metadata"`
+}
+
+type resolvedVariantState struct {
+	contentKind    string
+	contentPayload map[string]any
+	effectiveAssets []resources.ResourceListItem
+	issues         []ReadinessIssue
+}
+
+type variantResolutionContext struct {
+	post              database.Post
+	rootAssets        []resources.ResourceListItem
+	variantAssets     map[string][]resources.ResourceListItem
+	removedByVariant  map[string][]string
+	recordsByID       map[string]database.PostVariant
+	primaryByPlatform map[string]database.PostVariant
 }
 
 func NewService(db *bun.DB, authorizer WorkspaceAuthorizer, resourceLibrary ResourceLibrary) *Service {
@@ -277,6 +305,7 @@ func (s *Service) CreatePost(ctx context.Context, principal *iam.Principal, work
 		ContentPayload:  payload,
 		OriginPlatform:  originPlatform,
 		OriginSurface:   originSurface,
+		RequiresApproval: input.RequiresApproval,
 		Notes:           strings.TrimSpace(input.Notes),
 		CreatedByUserID: &principal.UserID,
 		UpdatedByUserID: &principal.UserID,
@@ -306,12 +335,13 @@ func (s *Service) UpdatePost(ctx context.Context, principal *iam.Principal, work
 	record.ContentPayload = payload
 	record.OriginPlatform = originPlatform
 	record.OriginSurface = originSurface
+	record.RequiresApproval = input.RequiresApproval
 	record.Notes = strings.TrimSpace(input.Notes)
 	record.UpdatedAt = time.Now().UTC()
 	record.UpdatedByUserID = &principal.UserID
 	if _, err := s.db.NewUpdate().
 		Model(record).
-		Column("title", "content_kind", "content_payload", "origin_platform", "origin_surface", "notes", "updated_at", "updated_by_user_id").
+		Column("title", "content_kind", "content_payload", "origin_platform", "origin_surface", "requires_approval", "notes", "updated_at", "updated_by_user_id").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
@@ -380,6 +410,11 @@ func (s *Service) GetVariant(ctx context.Context, principal *iam.Principal, work
 				return &variant, nil
 			}
 		}
+		for _, variant := range detail.LegacyVariants {
+			if variant.ID == variantID.String() {
+				return &variant, nil
+			}
+		}
 	}
 	return nil, iam.ErrNotFound
 }
@@ -392,12 +427,13 @@ func (s *Service) UpdateVariant(ctx context.Context, principal *iam.Principal, w
 	if err != nil {
 		return nil, err
 	}
-	contentMode, contentKind, contentPayload, assetMode, err := normalizeVariantInput(input)
+	inheritSource, contentMode, contentKind, contentPayload, assetMode, err := normalizeVariantInput(input)
 	if err != nil {
 		return nil, err
 	}
 	record.Platform = strings.TrimSpace(input.Platform)
 	record.Surface = strings.TrimSpace(input.Surface)
+	record.InheritSource = inheritSource
 	record.ContentMode = contentMode
 	record.ContentKind = contentKind
 	record.ContentPayload = contentPayload
@@ -407,7 +443,7 @@ func (s *Service) UpdateVariant(ctx context.Context, principal *iam.Principal, w
 	record.UpdatedByUserID = &principal.UserID
 	if _, err := s.db.NewUpdate().
 		Model(record).
-		Column("platform", "surface", "content_mode", "content_kind", "content_payload", "asset_mode", "notes", "updated_at", "updated_by_user_id").
+		Column("platform", "surface", "inherit_source", "content_mode", "content_kind", "content_payload", "asset_mode", "notes", "updated_at", "updated_by_user_id").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
@@ -508,31 +544,63 @@ func (s *Service) DecideVariantReview(ctx context.Context, principal *iam.Princi
 	return s.GetVariant(ctx, principal, workspaceID, variantID)
 }
 
-func (s *Service) UpsertPublicationPlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID, input UpsertPublicationInput) (*PublicationPlan, error) {
+func (s *Service) SchedulePublication(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID, input SchedulePublicationInput) (*PublicationPlan, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
+		return nil, err
+	}
+	if input.PlannedAt == nil {
+		return nil, fmt.Errorf("%w: planned at is required", iam.ErrValidation)
+	}
+	variant, err := s.GetVariant(ctx, principal, workspaceID, variantID)
+	if err != nil {
+		return nil, err
+	}
+	if len(variant.Readiness.ScheduleBlockers) > 0 {
+		return nil, fmt.Errorf("%w: variant is not ready to schedule", iam.ErrConflict)
+	}
+	source := strings.TrimSpace(input.Source)
+	if source == "" {
+		source = "manual"
+	}
+	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", input.PlannedAt, nil, source)
+}
+
+func (s *Service) UnschedulePublication(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) (*PublicationPlan, error) {
 	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
 		return nil, err
 	}
 	if _, err := s.findPostVariant(ctx, workspaceID, variantID); err != nil {
 		return nil, err
 	}
-	publicationState := strings.TrimSpace(input.PublicationState)
-	if publicationState == "" {
-		publicationState = "unscheduled"
+	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "unscheduled", nil, nil, "manual")
+}
+
+func (s *Service) RecordPublication(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) (*PublicationPlan, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
+		return nil, err
 	}
-	if !slices.Contains([]string{"unscheduled", "scheduled", "publishing", "published", "failed", "cancelled"}, publicationState) {
-		return nil, fmt.Errorf("%w: invalid publication state", iam.ErrValidation)
-	}
-	source := strings.TrimSpace(input.Source)
-	if source == "" {
-		source = "manual"
-	}
-	metadata, err := marshalMetadata(input.Metadata)
+	variant, err := s.GetVariant(ctx, principal, workspaceID, variantID)
 	if err != nil {
 		return nil, err
 	}
+	if len(variant.Readiness.PublishBlockers) > 0 {
+		return nil, fmt.Errorf("%w: variant is not ready to record as published", iam.ErrConflict)
+	}
+	now := time.Now().UTC()
+	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "published", nil, &now, "manual")
+}
 
+func (s *Service) upsertPublicationState(
+	ctx context.Context,
+	principal *iam.Principal,
+	workspaceID, variantID uuid.UUID,
+	publicationState string,
+	plannedAt *time.Time,
+	publishedAt *time.Time,
+	source string,
+) (*PublicationPlan, error) {
 	record := new(database.PostVariantPublication)
-	err = s.db.NewSelect().
+	err := s.db.NewSelect().
 		Model(record).
 		Where("workspace_id = ?", workspaceID).
 		Where("variant_id = ?", variantID).
@@ -548,23 +616,14 @@ func (s *Service) UpsertPublicationPlan(ctx context.Context, principal *iam.Prin
 			WorkspaceID:      workspaceID,
 			VariantID:        variantID,
 			PublicationState: publicationState,
-			PlannedAt:        input.PlannedAt,
-			PublishedAt:      input.PublishedAt,
+			PlannedAt:        plannedAt,
+			PublishedAt:      publishedAt,
 			Source:           source,
-			Metadata:         metadata,
+			Metadata:         "{}",
 			CreatedByUserID:  &principal.UserID,
 			UpdatedByUserID:  &principal.UserID,
 			CreatedAt:        now,
 			UpdatedAt:        now,
-		}
-		if value := strings.TrimSpace(input.ExternalPostID); value != "" {
-			record.ExternalPostID = &value
-		}
-		if value := strings.TrimSpace(input.ExternalAccountID); value != "" {
-			record.ExternalAccountID = &value
-		}
-		if value := strings.TrimSpace(input.LastError); value != "" {
-			record.LastError = &value
 		}
 		if _, err := s.db.NewInsert().Model(record).Exec(ctx); err != nil {
 			return nil, err
@@ -573,44 +632,20 @@ func (s *Service) UpsertPublicationPlan(ctx context.Context, principal *iam.Prin
 	}
 
 	record.PublicationState = publicationState
-	record.PlannedAt = input.PlannedAt
-	record.PublishedAt = input.PublishedAt
+	record.PlannedAt = plannedAt
+	record.PublishedAt = publishedAt
 	record.Source = source
-	record.Metadata = metadata
-	record.ExternalPostID = nil
-	record.ExternalAccountID = nil
 	record.LastError = nil
 	record.UpdatedAt = now
 	record.UpdatedByUserID = &principal.UserID
-	if value := strings.TrimSpace(input.ExternalPostID); value != "" {
-		record.ExternalPostID = &value
-	}
-	if value := strings.TrimSpace(input.ExternalAccountID); value != "" {
-		record.ExternalAccountID = &value
-	}
-	if value := strings.TrimSpace(input.LastError); value != "" {
-		record.LastError = &value
-	}
 	if _, err := s.db.NewUpdate().
 		Model(record).
-		Column("publication_state", "planned_at", "published_at", "external_post_id", "external_account_id", "source", "last_error", "metadata", "updated_at", "updated_by_user_id").
+		Column("publication_state", "planned_at", "published_at", "source", "last_error", "updated_at", "updated_by_user_id").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
 	}
 	return mapPublicationPlan(*record), nil
-}
-
-func (s *Service) DeletePublicationPlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) error {
-	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
-		return err
-	}
-	_, err := s.db.NewDelete().
-		Model((*database.PostVariantPublication)(nil)).
-		Where("workspace_id = ?", workspaceID).
-		Where("variant_id = ?", variantID).
-		Exec(ctx)
-	return err
 }
 
 func (s *Service) ListMetricDefinitions(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, platform, surface string) ([]MetricDefinitionRecord, error) {
@@ -733,8 +768,69 @@ func (s *Service) ListMetricObservations(ctx context.Context, principal *iam.Pri
 	return items, nil
 }
 
+func (s *Service) workspaceRequiresPostApproval(ctx context.Context, workspaceID uuid.UUID) (bool, error) {
+	record := new(database.Workspace)
+	if err := s.db.NewSelect().
+		Model(record).
+		Column("require_post_approval").
+		Where("id = ?", workspaceID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, iam.ErrNotFound
+		}
+		return false, err
+	}
+	return record.RequirePostApproval, nil
+}
+
+func (s *Service) buildHydratedVariant(
+	variantRecord database.PostVariant,
+	resolutionContext variantResolutionContext,
+	resolutionCache map[string]resolvedVariantState,
+	reviewsByVariant map[string][]database.PostVariantReview,
+	latestReviewByVariant map[string]*database.PostVariantReview,
+	publicationsByVariant map[string]*database.PostVariantPublication,
+	metricSnapshotsByPublication map[string][]MetricSnapshotItem,
+	requiresApproval bool,
+) PostVariant {
+	resolved := resolveVariantState(variantRecord, resolutionContext, resolutionCache, map[string]bool{})
+	var latestReview *ReviewRecord
+	if review := latestReviewByVariant[variantRecord.ID.String()]; review != nil {
+		mapped := mapReviewRecord(*review)
+		latestReview = &mapped
+	}
+	var latestPublication *PublicationPlan
+	if publication := publicationsByVariant[variantRecord.ID.String()]; publication != nil {
+		latestPublication = mapPublicationPlan(*publication)
+	}
+	return PostVariant{
+		ID:                          variantRecord.ID.String(),
+		PostID:                      variantRecord.PostID.String(),
+		Platform:                    variantRecord.Platform,
+		Surface:                     variantRecord.Surface,
+		InheritSource:               variantRecord.InheritSource,
+		ContentMode:                 variantRecord.ContentMode,
+		ContentKind:                 derefString(variantRecord.ContentKind),
+		ContentPayload:              parseMetadata(variantRecord.ContentPayload),
+		AssetMode:                   variantRecord.AssetMode,
+		RemovedInheritedResourceIDs: ensureStringSlice(resolutionContext.removedByVariant[variantRecord.ID.String()]),
+		Assets:                      ensureResourceItems(resolutionContext.variantAssets[variantRecord.ID.String()]),
+		EffectiveAssets:             ensureResourceItems(resolved.effectiveAssets),
+		ApprovalState:               variantRecord.ApprovalState,
+		LatestReview:                latestReview,
+		ReviewHistory:               ensureReviewRecords(mapReviewRecords(reviewsByVariant[variantRecord.ID.String()])),
+		LatestPublication:           latestPublication,
+		Readiness:                   ensureVariantReadiness(evaluateVariantReadiness(variantRecord, resolved, latestPublication, requiresApproval, s.resources.Capabilities())),
+		MetricSnapshot:              ensureMetricSnapshotItems(metricSnapshotsByPublication[publicationIDString(publicationsByVariant[variantRecord.ID.String()])]),
+		Notes:                       variantRecord.Notes,
+		CreatedAt:                   variantRecord.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:                   variantRecord.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
 func (s *Service) insertVariant(ctx context.Context, principal *iam.Principal, workspaceID, postID uuid.UUID, input UpsertVariantInput) (*database.PostVariant, error) {
-	contentMode, contentKind, contentPayload, assetMode, err := normalizeVariantInput(input)
+	inheritSource, contentMode, contentKind, contentPayload, assetMode, err := normalizeVariantInput(input)
 	if err != nil {
 		return nil, err
 	}
@@ -745,6 +841,7 @@ func (s *Service) insertVariant(ctx context.Context, principal *iam.Principal, w
 		PostID:          postID,
 		Platform:        strings.TrimSpace(input.Platform),
 		Surface:         strings.TrimSpace(input.Surface),
+		InheritSource:   inheritSource,
 		ContentMode:     contentMode,
 		ContentKind:     contentKind,
 		ContentPayload:  contentPayload,
@@ -819,6 +916,10 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	if len(posts) == 0 {
 		return []PostDetail{}, nil
 	}
+	workspaceRequiresApproval, err := s.workspaceRequiresPostApproval(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
 
 	postIDs := make([]uuid.UUID, 0, len(posts))
 	for _, record := range posts {
@@ -879,55 +980,68 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		variantAssetCache[variant.ID.String()] = ensureResourceItems(items)
 	}
 
-	variantsByPost := map[string][]PostVariant{}
+	variantRecordsByPost := map[string][]database.PostVariant{}
 	for _, variantRecord := range variantRecords {
-		rootAssets := rootAssetCache[variantRecord.PostID.String()]
-		variantAssets := variantAssetCache[variantRecord.ID.String()]
-		effectiveAssets := resolveEffectiveAssets(rootAssets, variantAssets, variantRecord.AssetMode, removedByVariant[variantRecord.ID.String()])
-		var latestReview *ReviewRecord
-		if review := latestReviewByVariant[variantRecord.ID.String()]; review != nil {
-			mapped := mapReviewRecord(*review)
-			latestReview = &mapped
-		}
-		var latestPublication *PublicationPlan
-		if publication := publicationsByVariant[variantRecord.ID.String()]; publication != nil {
-			latestPublication = mapPublicationPlan(*publication)
-		}
-		variantsByPost[variantRecord.PostID.String()] = append(variantsByPost[variantRecord.PostID.String()], PostVariant{
-			ID:                          variantRecord.ID.String(),
-			PostID:                      variantRecord.PostID.String(),
-			Platform:                    variantRecord.Platform,
-			Surface:                     variantRecord.Surface,
-			ContentMode:                 variantRecord.ContentMode,
-			ContentKind:                 derefString(variantRecord.ContentKind),
-			ContentPayload:              parseMetadata(variantRecord.ContentPayload),
-			AssetMode:                   variantRecord.AssetMode,
-			RemovedInheritedResourceIDs: ensureStringSlice(removedByVariant[variantRecord.ID.String()]),
-			Assets:                      ensureResourceItems(variantAssets),
-			EffectiveAssets:             ensureResourceItems(effectiveAssets),
-			ApprovalState:               variantRecord.ApprovalState,
-			LatestReview:                latestReview,
-			ReviewHistory:               ensureReviewRecords(mapReviewRecords(reviewsByVariant[variantRecord.ID.String()])),
-			LatestPublication:           latestPublication,
-			MetricSnapshot:              ensureMetricSnapshotItems(metricSnapshotsByPublication[publicationIDString(publicationsByVariant[variantRecord.ID.String()])]),
-			Notes:                       variantRecord.Notes,
-			CreatedAt:                   variantRecord.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:                   variantRecord.UpdatedAt.Format(time.RFC3339),
-		})
+		variantRecordsByPost[variantRecord.PostID.String()] = append(
+			variantRecordsByPost[variantRecord.PostID.String()],
+			variantRecord,
+		)
 	}
 
 	items := make([]PostDetail, 0, len(posts))
 	for _, record := range posts {
-		variants := ensurePostVariants(variantsByPost[record.ID.String()])
+		postVariantRecords := variantRecordsByPost[record.ID.String()]
+		resolutionContext := variantResolutionContext{
+			post:             record,
+			rootAssets:       ensureResourceItems(rootAssetCache[record.ID.String()]),
+			variantAssets:    variantAssetCache,
+			removedByVariant: removedByVariant,
+			recordsByID:      map[string]database.PostVariant{},
+			primaryByPlatform: map[string]database.PostVariant{},
+		}
+		for _, variantRecord := range postVariantRecords {
+			resolutionContext.recordsByID[variantRecord.ID.String()] = variantRecord
+			if _, exists := resolutionContext.primaryByPlatform[variantRecord.Platform]; !exists {
+				resolutionContext.primaryByPlatform[variantRecord.Platform] = variantRecord
+			}
+		}
+
+		resolutionCache := map[string]resolvedVariantState{}
+		allVariants := make([]PostVariant, 0, len(postVariantRecords))
+		visibleVariants := make([]PostVariant, 0, len(postVariantRecords))
+		legacyVariants := make([]PostVariant, 0)
+		seenPlatforms := map[string]struct{}{}
+		for _, variantRecord := range postVariantRecords {
+			variant := s.buildHydratedVariant(
+				variantRecord,
+				resolutionContext,
+				resolutionCache,
+				reviewsByVariant,
+				latestReviewByVariant,
+				publicationsByVariant,
+				metricSnapshotsByPublication,
+				workspaceRequiresApproval || record.RequiresApproval,
+			)
+			allVariants = append(allVariants, variant)
+			if _, exists := seenPlatforms[variantRecord.Platform]; exists {
+				legacyVariants = append(legacyVariants, variant)
+				continue
+			}
+			seenPlatforms[variantRecord.Platform] = struct{}{}
+			visibleVariants = append(visibleVariants, variant)
+		}
+
+		variants := ensurePostVariants(visibleVariants)
 		summary := PostSummary{
 			ID:                        record.ID.String(),
 			WorkspaceID:               record.WorkspaceID.String(),
 			Title:                     record.Title,
 			ContentKind:               record.ContentKind,
-			AggregateApprovalState:    aggregateApprovalState(variants),
-			AggregatePublicationState: aggregatePublicationState(variants),
-			VariantCount:              len(variants),
-			MetricSnapshot:            ensureMetricSnapshotItems(aggregateMetricSnapshot(variants)),
+			RequiresApproval:          record.RequiresApproval,
+			AggregateApprovalState:    aggregateApprovalState(allVariants),
+			AggregatePublicationState: aggregatePublicationState(allVariants),
+			VariantCount:              len(allVariants),
+			MetricSnapshot:            ensureMetricSnapshotItems(aggregateMetricSnapshot(allVariants)),
 			CreatedAt:                 record.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:                 record.UpdatedAt.Format(time.RFC3339),
 		}
@@ -937,7 +1051,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		if record.OriginSurface != nil {
 			summary.OriginSurface = *record.OriginSurface
 		}
-		if latest := latestPlannedAt(variants); !latest.IsZero() {
+		if latest := latestPlannedAt(allVariants); !latest.IsZero() {
 			summary.LatestPlannedAt = latest.Format(time.RFC3339)
 		}
 		items = append(items, PostDetail{
@@ -945,6 +1059,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 			ContentPayload: parseMetadata(record.ContentPayload),
 			Assets:         ensureResourceItems(rootAssetCache[record.ID.String()]),
 			Variants:       variants,
+			LegacyVariants: ensurePostVariants(legacyVariants),
 			Notes:          record.Notes,
 		})
 	}
@@ -1220,37 +1335,47 @@ func normalizePostInput(input UpsertPostInput) (string, string, *string, *string
 	return contentPayload, contentKind, originPlatform, originSurface, nil
 }
 
-func normalizeVariantInput(input UpsertVariantInput) (string, *string, string, string, error) {
+func normalizeVariantInput(input UpsertVariantInput) (string, string, *string, string, string, error) {
 	platform := strings.TrimSpace(input.Platform)
 	surface := strings.TrimSpace(input.Surface)
 	if platform == "" || surface == "" {
-		return "", nil, "", "", fmt.Errorf("%w: platform and surface are required", iam.ErrValidation)
+		return "", "", nil, "", "", fmt.Errorf("%w: platform and surface are required", iam.ErrValidation)
+	}
+	inheritSource := normalizeInheritSource(strings.TrimSpace(input.InheritSource))
+	if inheritSource == fmt.Sprintf("platform:%s", platform) {
+		inheritSource = "shared"
 	}
 	contentMode := strings.TrimSpace(input.ContentMode)
 	if contentMode == "" {
 		contentMode = "inherit"
 	}
 	if !slices.Contains([]string{"inherit", "custom"}, contentMode) {
-		return "", nil, "", "", fmt.Errorf("%w: content mode must be inherit or custom", iam.ErrValidation)
+		return "", "", nil, "", "", fmt.Errorf("%w: content mode must be inherit or custom", iam.ErrValidation)
 	}
 	assetMode := strings.TrimSpace(input.AssetMode)
 	if assetMode == "" {
 		assetMode = "inherit"
 	}
 	if !slices.Contains([]string{"inherit", "replace"}, assetMode) {
-		return "", nil, "", "", fmt.Errorf("%w: asset mode must be inherit or replace", iam.ErrValidation)
+		return "", "", nil, "", "", fmt.Errorf("%w: asset mode must be inherit or replace", iam.ErrValidation)
 	}
 	if contentMode == "inherit" {
-		return contentMode, nil, "{}", assetMode, nil
+		return inheritSource, contentMode, nil, "{}", assetMode, nil
 	}
 	contentPayload, contentKind, err := normalizeContentPayload(strings.TrimSpace(input.ContentKind), input.ContentPayload)
 	if err != nil {
-		return "", nil, "", "", err
+		return "", "", nil, "", "", err
 	}
-	return contentMode, &contentKind, contentPayload, assetMode, nil
+	return inheritSource, contentMode, &contentKind, contentPayload, assetMode, nil
 }
 
 func normalizeContentPayload(contentKind string, payload map[string]any) (string, string, error) {
+	if contentKind == "" {
+		contentKind = "text"
+	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
 	switch contentKind {
 	case "text":
 		body, _ := payload["body"].(string)
@@ -1280,7 +1405,248 @@ func normalizeContentPayload(contentKind string, payload map[string]any) (string
 	}
 }
 
-func resolveEffectiveAssets(rootAssets, variantAssets []resources.ResourceListItem, assetMode string, removedIDs []string) []resources.ResourceListItem {
+func normalizeInheritSource(value string) string {
+	if value == "" || value == "shared" {
+		return "shared"
+	}
+	if strings.HasPrefix(value, "platform:") {
+		platform := strings.TrimSpace(strings.TrimPrefix(value, "platform:"))
+		if platform != "" {
+			return "platform:" + platform
+		}
+	}
+	return "shared"
+}
+
+func resolveVariantState(
+	record database.PostVariant,
+	ctx variantResolutionContext,
+	cache map[string]resolvedVariantState,
+	resolving map[string]bool,
+) resolvedVariantState {
+	if cached, ok := cache[record.ID.String()]; ok {
+		return cached
+	}
+	if resolving[record.ID.String()] {
+		return resolvedVariantState{
+			contentKind:    ctx.post.ContentKind,
+			contentPayload: parseMetadata(ctx.post.ContentPayload),
+			effectiveAssets: ensureResourceItems(ctx.rootAssets),
+			issues: []ReadinessIssue{
+				{Code: "inherit_source_cycle", Message: "This tab inherits from a cycle. Switch the inheritance source or make it custom."},
+			},
+		}
+	}
+	resolving[record.ID.String()] = true
+
+	resolved := resolvedVariantState{
+		contentKind:    ctx.post.ContentKind,
+		contentPayload: parseMetadata(ctx.post.ContentPayload),
+		effectiveAssets: ensureResourceItems(ctx.rootAssets),
+		issues:         []ReadinessIssue{},
+	}
+	sourceAssets := ensureResourceItems(ctx.rootAssets)
+
+	if sourceRecord, issue := resolveInheritanceSource(record, ctx); issue != nil {
+		resolved.issues = append(resolved.issues, *issue)
+	} else if sourceRecord != nil {
+		sourceResolved := resolveVariantState(*sourceRecord, ctx, cache, resolving)
+		sourceAssets = ensureResourceItems(sourceResolved.effectiveAssets)
+		resolved.contentKind = sourceResolved.contentKind
+		resolved.contentPayload = sourceResolved.contentPayload
+		resolved.issues = append(resolved.issues, sourceResolved.issues...)
+	}
+
+	if record.ContentMode == "custom" {
+		resolved.contentKind = derefString(record.ContentKind)
+		resolved.contentPayload = parseMetadata(record.ContentPayload)
+	}
+
+	variantAssets := ensureResourceItems(ctx.variantAssets[record.ID.String()])
+	resolved.effectiveAssets = resolveEffectiveAssets(
+		sourceAssets,
+		variantAssets,
+		record.AssetMode,
+		ctx.removedByVariant[record.ID.String()],
+	)
+	cache[record.ID.String()] = resolved
+	delete(resolving, record.ID.String())
+	return resolved
+}
+
+func resolveInheritanceSource(
+	record database.PostVariant,
+	ctx variantResolutionContext,
+) (*database.PostVariant, *ReadinessIssue) {
+	inheritSource := normalizeInheritSource(record.InheritSource)
+	if inheritSource == "shared" {
+		return nil, nil
+	}
+	platform := strings.TrimSpace(strings.TrimPrefix(inheritSource, "platform:"))
+	if platform == "" {
+		return nil, &ReadinessIssue{
+			Code:    "inherit_source_invalid",
+			Message: "The selected inheritance source is invalid. Switch back to the shared draft or another tab.",
+		}
+	}
+	if platform == record.Platform {
+		return nil, &ReadinessIssue{
+			Code:    "inherit_source_self",
+			Message: "A tab cannot inherit from itself. Choose the shared draft or another platform tab.",
+		}
+	}
+	sourceRecord, ok := ctx.primaryByPlatform[platform]
+	if !ok {
+		return nil, &ReadinessIssue{
+			Code:    "inherit_source_missing",
+			Message: "The selected inheritance source does not exist yet. Create that platform tab first or switch the source.",
+		}
+	}
+	return &sourceRecord, nil
+}
+
+func evaluateVariantReadiness(
+	record database.PostVariant,
+	resolved resolvedVariantState,
+	publication *PublicationPlan,
+	requiresApproval bool,
+	matrix resources.CapabilityMatrix,
+) VariantReadiness {
+	readiness := VariantReadiness{
+		DraftIssues:      ensureReadinessIssues(resolved.issues),
+		ScheduleBlockers: ensureReadinessIssues(nil),
+		PublishBlockers:  ensureReadinessIssues(nil),
+	}
+	for _, issue := range resolved.issues {
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+
+	rule, ok := findCapabilityRule(matrix, record.Platform, record.Surface)
+	if !ok {
+		issue := ReadinessIssue{
+			Code:    "format_unknown",
+			Message: "This post format is not recognized by the capability registry yet.",
+		}
+		readiness.DraftIssues = append(readiness.DraftIssues, issue)
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+		return readiness
+	}
+
+	if len(rule.SupportedContentKinds) > 0 && !slices.Contains(rule.SupportedContentKinds, resolved.contentKind) {
+		issue := ReadinessIssue{
+			Code:    "content_kind_unsupported",
+			Message: fmt.Sprintf("%s does not support %s content. Change the post format or switch this tab to custom content.", rule.Label, resolved.contentKind),
+		}
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+
+	if resolved.contentKind == "thread" && len(extractThreadItems(resolved.contentPayload)) == 0 {
+		issue := ReadinessIssue{
+			Code:    "thread_items_required",
+			Message: "Add at least one thread item before scheduling or publishing this tab.",
+		}
+		readiness.DraftIssues = append(readiness.DraftIssues, issue)
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+	if resolved.contentKind == "article" && strings.TrimSpace(extractTextBody(resolved.contentPayload)) == "" {
+		issue := ReadinessIssue{
+			Code:    "article_body_required",
+			Message: "Add article content before scheduling or publishing this tab.",
+		}
+		readiness.DraftIssues = append(readiness.DraftIssues, issue)
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+
+	assetCount := len(resolved.effectiveAssets)
+	if rule.AssetRequired && assetCount == 0 {
+		issue := ReadinessIssue{
+			Code:    "assets_required",
+			Message: fmt.Sprintf("%s requires media before it can be scheduled or published.", rule.Label),
+		}
+		readiness.DraftIssues = append(readiness.DraftIssues, issue)
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+	if rule.MinItems != nil && assetCount < *rule.MinItems {
+		issue := ReadinessIssue{
+			Code:    "asset_minimum",
+			Message: fmt.Sprintf("%s needs at least %d asset(s).", rule.Label, *rule.MinItems),
+		}
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+	if rule.MaxItems != nil && assetCount > *rule.MaxItems {
+		issue := ReadinessIssue{
+			Code:    "asset_limit",
+			Message: fmt.Sprintf("%s supports at most %d asset(s).", rule.Label, *rule.MaxItems),
+		}
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+	for _, asset := range resolved.effectiveAssets {
+		if !slices.Contains(rule.Accepts, asset.MediaKind) {
+			issue := ReadinessIssue{
+				Code:    "asset_type_incompatible",
+				Message: fmt.Sprintf("%s cannot inherit or use %s assets.", rule.Label, asset.MediaKind),
+			}
+			readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+			readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+			break
+		}
+	}
+	if requiresApproval && record.ApprovalState != "approved" {
+		issue := ReadinessIssue{
+			Code:    "approval_required",
+			Message: "This tab requires approval before it can be scheduled or marked as published.",
+		}
+		readiness.ScheduleBlockers = append(readiness.ScheduleBlockers, issue)
+		readiness.PublishBlockers = append(readiness.PublishBlockers, issue)
+	}
+	if publication != nil && publication.PublicationState == "published" {
+		readiness.PublishBlockers = append(readiness.PublishBlockers, ReadinessIssue{
+			Code:    "already_published",
+			Message: "This tab has already been recorded as published.",
+		})
+	}
+	return readiness
+}
+
+func findCapabilityRule(matrix resources.CapabilityMatrix, platform, surface string) (resources.CapabilityRule, bool) {
+	for _, rule := range matrix.Rules {
+		if rule.Platform == platform && rule.Surface == surface {
+			return rule, true
+		}
+	}
+	return resources.CapabilityRule{}, false
+}
+
+func extractThreadItems(payload map[string]any) []map[string]any {
+	items := make([]map[string]any, 0)
+	switch raw := payload["items"].(type) {
+	case []any:
+		for _, item := range raw {
+			typed, _ := item.(map[string]any)
+			if typed != nil {
+				items = append(items, typed)
+			}
+		}
+	case []map[string]any:
+		items = append(items, raw...)
+	}
+	return items
+}
+
+func extractTextBody(payload map[string]any) string {
+	body, _ := payload["body"].(string)
+	return strings.TrimSpace(body)
+}
+
+func resolveEffectiveAssets(sourceAssets, variantAssets []resources.ResourceListItem, assetMode string, removedIDs []string) []resources.ResourceListItem {
 	if assetMode == "replace" {
 		return append([]resources.ResourceListItem{}, variantAssets...)
 	}
@@ -1288,9 +1654,9 @@ func resolveEffectiveAssets(rootAssets, variantAssets []resources.ResourceListIt
 	for _, id := range removedIDs {
 		removed[id] = struct{}{}
 	}
-	effective := make([]resources.ResourceListItem, 0, len(rootAssets)+len(variantAssets))
-	seen := make(map[string]struct{}, len(rootAssets)+len(variantAssets))
-	for _, item := range rootAssets {
+	effective := make([]resources.ResourceListItem, 0, len(sourceAssets)+len(variantAssets))
+	seen := make(map[string]struct{}, len(sourceAssets)+len(variantAssets))
+	for _, item := range sourceAssets {
 		if _, ok := removed[item.ID]; ok {
 			continue
 		}
@@ -1489,6 +1855,20 @@ func ensureMetricSnapshotItems(items []MetricSnapshotItem) []MetricSnapshotItem 
 		return []MetricSnapshotItem{}
 	}
 	return items
+}
+
+func ensureReadinessIssues(items []ReadinessIssue) []ReadinessIssue {
+	if items == nil {
+		return []ReadinessIssue{}
+	}
+	return items
+}
+
+func ensureVariantReadiness(item VariantReadiness) VariantReadiness {
+	item.DraftIssues = ensureReadinessIssues(item.DraftIssues)
+	item.ScheduleBlockers = ensureReadinessIssues(item.ScheduleBlockers)
+	item.PublishBlockers = ensureReadinessIssues(item.PublishBlockers)
+	return item
 }
 
 func ensureStringSlice(items []string) []string {

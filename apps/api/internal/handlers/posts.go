@@ -293,7 +293,7 @@ func (h *AppHandler) decidePostVariantReview(c fiber.Ctx) error {
 	return c.JSON(record)
 }
 
-func (h *AppHandler) upsertPostVariantPublication(c fiber.Ctx) error {
+func (h *AppHandler) schedulePostVariantPublication(c fiber.Ctx) error {
 	principal, err := h.principal(c)
 	if err != nil {
 		return h.writeError(c, err)
@@ -306,18 +306,18 @@ func (h *AppHandler) upsertPostVariantPublication(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, iam.ErrValidation)
 	}
-	input, err := bindPublicationInput(c)
+	input, err := bindSchedulePublicationInput(c)
 	if err != nil {
 		return h.writeError(c, err)
 	}
-	record, err := h.postService.UpsertPublicationPlan(c.Context(), principal, workspaceID, variantID, input)
+	record, err := h.postService.SchedulePublication(c.Context(), principal, workspaceID, variantID, input)
 	if err != nil {
 		return h.writeError(c, err)
 	}
 	return c.JSON(record)
 }
 
-func (h *AppHandler) deletePostVariantPublication(c fiber.Ctx) error {
+func (h *AppHandler) unschedulePostVariantPublication(c fiber.Ctx) error {
 	principal, err := h.principal(c)
 	if err != nil {
 		return h.writeError(c, err)
@@ -330,10 +330,31 @@ func (h *AppHandler) deletePostVariantPublication(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, iam.ErrValidation)
 	}
-	if err := h.postService.DeletePublicationPlan(c.Context(), principal, workspaceID, variantID); err != nil {
+	record, err := h.postService.UnschedulePublication(c.Context(), principal, workspaceID, variantID)
+	if err != nil {
 		return h.writeError(c, err)
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.JSON(record)
+}
+
+func (h *AppHandler) recordPostVariantPublication(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	variantID, err := uuid.Parse(c.Params("variantId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.postService.RecordPublication(c.Context(), principal, workspaceID, variantID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
 }
 
 func (h *AppHandler) listPostVariantMetrics(c fiber.Ctx) error {
@@ -403,6 +424,7 @@ func bindPostInput(c fiber.Ctx) (posts.UpsertPostInput, error) {
 		ContentPayload map[string]any `json:"contentPayload"`
 		OriginPlatform string         `json:"originPlatform"`
 		OriginSurface  string         `json:"originSurface"`
+		RequiresApproval bool         `json:"requiresApproval"`
 		Notes          string         `json:"notes"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
@@ -415,6 +437,7 @@ func bindVariantInput(c fiber.Ctx) (posts.UpsertVariantInput, error) {
 	var body struct {
 		Platform       string         `json:"platform"`
 		Surface        string         `json:"surface"`
+		InheritSource  string         `json:"inheritSource"`
 		ContentMode    string         `json:"contentMode"`
 		ContentKind    string         `json:"contentKind"`
 		ContentPayload map[string]any `json:"contentPayload"`
@@ -472,45 +495,25 @@ func bindDecisionInput(c fiber.Ctx) (posts.DecisionInput, error) {
 	return posts.DecisionInput(body), nil
 }
 
-func bindPublicationInput(c fiber.Ctx) (posts.UpsertPublicationInput, error) {
+func bindSchedulePublicationInput(c fiber.Ctx) (posts.SchedulePublicationInput, error) {
 	var body struct {
-		PublicationState  string         `json:"publicationState"`
-		PlannedAt         string         `json:"plannedAt"`
-		PublishedAt       string         `json:"publishedAt"`
-		ExternalPostID    string         `json:"externalPostId"`
-		ExternalAccountID string         `json:"externalAccountId"`
-		Source            string         `json:"source"`
-		LastError         string         `json:"lastError"`
-		Metadata          map[string]any `json:"metadata"`
+		PlannedAt string `json:"plannedAt"`
+		Source    string `json:"source"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
-		return posts.UpsertPublicationInput{}, iam.ErrValidation
+		return posts.SchedulePublicationInput{}, iam.ErrValidation
 	}
 	var plannedAt *time.Time
 	if strings.TrimSpace(body.PlannedAt) != "" {
 		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(body.PlannedAt))
 		if err != nil {
-			return posts.UpsertPublicationInput{}, iam.ErrValidation
+			return posts.SchedulePublicationInput{}, iam.ErrValidation
 		}
 		plannedAt = &parsed
 	}
-	var publishedAt *time.Time
-	if strings.TrimSpace(body.PublishedAt) != "" {
-		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(body.PublishedAt))
-		if err != nil {
-			return posts.UpsertPublicationInput{}, iam.ErrValidation
-		}
-		publishedAt = &parsed
-	}
-	return posts.UpsertPublicationInput{
-		PublicationState:  body.PublicationState,
-		PlannedAt:         plannedAt,
-		PublishedAt:       publishedAt,
-		ExternalPostID:    body.ExternalPostID,
-		ExternalAccountID: body.ExternalAccountID,
-		Source:            body.Source,
-		LastError:         body.LastError,
-		Metadata:          body.Metadata,
+	return posts.SchedulePublicationInput{
+		PlannedAt: plannedAt,
+		Source:    body.Source,
 	}, nil
 }
 

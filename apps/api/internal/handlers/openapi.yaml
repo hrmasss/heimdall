@@ -641,10 +641,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PostVariant'
-  /api/v1/posts/variants/{variantId}/publication:
-    put:
-      operationId: upsertPostVariantPublication
-      summary: Upsert Variant Publication Plan
+  /api/v1/posts/variants/{variantId}/publication/schedule:
+    post:
+      operationId: schedulePostVariantPublication
+      summary: Schedule Variant Publication
       tags:
         - Posts
       security:
@@ -657,7 +657,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostPublicationUpsert'
+              $ref: '#/components/schemas/PostPublicationSchedule'
       responses:
         '200':
           description: Updated publication plan
@@ -665,9 +665,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PostPublication'
-    delete:
-      operationId: deletePostVariantPublication
-      summary: Delete Variant Publication Plan
+  /api/v1/posts/variants/{variantId}/publication/unschedule:
+    post:
+      operationId: unschedulePostVariantPublication
+      summary: Unschedule Variant Publication
       tags:
         - Posts
       security:
@@ -676,8 +677,30 @@ paths:
         - $ref: '#/components/parameters/WorkspaceHeader'
         - $ref: '#/components/parameters/VariantId'
       responses:
-        '204':
-          description: Publication plan deleted
+        '200':
+          description: Updated publication plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPublication'
+  /api/v1/posts/variants/{variantId}/publication/record-published:
+    post:
+      operationId: recordPostVariantPublication
+      summary: Record Variant As Published
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '200':
+          description: Updated publication plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPublication'
   /api/v1/posts/variants/{variantId}/metrics:
     get:
       operationId: listPostVariantMetrics
@@ -871,6 +894,15 @@ components:
           type: array
           items:
             type: string
+        supportedContentKinds:
+          type: array
+          items:
+            type: string
+            enum: [text, article, thread]
+        assetRequired:
+          type: boolean
+        minItems:
+          type: integer
         maxItems:
           type: integer
     ResourceCompatibility:
@@ -1149,6 +1181,28 @@ components:
         createdAt:
           type: string
           format: date-time
+    ReadinessIssue:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    VariantReadiness:
+      type: object
+      properties:
+        draftIssues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessIssue'
+        scheduleBlockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessIssue'
+        publishBlockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessIssue'
     PostPublication:
       type: object
       properties:
@@ -1196,6 +1250,8 @@ components:
           type: string
         surface:
           type: string
+        inheritSource:
+          type: string
         contentMode:
           type: string
           enum: [inherit, custom]
@@ -1231,6 +1287,8 @@ components:
             $ref: '#/components/schemas/PostReview'
         latestPublication:
           $ref: '#/components/schemas/PostPublication'
+        readiness:
+          $ref: '#/components/schemas/VariantReadiness'
         metricSnapshot:
           type: array
           items:
@@ -1261,6 +1319,8 @@ components:
           type: string
         originSurface:
           type: string
+        requiresApproval:
+          type: boolean
         aggregateApprovalState:
           type: string
         aggregatePublicationState:
@@ -1296,6 +1356,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PostVariant'
+            legacyVariants:
+              type: array
+              items:
+                $ref: '#/components/schemas/PostVariant'
             notes:
               type: string
     PostUpsert:
@@ -1313,6 +1377,8 @@ components:
           type: string
         originSurface:
           type: string
+        requiresApproval:
+          type: boolean
         notes:
           type: string
     PostVariantUpsert:
@@ -1321,6 +1387,8 @@ components:
         platform:
           type: string
         surface:
+          type: string
+        inheritSource:
           type: string
         contentMode:
           type: string
@@ -1370,28 +1438,14 @@ components:
           enum: [approved, changes_requested]
         comment:
           type: string
-    PostPublicationUpsert:
+    PostPublicationSchedule:
       type: object
       properties:
-        publicationState:
-          type: string
         plannedAt:
           type: string
           format: date-time
-        publishedAt:
-          type: string
-          format: date-time
-        externalPostId:
-          type: string
-        externalAccountId:
-          type: string
         source:
           type: string
-        lastError:
-          type: string
-        metadata:
-          type: object
-          additionalProperties: true
     PostListResponse:
       type: object
       properties:

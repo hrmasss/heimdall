@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/resources"
 )
 
@@ -197,5 +198,95 @@ func TestEnsureVariantCollectionsMarshalAsArrays(t *testing.T) {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("expected marshaled variant to include %s, got %s", expected, body)
 		}
+	}
+}
+
+func TestEvaluateVariantReadinessRequiresApproval(t *testing.T) {
+	t.Parallel()
+
+	readiness := evaluateVariantReadiness(
+		database.PostVariant{
+			Platform:      "linkedin",
+			Surface:       "feed_post",
+			ApprovalState: "draft",
+		},
+		resolvedVariantState{
+			contentKind: "text",
+			contentPayload: map[string]any{
+				"body": "Launch update",
+			},
+			effectiveAssets: []resources.ResourceListItem{},
+		},
+		nil,
+		true,
+		resources.CapabilityMatrix{
+			Rules: []resources.CapabilityRule{
+				{
+					Platform:              "linkedin",
+					Surface:               "feed_post",
+					Label:                 "LinkedIn post",
+					Accepts:               []string{"image", "video", "document"},
+					SupportedContentKinds: []string{"text", "article"},
+				},
+			},
+		},
+	)
+
+	if len(readiness.ScheduleBlockers) == 0 {
+		t.Fatalf("expected approval blocker")
+	}
+	if readiness.ScheduleBlockers[0].Code != "approval_required" {
+		t.Fatalf("expected approval_required blocker, got %#v", readiness.ScheduleBlockers[0])
+	}
+}
+
+func TestEvaluateVariantReadinessDetectsIncompatibleAssets(t *testing.T) {
+	t.Parallel()
+
+	minItems := 1
+	readiness := evaluateVariantReadiness(
+		database.PostVariant{
+			Platform:      "instagram",
+			Surface:       "reel",
+			ApprovalState: "approved",
+		},
+		resolvedVariantState{
+			contentKind: "text",
+			contentPayload: map[string]any{
+				"body": "Behind the scenes",
+			},
+			effectiveAssets: []resources.ResourceListItem{
+				{ID: "asset-1", MediaKind: "image"},
+			},
+		},
+		nil,
+		false,
+		resources.CapabilityMatrix{
+			Rules: []resources.CapabilityRule{
+				{
+					Platform:              "instagram",
+					Surface:               "reel",
+					Label:                 "Instagram reel",
+					Accepts:               []string{"video"},
+					SupportedContentKinds: []string{"text"},
+					AssetRequired:         true,
+					MinItems:              &minItems,
+				},
+			},
+		},
+	)
+
+	if len(readiness.PublishBlockers) == 0 {
+		t.Fatalf("expected publish blockers")
+	}
+	found := false
+	for _, issue := range readiness.PublishBlockers {
+		if issue.Code == "asset_type_incompatible" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected asset_type_incompatible blocker, got %#v", readiness.PublishBlockers)
 	}
 }
