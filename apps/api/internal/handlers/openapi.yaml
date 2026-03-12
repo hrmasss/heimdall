@@ -374,6 +374,376 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResourceSetDetail'
+  /api/v1/posts:
+    get:
+      operationId: listPosts
+      summary: List Posts
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+      responses:
+        '200':
+          description: Workspace posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostListResponse'
+    post:
+      operationId: createPost
+      summary: Create Post
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpsert'
+      responses:
+        '201':
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+  /api/v1/posts/{id}:
+    get:
+      operationId: getPost
+      summary: Get Post
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Post detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+    patch:
+      operationId: updatePost
+      summary: Update Post
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpsert'
+      responses:
+        '200':
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+    delete:
+      operationId: deletePost
+      summary: Delete Post
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '204':
+          description: Post deleted
+  /api/v1/posts/{id}/assets:
+    put:
+      operationId: syncPostAssets
+      summary: Replace Generic Post Assets
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAssetSync'
+      responses:
+        '200':
+          description: Post detail with updated assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+  /api/v1/posts/{id}/variants:
+    post:
+      operationId: createPostVariant
+      summary: Create Post Variant
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostVariantUpsert'
+      responses:
+        '201':
+          description: Created post variant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+  /api/v1/posts/variants/{variantId}:
+    get:
+      operationId: getPostVariant
+      summary: Get Post Variant
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '200':
+          description: Post variant detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+    patch:
+      operationId: updatePostVariant
+      summary: Update Post Variant
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostVariantUpsert'
+      responses:
+        '200':
+          description: Updated post variant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+    delete:
+      operationId: deletePostVariant
+      summary: Delete Post Variant
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '204':
+          description: Variant deleted
+  /api/v1/posts/variants/{variantId}/assets:
+    put:
+      operationId: syncPostVariantAssets
+      summary: Replace Variant Assets
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostVariantAssetSync'
+      responses:
+        '200':
+          description: Updated post variant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+  /api/v1/posts/variants/{variantId}/reviews/submit:
+    post:
+      operationId: submitPostVariantReview
+      summary: Submit Variant For Review
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostReviewInput'
+      responses:
+        '200':
+          description: Updated post variant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+  /api/v1/posts/variants/{variantId}/reviews/decision:
+    post:
+      operationId: decidePostVariantReview
+      summary: Decide Variant Review
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostReviewDecisionInput'
+      responses:
+        '200':
+          description: Updated post variant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostVariant'
+  /api/v1/posts/variants/{variantId}/publication:
+    put:
+      operationId: upsertPostVariantPublication
+      summary: Upsert Variant Publication Plan
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostPublicationUpsert'
+      responses:
+        '200':
+          description: Updated publication plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPublication'
+    delete:
+      operationId: deletePostVariantPublication
+      summary: Delete Variant Publication Plan
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '204':
+          description: Publication plan deleted
+  /api/v1/posts/variants/{variantId}/metrics:
+    get:
+      operationId: listPostVariantMetrics
+      summary: List Variant Metric Observations
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      responses:
+        '200':
+          description: Metric observations for the variant publication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricObservationListResponse'
+    post:
+      operationId: recordPostVariantMetric
+      summary: Record Variant Metric Observation
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/VariantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricObservationInput'
+      responses:
+        '201':
+          description: Recorded metric observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricObservation'
+  /api/v1/posts/metric-definitions:
+    get:
+      operationId: listPostMetricDefinitions
+      summary: List Metric Definitions
+      tags:
+        - Posts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - in: query
+          name: platform
+          schema:
+            type: string
+        - in: query
+          name: surface
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metric definitions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricDefinitionListResponse'
 
 components:
   securitySchemes:
@@ -393,6 +763,13 @@ components:
     ResourceId:
       in: path
       name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VariantId:
+      in: path
+      name: variantId
       required: true
       schema:
         type: string
@@ -735,3 +1112,364 @@ components:
           $ref: '#/components/schemas/ResourceDetail'
         optimization:
           $ref: '#/components/schemas/ResourceUploadOptimization'
+    MetricSnapshotItem:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        unit:
+          type: string
+        rollup:
+          type: string
+        value:
+          type: number
+        observedAt:
+          type: string
+          format: date-time
+    PostReview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        approvalState:
+          type: string
+        decision:
+          type: string
+        comment:
+          type: string
+        actorUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    PostPublication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        publicationState:
+          type: string
+        plannedAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+        externalPostId:
+          type: string
+        externalAccountId:
+          type: string
+        source:
+          type: string
+        lastError:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PostVariant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        surface:
+          type: string
+        contentMode:
+          type: string
+          enum: [inherit, custom]
+        contentKind:
+          type: string
+          enum: [text, article, thread]
+        contentPayload:
+          type: object
+          additionalProperties: true
+        assetMode:
+          type: string
+          enum: [inherit, replace]
+        removedInheritedResourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRecord'
+        effectiveAssets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRecord'
+        approvalState:
+          type: string
+        latestReview:
+          $ref: '#/components/schemas/PostReview'
+        reviewHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostReview'
+        latestPublication:
+          $ref: '#/components/schemas/PostPublication'
+        metricSnapshot:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricSnapshotItem'
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PostSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        contentKind:
+          type: string
+          enum: [text, article, thread]
+        originPlatform:
+          type: string
+        originSurface:
+          type: string
+        aggregateApprovalState:
+          type: string
+        aggregatePublicationState:
+          type: string
+        variantCount:
+          type: integer
+        latestPlannedAt:
+          type: string
+          format: date-time
+        metricSnapshot:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricSnapshotItem'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PostDetail:
+      allOf:
+        - $ref: '#/components/schemas/PostSummary'
+        - type: object
+          properties:
+            contentPayload:
+              type: object
+              additionalProperties: true
+            assets:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResourceRecord'
+            variants:
+              type: array
+              items:
+                $ref: '#/components/schemas/PostVariant'
+            notes:
+              type: string
+    PostUpsert:
+      type: object
+      properties:
+        title:
+          type: string
+        contentKind:
+          type: string
+          enum: [text, article, thread]
+        contentPayload:
+          type: object
+          additionalProperties: true
+        originPlatform:
+          type: string
+        originSurface:
+          type: string
+        notes:
+          type: string
+    PostVariantUpsert:
+      type: object
+      properties:
+        platform:
+          type: string
+        surface:
+          type: string
+        contentMode:
+          type: string
+          enum: [inherit, custom]
+        contentKind:
+          type: string
+          enum: [text, article, thread]
+        contentPayload:
+          type: object
+          additionalProperties: true
+        assetMode:
+          type: string
+          enum: [inherit, replace]
+        notes:
+          type: string
+    PostAssetSync:
+      type: object
+      properties:
+        resourceIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    PostVariantAssetSync:
+      allOf:
+        - $ref: '#/components/schemas/PostAssetSync'
+        - type: object
+          properties:
+            assetMode:
+              type: string
+              enum: [inherit, replace]
+            removedInheritedResourceIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+    PostReviewInput:
+      type: object
+      properties:
+        comment:
+          type: string
+    PostReviewDecisionInput:
+      type: object
+      properties:
+        approvalState:
+          type: string
+          enum: [approved, changes_requested]
+        comment:
+          type: string
+    PostPublicationUpsert:
+      type: object
+      properties:
+        publicationState:
+          type: string
+        plannedAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+        externalPostId:
+          type: string
+        externalAccountId:
+          type: string
+        source:
+          type: string
+        lastError:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    PostListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostSummary'
+    MetricDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        label:
+          type: string
+        unit:
+          type: string
+        rollup:
+          type: string
+        platform:
+          type: string
+        surface:
+          type: string
+    MetricDefinitionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricDefinition'
+    MetricObservationInput:
+      type: object
+      properties:
+        metricCode:
+          type: string
+        observedAt:
+          type: string
+          format: date-time
+        value:
+          type: number
+        source:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    MetricObservation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        publicationId:
+          type: string
+          format: uuid
+        metricCode:
+          type: string
+        label:
+          type: string
+        unit:
+          type: string
+        rollup:
+          type: string
+        observedAt:
+          type: string
+          format: date-time
+        value:
+          type: number
+        source:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    MetricObservationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetricObservation'

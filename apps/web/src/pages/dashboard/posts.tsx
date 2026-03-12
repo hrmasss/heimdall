@@ -1,322 +1,226 @@
-import {
-	Archive,
-	ArrowUpDown,
-	Copy,
-	Download,
-	Eye,
-	FilePlus2,
-	MoreHorizontal,
-	Send,
-} from "lucide-react";
-import { Link } from "react-router";
+import { FilePlus2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
+import type { ApiListResponse, PostSummary } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 
-type PostRecord = {
-	id: string;
-	campaign: string;
-	platform: string;
-	status: "Draft" | "Review" | "Scheduled" | "Blocked";
-	owner: string;
-	scheduledAt: string;
-	scheduledSort: number;
-	reach: string;
-	assetCount: number;
-	note: string;
-};
-
-const rows: PostRecord[] = [
-	{
-		id: "post-001",
-		campaign: "Spring narrative refresh",
-		platform: "LinkedIn",
-		status: "Review",
-		owner: "Rina Morales",
-		scheduledAt: "Mar 10, 09:30",
-		scheduledSort: 202603100930,
-		reach: "420K",
-		assetCount: 4,
-		note: "Waiting on legal note for final caption.",
-	},
-	{
-		id: "post-002",
-		campaign: "Founder memo thread",
-		platform: "X",
-		status: "Scheduled",
-		owner: "Imran Ali",
-		scheduledAt: "Mar 10, 14:00",
-		scheduledSort: 202603101400,
-		reach: "1.3M",
-		assetCount: 1,
-		note: "Cross-post to executive accounts enabled.",
-	},
-	{
-		id: "post-003",
-		campaign: "Retail teaser reel",
-		platform: "Instagram",
-		status: "Blocked",
-		owner: "Pia Sorensen",
-		scheduledAt: "Mar 11, 11:00",
-		scheduledSort: 202603111100,
-		reach: "640K",
-		assetCount: 6,
-		note: "Replacement B-roll still pending upload.",
-	},
-	{
-		id: "post-004",
-		campaign: "Customer proof carousel",
-		platform: "Instagram",
-		status: "Draft",
-		owner: "Noa Carter",
-		scheduledAt: "Mar 12, 09:00",
-		scheduledSort: 202603120900,
-		reach: "280K",
-		assetCount: 8,
-		note: "Needs third slide typography cleanup.",
-	},
-	{
-		id: "post-005",
-		campaign: "Analyst briefing recap",
-		platform: "LinkedIn",
-		status: "Scheduled",
-		owner: "Jon Osei",
-		scheduledAt: "Mar 12, 15:30",
-		scheduledSort: 202603121530,
-		reach: "320K",
-		assetCount: 2,
-		note: "Localized variants generated for EMEA.",
-	},
-	{
-		id: "post-006",
-		campaign: "Partner launch checklist",
-		platform: "Facebook",
-		status: "Review",
-		owner: "Maya Ross",
-		scheduledAt: "Mar 13, 08:45",
-		scheduledSort: 202603130845,
-		reach: "160K",
-		assetCount: 3,
-		note: "Waiting on reseller list confirmation.",
-	},
-	{
-		id: "post-007",
-		campaign: "Quarterly benchmark report",
-		platform: "LinkedIn",
-		status: "Draft",
-		owner: "Daniel Osei",
-		scheduledAt: "Mar 13, 13:15",
-		scheduledSort: 202603131315,
-		reach: "580K",
-		assetCount: 5,
-		note: "Draft copy approved, design pass still open.",
-	},
-	{
-		id: "post-008",
-		campaign: "Community AMA promo",
-		platform: "X",
-		status: "Scheduled",
-		owner: "Leah Brooks",
-		scheduledAt: "Mar 14, 10:00",
-		scheduledSort: 202603141000,
-		reach: "225K",
-		assetCount: 2,
-		note: "Pinned tweet automation already attached.",
-	},
-];
-
-function StatusPill({ status }: { status: PostRecord["status"] }) {
-	const className =
-		status === "Scheduled"
-			? "pill pill-success"
-			: status === "Review"
-				? "pill pill-warning"
-				: status === "Blocked"
-					? "pill pill-error"
-					: "pill pill-muted";
-
-	return <span className={className}>{status}</span>;
+function statusClassName(value: string) {
+	switch (value) {
+		case "approved":
+		case "published":
+			return "pill pill-success";
+		case "in_review":
+		case "scheduled":
+		case "publishing":
+			return "pill pill-warning";
+		case "changes_requested":
+		case "failed":
+			return "pill pill-error";
+		default:
+			return "pill pill-muted";
+	}
 }
 
-const columns: DataTableColumn<PostRecord>[] = [
+const columns: DataTableColumn<PostSummary>[] = [
 	{
-		id: "campaign",
-		label: "Campaign",
-		width: 260,
-		minWidth: 220,
+		id: "title",
+		label: "Post",
+		width: 280,
 		accessor: (row) => (
 			<div>
-				<div className="font-medium">{row.campaign}</div>
-				<div className="mt-1 text-xs text-muted-foreground">{row.note}</div>
+				<div className="font-medium">{row.title}</div>
+				<div className="mt-1 text-xs text-muted-foreground">
+					{row.contentKind} · {row.variantCount} variant
+					{row.variantCount === 1 ? "" : "s"}
+				</div>
 			</div>
 		),
-		getSortValue: (row) => row.campaign,
+		getSortValue: (row) => row.title,
 	},
 	{
-		id: "platform",
-		label: "Platform",
-		width: 130,
-		accessor: (row) => row.platform,
-		getSortValue: (row) => row.platform,
+		id: "approval",
+		label: "Approval",
+		width: 150,
+		accessor: (row) => (
+			<span className={statusClassName(row.aggregateApprovalState)}>
+				{row.aggregateApprovalState}
+			</span>
+		),
+		getSortValue: (row) => row.aggregateApprovalState,
 	},
 	{
-		id: "status",
-		label: "Status",
-		width: 140,
-		accessor: (row) => <StatusPill status={row.status} />,
-		getSortValue: (row) => row.status,
+		id: "publication",
+		label: "Publication",
+		width: 150,
+		accessor: (row) => (
+			<span className={statusClassName(row.aggregatePublicationState)}>
+				{row.aggregatePublicationState}
+			</span>
+		),
+		getSortValue: (row) => row.aggregatePublicationState,
 	},
 	{
-		id: "owner",
-		label: "Owner",
+		id: "planned",
+		label: "Latest planned",
 		width: 180,
-		accessor: (row) => row.owner,
-		getSortValue: (row) => row.owner,
+		accessor: (row) =>
+			row.latestPlannedAt
+				? new Date(row.latestPlannedAt).toLocaleString()
+				: "Unscheduled",
+		getSortValue: (row) => row.latestPlannedAt ?? "",
 	},
 	{
-		id: "scheduledAt",
-		label: "Scheduled",
-		width: 160,
-		accessor: (row) => row.scheduledAt,
-		getSortValue: (row) => row.scheduledSort,
-	},
-	{
-		id: "reach",
-		label: "Projected reach",
-		width: 140,
-		accessor: (row) => row.reach,
-		getSortValue: (row) => Number(row.reach.replace(/[^\d]/g, "")),
-	},
-	{
-		id: "assets",
-		label: "Assets",
-		width: 110,
-		accessor: (row) => `${row.assetCount} files`,
-		getSortValue: (row) => row.assetCount,
+		id: "metric",
+		label: "Top KPI",
+		width: 180,
+		accessor: (row) =>
+			row.metricSnapshot?.[0]
+				? `${row.metricSnapshot[0].label}: ${row.metricSnapshot[0].value.toLocaleString()}`
+				: "No metrics",
+		getSortValue: (row) => row.metricSnapshot?.[0]?.value ?? 0,
 	},
 ];
 
 export function DashboardPosts() {
+	const navigate = useNavigate();
+	const { activeWorkspaceId, customerRequest } = useAuth();
+	const [posts, setPosts] = useState<PostSummary[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!activeWorkspaceId) {
+			return;
+		}
+		let cancelled = false;
+		async function loadPosts() {
+			setLoading(true);
+			setError(null);
+			try {
+				const response =
+					await customerRequest<ApiListResponse<PostSummary>>("/posts");
+				if (!cancelled) {
+					setPosts(response.items);
+				}
+			} catch (loadError) {
+				if (!cancelled) {
+					setError(
+						loadError instanceof Error
+							? loadError.message
+							: "Unable to load posts.",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
+		}
+
+		void loadPosts();
+		return () => {
+			cancelled = true;
+		};
+	}, [activeWorkspaceId, customerRequest]);
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
 				eyebrow="Publishing queue"
 				title="Posts"
-				description="Track scheduled, in-review, and blocked posts from one queue so the team can spot risks and keep launches moving."
+				description="Track generic posts, platform variants, approval state, and planned publication timing from one queue."
 				actions={
-					<>
-						<Button variant="outline" className="rounded-full">
-							<Download className="size-4" />
-							Export
-						</Button>
-						<Button
-							className="rounded-full bg-gradient-brand text-white border-0"
-							asChild
-						>
-							<Link to="/dashboard/posts/new">
-								<FilePlus2 className="size-4" />
-								New post
-							</Link>
-						</Button>
-					</>
+					<Button
+						className="rounded-full bg-gradient-brand text-white border-0"
+						asChild
+					>
+						<Link to="/dashboard/posts/new">
+							<FilePlus2 className="size-4" />
+							New post
+						</Link>
+					</Button>
 				}
 			/>
 
 			<SurfaceCard className="p-5 md:p-6">
 				<DataTable
-					title="Publishing queue"
-					description="Filter by platform or status, scan what needs approval, and jump straight into the next action."
-					rows={rows}
+					title="Post queue"
+					description="Open any post to inspect its generic source, platform variants, planned slots, and KPI rollups."
+					rows={posts}
 					columns={columns}
 					getRowId={(row) => row.id}
 					getSearchText={(row) =>
-						[row.campaign, row.platform, row.owner, row.status, row.note].join(
-							" ",
-						)
+						[
+							row.title,
+							row.contentKind,
+							row.aggregateApprovalState,
+							row.aggregatePublicationState,
+						].join(" ")
 					}
 					filters={[
 						{
-							id: "platform",
-							label: "Platform",
-							options: ["LinkedIn", "X", "Instagram", "Facebook"].map(
-								(value) => ({
-									label: value,
-									value,
-								}),
-							),
-							getValue: (row) => row.platform,
+							id: "approval",
+							label: "Approval",
+							options: [
+								"draft",
+								"in_review",
+								"approved",
+								"changes_requested",
+							].map((value) => ({ label: value, value })),
+							getValue: (row) => row.aggregateApprovalState,
 						},
 						{
-							id: "status",
-							label: "Status",
-							options: ["Draft", "Review", "Scheduled", "Blocked"].map(
-								(value) => ({
-									label: value,
-									value,
-								}),
-							),
-							getValue: (row) => row.status,
+							id: "publication",
+							label: "Publication",
+							options: [
+								"unscheduled",
+								"scheduled",
+								"publishing",
+								"published",
+								"failed",
+								"cancelled",
+							].map((value) => ({ label: value, value })),
+							getValue: (row) => row.aggregatePublicationState,
 						},
 					]}
-					globalActions={[
-						{ label: "Sort presets", icon: ArrowUpDown, variant: "outline" },
-						{ label: "Open review", icon: Eye, variant: "ghost" },
-						{ label: "Bulk send", icon: Send, variant: "default" },
-					]}
-					rowActions={[
-						{ label: "Open post", icon: Eye },
-						{ label: "Duplicate", icon: Copy },
-						{ label: "Archive", icon: Archive, destructive: true },
-					]}
 					emptyState={{
-						title: "No posts match the current view",
+						title: "No posts yet",
 						description:
-							"Adjust filters or search terms to bring the right campaigns back into focus.",
+							"Create a generic post, then add platform variants and asset plans from the editor.",
+						actionLabel: "Create post",
+						onAction: () => navigate("/dashboard/posts/new"),
 					}}
+					loading={loading}
+					error={error}
+					onRowClick={(row) => navigate(`/dashboard/posts/${row.id}`)}
 					renderGridCard={(row) => (
 						<div className="space-y-4">
-							<div className="flex items-start justify-between gap-3">
-								<div>
-									<div className="text-lg font-medium">{row.campaign}</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{row.note}
-									</div>
-								</div>
-								<StatusPill status={row.status} />
-							</div>
-							<div className="grid grid-cols-2 gap-3 text-sm">
-								<div>
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Platform
-									</div>
-									<div className="mt-1">{row.platform}</div>
-								</div>
-								<div>
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Owner
-									</div>
-									<div className="mt-1">{row.owner}</div>
-								</div>
-								<div>
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Scheduled
-									</div>
-									<div className="mt-1">{row.scheduledAt}</div>
-								</div>
-								<div>
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Reach
-									</div>
-									<div className="mt-1">{row.reach}</div>
+							<div>
+								<div className="text-lg font-medium">{row.title}</div>
+								<div className="mt-1 text-sm text-muted-foreground">
+									{row.contentKind} · {row.variantCount} variant
+									{row.variantCount === 1 ? "" : "s"}
 								</div>
 							</div>
-							<div className="flex items-center justify-between rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm">
-								<span>{row.assetCount} assets attached</span>
-								<Button variant="ghost" size="icon-sm">
-									<MoreHorizontal className="size-4" />
-								</Button>
+							<div className="flex flex-wrap gap-2">
+								<span className={statusClassName(row.aggregateApprovalState)}>
+									{row.aggregateApprovalState}
+								</span>
+								<span
+									className={statusClassName(row.aggregatePublicationState)}
+								>
+									{row.aggregatePublicationState}
+								</span>
+							</div>
+							<div className="text-sm text-muted-foreground">
+								{row.latestPlannedAt
+									? `Latest slot: ${new Date(row.latestPlannedAt).toLocaleString()}`
+									: "No planned slots yet"}
 							</div>
 						</div>
 					)}

@@ -18,6 +18,7 @@ import (
 	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/handlers"
 	"github.com/heimdall/api/internal/iam"
+	"github.com/heimdall/api/internal/posts"
 	"github.com/heimdall/api/internal/resources"
 )
 
@@ -51,6 +52,7 @@ func main() {
 		log.Fatalf("Failed to configure resource storage: %v", err)
 	}
 	resourceService := resources.NewService(db, cfg.Storage, storage, service)
+	postService := posts.NewService(db, service, resourceService)
 	if err := resourceService.RunCleanupSweep(ctx); err != nil {
 		log.Printf("Resource cleanup sweep failed during startup: %v", err)
 	}
@@ -90,7 +92,7 @@ func main() {
 	}))
 
 	// Register routes
-	handlers.NewAppHandler(service, resourceService, storage, cfg).Register(app)
+	handlers.NewAppHandler(service, resourceService, postService, storage, cfg).Register(app)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)

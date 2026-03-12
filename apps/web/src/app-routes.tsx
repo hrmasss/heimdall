@@ -49,6 +49,11 @@ const DashboardNewPost = lazy(async () =>
 		default: module.DashboardNewPost,
 	})),
 );
+const DashboardPostDetail = lazy(async () =>
+	import("@/pages/dashboard/post-detail").then((module) => ({
+		default: module.DashboardPostDetailPage,
+	})),
+);
 const DashboardCalendar = lazy(async () =>
 	import("@/pages/dashboard/calendar").then((module) => ({
 		default: module.DashboardCalendar,
@@ -246,12 +251,20 @@ export function AppRoutes() {
 						<Route path="onboarding" element={<DashboardOnboarding />} />
 						<Route path="posts" element={<DashboardPosts />} />
 						<Route path="posts/new" element={<DashboardNewPost />} />
+						<Route path="posts/:id" element={<DashboardPostDetail />} />
+						<Route path="posts/:id/edit" element={<DashboardNewPost />} />
 						<Route path="calendar" element={<DashboardCalendar />} />
 						<Route path="analytics" element={<DashboardAnalytics />} />
 						<Route path="automations" element={<DashboardAutomations />} />
 						<Route path="library" element={<DashboardLibrary />} />
-						<Route path="library/sets/new" element={<DashboardLibrarySetForm />} />
-						<Route path="library/sets/:id" element={<DashboardLibrarySetDetail />} />
+						<Route
+							path="library/sets/new"
+							element={<DashboardLibrarySetForm />}
+						/>
+						<Route
+							path="library/sets/:id"
+							element={<DashboardLibrarySetDetail />}
+						/>
 						<Route
 							path="library/sets/:id/edit"
 							element={<DashboardLibrarySetForm />}

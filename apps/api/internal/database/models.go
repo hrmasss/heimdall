@@ -228,3 +228,111 @@ type ResourceCleanupJob struct {
 	CreatedAt      time.Time `bun:"created_at,notnull"`
 	UpdatedAt      time.Time `bun:"updated_at,notnull"`
 }
+
+type Post struct {
+	bun.BaseModel `bun:"table:posts"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Title           string     `bun:"title,notnull"`
+	ContentKind     string     `bun:"content_kind,notnull"`
+	ContentPayload  string     `bun:"content_payload,notnull"`
+	OriginPlatform  *string    `bun:"origin_platform"`
+	OriginSurface   *string    `bun:"origin_surface"`
+	Notes           string     `bun:"notes,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type PostVariant struct {
+	bun.BaseModel `bun:"table:post_variants"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	PostID          uuid.UUID  `bun:"post_id,notnull,type:uuid"`
+	Platform        string     `bun:"platform,notnull"`
+	Surface         string     `bun:"surface,notnull"`
+	ContentMode     string     `bun:"content_mode,notnull"`
+	ContentKind     *string    `bun:"content_kind"`
+	ContentPayload  string     `bun:"content_payload,notnull"`
+	AssetMode       string     `bun:"asset_mode,notnull"`
+	ApprovalState   string     `bun:"approval_state,notnull"`
+	Notes           string     `bun:"notes,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type PostVariantRemovedResource struct {
+	bun.BaseModel `bun:"table:post_variant_removed_resources"`
+
+	ID         uuid.UUID `bun:"id,pk,type:uuid"`
+	VariantID  uuid.UUID `bun:"variant_id,notnull,type:uuid"`
+	ResourceID uuid.UUID `bun:"resource_id,notnull,type:uuid"`
+	CreatedAt  time.Time `bun:"created_at,notnull"`
+}
+
+type PostVariantReview struct {
+	bun.BaseModel `bun:"table:post_variant_reviews"`
+
+	ID            uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID   uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	VariantID     uuid.UUID  `bun:"variant_id,notnull,type:uuid"`
+	ApprovalState string     `bun:"approval_state,notnull"`
+	Decision      string     `bun:"decision,notnull"`
+	Comment       string     `bun:"comment,notnull"`
+	ActorUserID   *uuid.UUID `bun:"actor_user_id,type:uuid"`
+	CreatedAt     time.Time  `bun:"created_at,notnull"`
+}
+
+type PostVariantPublication struct {
+	bun.BaseModel `bun:"table:post_variant_publications"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	VariantID         uuid.UUID  `bun:"variant_id,notnull,type:uuid"`
+	PublicationState  string     `bun:"publication_state,notnull"`
+	PlannedAt         *time.Time `bun:"planned_at"`
+	PublishedAt       *time.Time `bun:"published_at"`
+	ExternalPostID    *string    `bun:"external_post_id"`
+	ExternalAccountID *string    `bun:"external_account_id"`
+	Source            string     `bun:"source,notnull"`
+	LastError         *string    `bun:"last_error"`
+	Metadata          string     `bun:"metadata,notnull"`
+	CreatedByUserID   *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID   *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt         time.Time  `bun:"created_at,notnull"`
+	UpdatedAt         time.Time  `bun:"updated_at,notnull"`
+}
+
+type MetricDefinition struct {
+	bun.BaseModel `bun:"table:metric_definitions"`
+
+	ID        uuid.UUID `bun:"id,pk,type:uuid"`
+	Code      string    `bun:"code,notnull"`
+	Label     string    `bun:"label,notnull"`
+	Unit      string    `bun:"unit,notnull"`
+	Rollup    string    `bun:"rollup,notnull"`
+	Platform  *string   `bun:"platform"`
+	Surface   *string   `bun:"surface"`
+	CreatedAt time.Time `bun:"created_at,notnull"`
+	UpdatedAt time.Time `bun:"updated_at,notnull"`
+}
+
+type MetricObservation struct {
+	bun.BaseModel `bun:"table:metric_observations"`
+
+	ID                 uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID        uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	PublicationID      uuid.UUID  `bun:"publication_id,notnull,type:uuid"`
+	MetricDefinitionID uuid.UUID  `bun:"metric_definition_id,notnull,type:uuid"`
+	ObservedAt         time.Time  `bun:"observed_at,notnull"`
+	Value              float64    `bun:"value,notnull"`
+	Source             string     `bun:"source,notnull"`
+	Metadata           string     `bun:"metadata,notnull"`
+	CreatedByUserID    *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	CreatedAt          time.Time  `bun:"created_at,notnull"`
+}

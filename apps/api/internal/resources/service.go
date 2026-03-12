@@ -484,6 +484,59 @@ func (s *Service) SyncReferences(ctx context.Context, principal *iam.Principal, 
 	})
 }
 
+func (s *Service) ResolveResources(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, resourceIDs []uuid.UUID) ([]ResourceListItem, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.resources.view"); err != nil {
+		return nil, err
+	}
+	if len(resourceIDs) == 0 {
+		return []ResourceListItem{}, nil
+	}
+
+	uniqueIDs := make([]uuid.UUID, 0, len(resourceIDs))
+	seen := make(map[uuid.UUID]struct{}, len(resourceIDs))
+	for _, resourceID := range resourceIDs {
+		if resourceID == uuid.Nil {
+			continue
+		}
+		if _, ok := seen[resourceID]; ok {
+			continue
+		}
+		seen[resourceID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, resourceID)
+	}
+	if len(uniqueIDs) == 0 {
+		return []ResourceListItem{}, nil
+	}
+
+	var records []database.Resource
+	if err := s.db.NewSelect().
+		Model(&records).
+		Where("workspace_id = ?", workspaceID).
+		Where("id IN (?)", bun.In(uniqueIDs)).
+		Where("lifecycle_status = ?", "ready").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	items, err := s.hydrateResources(ctx, records)
+	if err != nil {
+		return nil, err
+	}
+
+	byID := make(map[string]ResourceListItem, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+
+	resolved := make([]ResourceListItem, 0, len(resourceIDs))
+	for _, resourceID := range resourceIDs {
+		if item, ok := byID[resourceID.String()]; ok {
+			resolved = append(resolved, item)
+		}
+	}
+	return resolved, nil
+}
+
 func (s *Service) RunCleanupSweep(ctx context.Context) error {
 	var jobs []database.ResourceCleanupJob
 	if err := s.db.NewSelect().

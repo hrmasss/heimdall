@@ -26,6 +26,15 @@ type roleSeed struct {
 	PermissionCodes []string
 }
 
+type metricDefinitionSeed struct {
+	Code     string
+	Label    string
+	Unit     string
+	Rollup   string
+	Platform string
+	Surface  string
+}
+
 var permissionSeeds = []permissionSeed{
 	{Code: "workspace.members.view", Label: "View members", Scope: "workspace", Description: "View workspace members"},
 	{Code: "workspace.members.manage", Label: "Manage members", Scope: "workspace", Description: "Invite and manage workspace members"},
@@ -153,6 +162,30 @@ var roleSeeds = []roleSeed{
 			"platform.audit.view",
 		},
 	},
+}
+
+var metricDefinitionSeeds = []metricDefinitionSeed{
+	{Code: "impressions", Label: "Impressions", Unit: "count", Rollup: "sum"},
+	{Code: "reach", Label: "Reach", Unit: "count", Rollup: "sum"},
+	{Code: "engagements", Label: "Engagements", Unit: "count", Rollup: "sum"},
+	{Code: "clicks", Label: "Clicks", Unit: "count", Rollup: "sum"},
+	{Code: "likes", Label: "Likes", Unit: "count", Rollup: "sum"},
+	{Code: "comments", Label: "Comments", Unit: "count", Rollup: "sum"},
+	{Code: "shares", Label: "Shares", Unit: "count", Rollup: "sum"},
+	{Code: "saves", Label: "Saves", Unit: "count", Rollup: "sum"},
+	{Code: "engagement_rate", Label: "Engagement Rate", Unit: "ratio", Rollup: "latest"},
+	{Code: "video_views", Label: "Video Views", Unit: "count", Rollup: "sum"},
+	{Code: "video_completion_rate", Label: "Video Completion Rate", Unit: "ratio", Rollup: "latest"},
+	{Code: "document_opens", Label: "Document Opens", Unit: "count", Rollup: "sum", Platform: "linkedin", Surface: "document_post"},
+	{Code: "reposts", Label: "Reposts", Unit: "count", Rollup: "sum", Platform: "x", Surface: "image_post"},
+	{Code: "reposts", Label: "Reposts", Unit: "count", Rollup: "sum", Platform: "x", Surface: "video_post"},
+	{Code: "thread_reads", Label: "Thread Reads", Unit: "count", Rollup: "sum", Platform: "x", Surface: "image_post"},
+	{Code: "thread_reads", Label: "Thread Reads", Unit: "count", Rollup: "sum", Platform: "x", Surface: "video_post"},
+	{Code: "profile_visits", Label: "Profile Visits", Unit: "count", Rollup: "sum", Platform: "instagram", Surface: "feed_photo"},
+	{Code: "profile_visits", Label: "Profile Visits", Unit: "count", Rollup: "sum", Platform: "instagram", Surface: "carousel"},
+	{Code: "profile_visits", Label: "Profile Visits", Unit: "count", Rollup: "sum", Platform: "instagram", Surface: "reel"},
+	{Code: "watch_time_ms", Label: "Watch Time", Unit: "ms", Rollup: "sum", Platform: "youtube", Surface: "video"},
+	{Code: "watch_time_ms", Label: "Watch Time", Unit: "ms", Rollup: "sum", Platform: "youtube", Surface: "short"},
 }
 
 var schemaStatements = []string{
@@ -343,6 +376,103 @@ var schemaStatements = []string{
 		updated_at timestamptz NOT NULL DEFAULT now()
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_resource_cleanup_jobs_status_created ON resource_cleanup_jobs (status, created_at ASC)`,
+	`CREATE TABLE IF NOT EXISTS posts (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		title text NOT NULL,
+		content_kind text NOT NULL,
+		content_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+		origin_platform text,
+		origin_surface text,
+		notes text NOT NULL DEFAULT '',
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_posts_workspace_updated ON posts (workspace_id, updated_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS post_variants (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+		platform text NOT NULL,
+		surface text NOT NULL,
+		content_mode text NOT NULL DEFAULT 'inherit',
+		content_kind text,
+		content_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+		asset_mode text NOT NULL DEFAULT 'inherit',
+		approval_state text NOT NULL DEFAULT 'draft',
+		notes text NOT NULL DEFAULT '',
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE (workspace_id, post_id, platform, surface)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_post_variants_post_updated ON post_variants (post_id, updated_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS post_variant_removed_resources (
+		id uuid PRIMARY KEY,
+		variant_id uuid NOT NULL REFERENCES post_variants(id) ON DELETE CASCADE,
+		resource_id uuid NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE (variant_id, resource_id)
+	)`,
+	`CREATE TABLE IF NOT EXISTS post_variant_reviews (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		variant_id uuid NOT NULL REFERENCES post_variants(id) ON DELETE CASCADE,
+		approval_state text NOT NULL,
+		decision text NOT NULL,
+		comment text NOT NULL DEFAULT '',
+		actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_post_variant_reviews_variant_created ON post_variant_reviews (variant_id, created_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS post_variant_publications (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		variant_id uuid NOT NULL REFERENCES post_variants(id) ON DELETE CASCADE,
+		publication_state text NOT NULL DEFAULT 'unscheduled',
+		planned_at timestamptz,
+		published_at timestamptz,
+		external_post_id text,
+		external_account_id text,
+		source text NOT NULL DEFAULT 'manual',
+		last_error text,
+		metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE (variant_id)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_post_variant_publications_workspace_planned ON post_variant_publications (workspace_id, planned_at ASC)`,
+	`CREATE TABLE IF NOT EXISTS metric_definitions (
+		id uuid PRIMARY KEY,
+		code text NOT NULL,
+		label text NOT NULL,
+		unit text NOT NULL,
+		rollup text NOT NULL DEFAULT 'sum',
+		platform text,
+		surface text,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE NULLS NOT DISTINCT (code, platform, surface)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_metric_definitions_scope ON metric_definitions (platform, surface, code)`,
+	`CREATE TABLE IF NOT EXISTS metric_observations (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		publication_id uuid NOT NULL REFERENCES post_variant_publications(id) ON DELETE CASCADE,
+		metric_definition_id uuid NOT NULL REFERENCES metric_definitions(id) ON DELETE CASCADE,
+		observed_at timestamptz NOT NULL,
+		value double precision NOT NULL,
+		source text NOT NULL DEFAULT 'manual',
+		metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_metric_observations_publication_metric_observed ON metric_observations (publication_id, metric_definition_id, observed_at DESC)`,
 }
 
 // Bootstrap creates the schema and seeds system permissions/roles/admin.
@@ -360,6 +490,9 @@ func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 		return err
 	}
 	if err := seedRoles(ctx, db); err != nil {
+		return err
+	}
+	if err := seedMetricDefinitions(ctx, db); err != nil {
 		return err
 	}
 	if err := seedBootstrapAdmin(ctx, db, cfg); err != nil {
@@ -463,6 +596,72 @@ func seedRoles(ctx context.Context, db *bun.DB) error {
 		}
 	}
 
+	return nil
+}
+
+func seedMetricDefinitions(ctx context.Context, db *bun.DB) error {
+	for _, seed := range metricDefinitionSeeds {
+		var existing MetricDefinition
+		query := db.NewSelect().
+			Model(&existing).
+			Where("code = ?", seed.Code)
+		if seed.Platform == "" {
+			query = query.Where("platform IS NULL")
+		} else {
+			query = query.Where("platform = ?", seed.Platform)
+		}
+		if seed.Surface == "" {
+			query = query.Where("surface IS NULL")
+		} else {
+			query = query.Where("surface = ?", seed.Surface)
+		}
+		err := query.Limit(1).Scan(ctx)
+
+		now := time.Now().UTC()
+		if err == nil {
+			existing.Label = seed.Label
+			existing.Unit = seed.Unit
+			existing.Rollup = seed.Rollup
+			if seed.Platform == "" {
+				existing.Platform = nil
+			} else {
+				existing.Platform = &seed.Platform
+			}
+			if seed.Surface == "" {
+				existing.Surface = nil
+			} else {
+				existing.Surface = &seed.Surface
+			}
+			existing.UpdatedAt = now
+			if _, err := db.NewUpdate().
+				Model(&existing).
+				Column("label", "unit", "rollup", "platform", "surface", "updated_at").
+				WherePK().
+				Exec(ctx); err != nil {
+				return fmt.Errorf("update metric definition %s: %w", seed.Code, err)
+			}
+			continue
+		}
+
+		record := MetricDefinition{
+			ID:        uuid.New(),
+			Code:      seed.Code,
+			Label:     seed.Label,
+			Unit:      seed.Unit,
+			Rollup:    seed.Rollup,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		if seed.Platform != "" {
+			record.Platform = &seed.Platform
+		}
+		if seed.Surface != "" {
+			record.Surface = &seed.Surface
+		}
+		if _, err := db.NewInsert().Model(&record).Exec(ctx); err != nil {
+			return fmt.Errorf("insert metric definition %s: %w", seed.Code, err)
+		}
+	}
 	return nil
 }
 

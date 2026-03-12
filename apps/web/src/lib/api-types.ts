@@ -187,3 +187,121 @@ export type ResourceUploadResponse = {
 		savedBytes: number;
 	};
 };
+
+export type MetricSnapshotItem = {
+	code: string;
+	label: string;
+	unit: string;
+	rollup: string;
+	value: number;
+	observedAt: string;
+};
+
+export type ReviewRecord = {
+	id: string;
+	variantId: string;
+	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
+	decision: string;
+	comment?: string;
+	actorUserId?: string;
+	createdAt: string;
+};
+
+export type PublicationPlan = {
+	id: string;
+	variantId: string;
+	publicationState:
+		| "unscheduled"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
+	plannedAt?: string;
+	publishedAt?: string;
+	externalPostId?: string;
+	externalAccountId?: string;
+	source: string;
+	lastError?: string;
+	metadata?: Record<string, unknown>;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type MetricDefinition = {
+	id: string;
+	code: string;
+	label: string;
+	unit: string;
+	rollup: string;
+	platform?: string;
+	surface?: string;
+};
+
+export type MetricObservation = {
+	id: string;
+	publicationId: string;
+	metricCode: string;
+	label: string;
+	unit: string;
+	rollup: string;
+	observedAt: string;
+	value: number;
+	source: string;
+	metadata?: Record<string, unknown>;
+};
+
+export type PostVariant = {
+	id: string;
+	postId: string;
+	platform: string;
+	surface: string;
+	contentMode: "inherit" | "custom";
+	contentKind?: "text" | "article" | "thread";
+	contentPayload?: Record<string, unknown>;
+	assetMode: "inherit" | "replace";
+	removedInheritedResourceIds: string[];
+	assets: ResourceRecord[];
+	effectiveAssets: ResourceRecord[];
+	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
+	latestReview?: ReviewRecord;
+	reviewHistory?: ReviewRecord[];
+	latestPublication?: PublicationPlan;
+	metricSnapshot?: MetricSnapshotItem[];
+	notes?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type PostSummary = {
+	id: string;
+	workspaceId: string;
+	title: string;
+	contentKind: "text" | "article" | "thread";
+	originPlatform?: string;
+	originSurface?: string;
+	aggregateApprovalState:
+		| "draft"
+		| "in_review"
+		| "approved"
+		| "changes_requested";
+	aggregatePublicationState:
+		| "unscheduled"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
+	variantCount: number;
+	latestPlannedAt?: string;
+	metricSnapshot?: MetricSnapshotItem[];
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type PostDetail = PostSummary & {
+	contentPayload: Record<string, unknown>;
+	assets: ResourceRecord[];
+	variants: PostVariant[];
+	notes?: string;
+};

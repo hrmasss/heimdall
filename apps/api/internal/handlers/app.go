@@ -14,18 +14,20 @@ import (
 	"github.com/heimdall/api/internal/auth"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/iam"
+	"github.com/heimdall/api/internal/posts"
 	"github.com/heimdall/api/internal/resources"
 )
 
 type AppHandler struct {
 	service         *iam.Service
 	resourceService *resources.Service
+	postService     *posts.Service
 	blobServer      resources.SignedBlobServer
 	cfg             *config.Config
 }
 
-func NewAppHandler(service *iam.Service, resourceService *resources.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, resourceService: resourceService, blobServer: blobServer, cfg: cfg}
+func NewAppHandler(service *iam.Service, resourceService *resources.Service, postService *posts.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, resourceService: resourceService, postService: postService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -75,6 +77,24 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Patch("/resource-sets/:id", h.requireAuth, h.updateResourceSet)
 	api.Put("/resource-sets/:id/items", h.requireAuth, h.replaceResourceSetItems)
 	api.Delete("/resource-sets/:id", h.requireAuth, h.deleteResourceSet)
+	api.Get("/posts", h.requireAuth, h.listPosts)
+	api.Post("/posts", h.requireAuth, h.createPost)
+	api.Get("/posts/metric-definitions", h.requireAuth, h.listPostMetricDefinitions)
+	api.Post("/posts/:id/variants", h.requireAuth, h.createPostVariant)
+	api.Get("/posts/:id", h.requireAuth, h.getPost)
+	api.Patch("/posts/:id", h.requireAuth, h.updatePost)
+	api.Delete("/posts/:id", h.requireAuth, h.deletePost)
+	api.Put("/posts/:id/assets", h.requireAuth, h.syncPostAssets)
+	api.Get("/posts/variants/:variantId", h.requireAuth, h.getPostVariant)
+	api.Patch("/posts/variants/:variantId", h.requireAuth, h.updatePostVariant)
+	api.Delete("/posts/variants/:variantId", h.requireAuth, h.deletePostVariant)
+	api.Put("/posts/variants/:variantId/assets", h.requireAuth, h.syncPostVariantAssets)
+	api.Post("/posts/variants/:variantId/reviews/submit", h.requireAuth, h.submitPostVariantReview)
+	api.Post("/posts/variants/:variantId/reviews/decision", h.requireAuth, h.decidePostVariantReview)
+	api.Put("/posts/variants/:variantId/publication", h.requireAuth, h.upsertPostVariantPublication)
+	api.Delete("/posts/variants/:variantId/publication", h.requireAuth, h.deletePostVariantPublication)
+	api.Get("/posts/variants/:variantId/metrics", h.requireAuth, h.listPostVariantMetrics)
+	api.Post("/posts/variants/:variantId/metrics", h.requireAuth, h.recordPostVariantMetric)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
