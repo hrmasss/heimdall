@@ -1,6 +1,8 @@
 package posts
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,5 +121,81 @@ func TestAggregateMetricSnapshot(t *testing.T) {
 	}
 	if snapshot[1].Code != "impressions" || snapshot[1].Value != 200 {
 		t.Fatalf("expected impressions to sum to 200, got %#v", snapshot[1])
+	}
+}
+
+func TestEnsurePostCollectionsMarshalAsArrays(t *testing.T) {
+	t.Parallel()
+
+	detail := PostDetail{
+		PostSummary: PostSummary{
+			ID:                        "post-1",
+			WorkspaceID:               "workspace-1",
+			Title:                     "Title",
+			ContentKind:               "text",
+			AggregateApprovalState:    "draft",
+			AggregatePublicationState: "unscheduled",
+			MetricSnapshot:            ensureMetricSnapshotItems(nil),
+			CreatedAt:                 time.Now().UTC().Format(time.RFC3339),
+			UpdatedAt:                 time.Now().UTC().Format(time.RFC3339),
+		},
+		ContentPayload: map[string]any{"body": "Hello"},
+		Assets:         ensureResourceItems(nil),
+		Variants:       ensurePostVariants(nil),
+	}
+
+	payload, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatalf("marshal detail: %v", err)
+	}
+
+	body := string(payload)
+	for _, expected := range []string{
+		`"assets":[]`,
+		`"variants":[]`,
+		`"metricSnapshot":[]`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected marshaled detail to include %s, got %s", expected, body)
+		}
+	}
+}
+
+func TestEnsureVariantCollectionsMarshalAsArrays(t *testing.T) {
+	t.Parallel()
+
+	variant := PostVariant{
+		ID:                          "variant-1",
+		PostID:                      "post-1",
+		Platform:                    "facebook",
+		Surface:                     "feed_photo",
+		ContentMode:                 "inherit",
+		AssetMode:                   "inherit",
+		RemovedInheritedResourceIDs: ensureStringSlice(nil),
+		Assets:                      ensureResourceItems(nil),
+		EffectiveAssets:             ensureResourceItems(nil),
+		ApprovalState:               "draft",
+		ReviewHistory:               ensureReviewRecords(nil),
+		MetricSnapshot:              ensureMetricSnapshotItems(nil),
+		CreatedAt:                   time.Now().UTC().Format(time.RFC3339),
+		UpdatedAt:                   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	payload, err := json.Marshal(variant)
+	if err != nil {
+		t.Fatalf("marshal variant: %v", err)
+	}
+
+	body := string(payload)
+	for _, expected := range []string{
+		`"removedInheritedResourceIds":[]`,
+		`"assets":[]`,
+		`"effectiveAssets":[]`,
+		`"reviewHistory":[]`,
+		`"metricSnapshot":[]`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected marshaled variant to include %s, got %s", expected, body)
+		}
 	}
 }

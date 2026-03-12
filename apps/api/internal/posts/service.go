@@ -159,14 +159,14 @@ type PostVariant struct {
 	ContentKind                 string                       `json:"contentKind,omitempty"`
 	ContentPayload              map[string]any               `json:"contentPayload,omitempty"`
 	AssetMode                   string                       `json:"assetMode"`
-	RemovedInheritedResourceIDs []string                     `json:"removedInheritedResourceIds,omitempty"`
+	RemovedInheritedResourceIDs []string                     `json:"removedInheritedResourceIds"`
 	Assets                      []resources.ResourceListItem `json:"assets"`
 	EffectiveAssets             []resources.ResourceListItem `json:"effectiveAssets"`
 	ApprovalState               string                       `json:"approvalState"`
 	LatestReview                *ReviewRecord                `json:"latestReview,omitempty"`
-	ReviewHistory               []ReviewRecord               `json:"reviewHistory,omitempty"`
+	ReviewHistory               []ReviewRecord               `json:"reviewHistory"`
 	LatestPublication           *PublicationPlan             `json:"latestPublication,omitempty"`
-	MetricSnapshot              []MetricSnapshotItem         `json:"metricSnapshot,omitempty"`
+	MetricSnapshot              []MetricSnapshotItem         `json:"metricSnapshot"`
 	Notes                       string                       `json:"notes,omitempty"`
 	CreatedAt                   string                       `json:"createdAt"`
 	UpdatedAt                   string                       `json:"updatedAt"`
@@ -183,7 +183,7 @@ type PostSummary struct {
 	AggregatePublicationState string               `json:"aggregatePublicationState"`
 	VariantCount              int                  `json:"variantCount"`
 	LatestPlannedAt           string               `json:"latestPlannedAt,omitempty"`
-	MetricSnapshot            []MetricSnapshotItem `json:"metricSnapshot,omitempty"`
+	MetricSnapshot            []MetricSnapshotItem `json:"metricSnapshot"`
 	CreatedAt                 string               `json:"createdAt"`
 	UpdatedAt                 string               `json:"updatedAt"`
 }
@@ -868,7 +868,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		if err != nil {
 			return nil, err
 		}
-		rootAssetCache[record.ID.String()] = items
+		rootAssetCache[record.ID.String()] = ensureResourceItems(items)
 	}
 	variantAssetCache := map[string][]resources.ResourceListItem{}
 	for _, variant := range variantRecords {
@@ -876,7 +876,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		if err != nil {
 			return nil, err
 		}
-		variantAssetCache[variant.ID.String()] = items
+		variantAssetCache[variant.ID.String()] = ensureResourceItems(items)
 	}
 
 	variantsByPost := map[string][]PostVariant{}
@@ -902,14 +902,14 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 			ContentKind:                 derefString(variantRecord.ContentKind),
 			ContentPayload:              parseMetadata(variantRecord.ContentPayload),
 			AssetMode:                   variantRecord.AssetMode,
-			RemovedInheritedResourceIDs: removedByVariant[variantRecord.ID.String()],
-			Assets:                      variantAssets,
-			EffectiveAssets:             effectiveAssets,
+			RemovedInheritedResourceIDs: ensureStringSlice(removedByVariant[variantRecord.ID.String()]),
+			Assets:                      ensureResourceItems(variantAssets),
+			EffectiveAssets:             ensureResourceItems(effectiveAssets),
 			ApprovalState:               variantRecord.ApprovalState,
 			LatestReview:                latestReview,
-			ReviewHistory:               mapReviewRecords(reviewsByVariant[variantRecord.ID.String()]),
+			ReviewHistory:               ensureReviewRecords(mapReviewRecords(reviewsByVariant[variantRecord.ID.String()])),
 			LatestPublication:           latestPublication,
-			MetricSnapshot:              metricSnapshotsByPublication[publicationIDString(publicationsByVariant[variantRecord.ID.String()])],
+			MetricSnapshot:              ensureMetricSnapshotItems(metricSnapshotsByPublication[publicationIDString(publicationsByVariant[variantRecord.ID.String()])]),
 			Notes:                       variantRecord.Notes,
 			CreatedAt:                   variantRecord.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:                   variantRecord.UpdatedAt.Format(time.RFC3339),
@@ -918,7 +918,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 
 	items := make([]PostDetail, 0, len(posts))
 	for _, record := range posts {
-		variants := variantsByPost[record.ID.String()]
+		variants := ensurePostVariants(variantsByPost[record.ID.String()])
 		summary := PostSummary{
 			ID:                        record.ID.String(),
 			WorkspaceID:               record.WorkspaceID.String(),
@@ -927,7 +927,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 			AggregateApprovalState:    aggregateApprovalState(variants),
 			AggregatePublicationState: aggregatePublicationState(variants),
 			VariantCount:              len(variants),
-			MetricSnapshot:            aggregateMetricSnapshot(variants),
+			MetricSnapshot:            ensureMetricSnapshotItems(aggregateMetricSnapshot(variants)),
 			CreatedAt:                 record.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:                 record.UpdatedAt.Format(time.RFC3339),
 		}
@@ -943,7 +943,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		items = append(items, PostDetail{
 			PostSummary:    summary,
 			ContentPayload: parseMetadata(record.ContentPayload),
-			Assets:         rootAssetCache[record.ID.String()],
+			Assets:         ensureResourceItems(rootAssetCache[record.ID.String()]),
 			Variants:       variants,
 			Notes:          record.Notes,
 		})
@@ -1459,6 +1459,41 @@ func mapReviewRecords(records []database.PostVariantReview) []ReviewRecord {
 	items := make([]ReviewRecord, 0, len(records))
 	for _, record := range records {
 		items = append(items, mapReviewRecord(record))
+	}
+	return items
+}
+
+func ensurePostVariants(items []PostVariant) []PostVariant {
+	if items == nil {
+		return []PostVariant{}
+	}
+	return items
+}
+
+func ensureResourceItems(items []resources.ResourceListItem) []resources.ResourceListItem {
+	if items == nil {
+		return []resources.ResourceListItem{}
+	}
+	return items
+}
+
+func ensureReviewRecords(items []ReviewRecord) []ReviewRecord {
+	if items == nil {
+		return []ReviewRecord{}
+	}
+	return items
+}
+
+func ensureMetricSnapshotItems(items []MetricSnapshotItem) []MetricSnapshotItem {
+	if items == nil {
+		return []MetricSnapshotItem{}
+	}
+	return items
+}
+
+func ensureStringSlice(items []string) []string {
+	if items == nil {
+		return []string{}
 	}
 	return items
 }

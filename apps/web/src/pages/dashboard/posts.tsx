@@ -8,6 +8,7 @@ import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
 import type { ApiListResponse, PostSummary } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { normalizePostSummaries } from "@/lib/post-models";
 
 function statusClassName(value: string) {
 	switch (value) {
@@ -105,7 +106,7 @@ export function DashboardPosts() {
 				const response =
 					await customerRequest<ApiListResponse<PostSummary>>("/posts");
 				if (!cancelled) {
-					setPosts(response.items);
+					setPosts(normalizePostSummaries(response.items).value);
 				}
 			} catch (loadError) {
 				if (!cancelled) {

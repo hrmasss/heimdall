@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router";
 
+import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 import {
 	CustomerRouteGuard,
 	PlatformRouteGuard,
@@ -243,7 +244,9 @@ export function AppRoutes() {
 						path="/dashboard"
 						element={
 							<CustomerRouteGuard>
-								<DashboardLayout />
+								<RouteErrorBoundary>
+									<DashboardLayout />
+								</RouteErrorBoundary>
 							</CustomerRouteGuard>
 						}
 					>

@@ -265,9 +265,9 @@ export type PostVariant = {
 	effectiveAssets: ResourceRecord[];
 	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
 	latestReview?: ReviewRecord;
-	reviewHistory?: ReviewRecord[];
+	reviewHistory: ReviewRecord[];
 	latestPublication?: PublicationPlan;
-	metricSnapshot?: MetricSnapshotItem[];
+	metricSnapshot: MetricSnapshotItem[];
 	notes?: string;
 	createdAt: string;
 	updatedAt: string;
@@ -294,7 +294,7 @@ export type PostSummary = {
 		| "cancelled";
 	variantCount: number;
 	latestPlannedAt?: string;
-	metricSnapshot?: MetricSnapshotItem[];
+	metricSnapshot: MetricSnapshotItem[];
 	createdAt: string;
 	updatedAt: string;
 };

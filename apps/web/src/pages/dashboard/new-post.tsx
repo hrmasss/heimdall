@@ -1,18 +1,32 @@
 import {
+	AlertTriangle,
 	ArrowLeft,
-	CalendarRange,
+	Clock3,
+	Globe2,
 	LoaderCircle,
 	Plus,
 	Save,
+	Sparkles,
 	Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { AdminFormPage, AdminFormSection } from "@/components/admin/form-page";
+import {
+	AdminFormField,
+	AdminFormGrid,
+	AdminFormPage,
+	AdminFormSection,
+	AdminFormSubsection,
+	adminInputClassName,
+	adminSelectTriggerClassName,
+	adminTextareaClassName,
+} from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
+import { DateTimePicker } from "@/components/app/date-time-picker";
 import { ResourceChipList } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +47,7 @@ import type {
 	ResourceSetSummary,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { normalizePostDetail } from "@/lib/post-models";
 
 type DraftVariant = {
 	id?: string;
@@ -57,6 +72,9 @@ type DraftVariant = {
 	plannedAt: string;
 	notes: string;
 };
+
+const longTextareaClassName = `${adminTextareaClassName} min-h-40`;
+const mediumTextareaClassName = `${adminTextareaClassName} min-h-28`;
 
 function extractContentFields(
 	contentKind: "text" | "article" | "thread",
@@ -160,6 +178,29 @@ function surfaceOptions(
 	return capabilities.rules.filter((rule) => rule.platform === platform);
 }
 
+function VariantStateBadge({
+	label,
+	value,
+	tone = "muted",
+}: {
+	label: string;
+	value: string;
+	tone?: "muted" | "success" | "warning";
+}) {
+	const className =
+		tone === "success"
+			? "border-emerald-500/20 text-emerald-700"
+			: tone === "warning"
+				? "border-amber-500/20 text-amber-700"
+				: "border-[var(--brand-border-soft)] text-muted-foreground";
+
+	return (
+		<Badge variant="outline" className={`rounded-full ${className}`}>
+			{label}: {value}
+		</Badge>
+	);
+}
+
 export function DashboardNewPost() {
 	const navigate = useNavigate();
 	const { id } = useParams();
@@ -172,6 +213,7 @@ export function DashboardNewPost() {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [dataWarning, setDataWarning] = useState<string | null>(null);
 
 	const [title, setTitle] = useState("");
 	const [contentKind, setContentKind] = useState<"text" | "article" | "thread">(
@@ -224,26 +266,33 @@ export function DashboardNewPost() {
 				setResourceSets(setResponse.items);
 				setCapabilities(capabilityResponse);
 				if (postResponse) {
-					setTitle(postResponse.title);
-					setContentKind(postResponse.contentKind);
+					const normalized = normalizePostDetail(postResponse);
+					const safePost = normalized.value;
+					setDataWarning(
+						normalized.coerced
+							? "Some existing post data was incomplete and has been safely normalized for editing."
+							: null,
+					);
+					setTitle(safePost.title);
+					setContentKind(safePost.contentKind);
 					const fields = extractContentFields(
-						postResponse.contentKind,
-						postResponse.contentPayload,
+						safePost.contentKind,
+						safePost.contentPayload,
 					);
 					setContentTitle(fields.contentTitle);
 					setContentBody(fields.contentBody);
 					setThreadText(fields.threadText);
-					setOriginPlatform(postResponse.originPlatform ?? "");
-					setOriginSurface(postResponse.originSurface ?? "");
-					setNotes(postResponse.notes ?? "");
-					setRootAssetIds(postResponse.assets.map((asset) => asset.id));
+					setOriginPlatform(safePost.originPlatform ?? "");
+					setOriginSurface(safePost.originSurface ?? "");
+					setNotes(safePost.notes ?? "");
+					setRootAssetIds(safePost.assets.map((asset) => asset.id));
 					setVariants(
-						postResponse.variants.map((variant) => {
+						safePost.variants.map((variant) => {
 							const resolvedContentKind =
-								variant.contentKind ?? postResponse.contentKind;
+								variant.contentKind ?? safePost.contentKind;
 							const variantFields = extractContentFields(
 								resolvedContentKind,
-								(variant.contentPayload ?? {}) as Record<string, unknown>,
+								variant.contentPayload ?? {},
 							);
 							return {
 								id: variant.id,
@@ -257,7 +306,7 @@ export function DashboardNewPost() {
 								assetMode: variant.assetMode,
 								assetIds: variant.assets.map((asset) => asset.id),
 								removedInheritedResourceIds:
-									variant.removedInheritedResourceIds ?? [],
+									variant.removedInheritedResourceIds,
 								approvalState: variant.approvalState,
 								publicationState:
 									variant.latestPublication?.publicationState ?? "unscheduled",
@@ -268,6 +317,8 @@ export function DashboardNewPost() {
 							};
 						}),
 					);
+				} else {
+					setDataWarning(null);
 				}
 			} catch (loadError) {
 				if (!cancelled) {
@@ -299,6 +350,21 @@ export function DashboardNewPost() {
 				.filter((resource): resource is ResourceRecord => Boolean(resource)),
 		[rootAssetIds, resources],
 	);
+
+	const summaryItems = [
+		{
+			label: "Generic assets",
+			value: String(rootAssetIds.length),
+		},
+		{
+			label: "Variants",
+			value: String(variants.length),
+		},
+		{
+			label: "Save flow",
+			value: isEditMode ? "Update existing post" : "Create new post",
+		},
+	];
 
 	async function resolveResourceSetIds(resourceSetId: string) {
 		const response = await customerRequest<ResourceSetDetail>(
@@ -471,7 +537,7 @@ export function DashboardNewPost() {
 		<AdminFormPage
 			eyebrow="Compose"
 			title={isEditMode ? "Edit post" : "Create post"}
-			description="Build the generic post first, then branch into platform-specific variants with their own asset and publication plans."
+			description="Build the canonical post first, then shape platform-specific variants only where the channel needs a different delivery."
 			actions={
 				<Button variant="outline" className="rounded-full" asChild>
 					<Link
@@ -485,30 +551,41 @@ export function DashboardNewPost() {
 				</Button>
 			}
 			aside={
-				<SurfaceCard className="space-y-4 p-5">
-					<div>
+				<SurfaceCard className="space-y-5 p-5">
+					<div className="space-y-1">
 						<div className="text-lg font-semibold">
 							{title || "Untitled post"}
 						</div>
-						<div className="mt-1 text-sm text-muted-foreground">
-							{variants.length} platform variant
-							{variants.length === 1 ? "" : "s"}
+						<div className="text-sm text-muted-foreground">
+							{isEditMode
+								? "Editing the canonical post and its delivery variants."
+								: "Start with the canonical source, then add platform-specific delivery only where needed."}
 						</div>
 					</div>
-					<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-						Generic assets: {rootAssetIds.length}
+					<div className="space-y-3">
+						{summaryItems.map((item) => (
+							<div
+								key={item.label}
+								className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+							>
+								<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+									{item.label}
+								</div>
+								<div className="mt-2 text-sm font-medium">{item.value}</div>
+							</div>
+						))}
 					</div>
-					<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-						Variants inherit root content and assets by default. Switch a
-						variant to custom only when a platform needs a specialized version.
+					<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+						The save action updates the post first, then synchronizes assets,
+						variants, and publication plans in sequence.
 					</div>
 				</SurfaceCard>
 			}
 		>
 			<form className="space-y-6" onSubmit={handleSubmit}>
 				<AdminFormSection
-					title="Generic post"
-					description="This is the canonical source. Platform variants can inherit it or override it."
+					title="Basics"
+					description="Capture the root post metadata and editorial context first."
 				>
 					{loading ? (
 						<div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -516,36 +593,18 @@ export function DashboardNewPost() {
 							Loading post editor...
 						</div>
 					) : (
-						<div className="grid gap-4 md:grid-cols-2">
-							<div className="grid gap-2 md:col-span-2">
+						<AdminFormGrid>
+							<AdminFormField className="md:col-span-2">
 								<Label htmlFor="post-title">Post title</Label>
 								<Input
 									id="post-title"
 									value={title}
 									onChange={(event) => setTitle(event.target.value)}
-									className="h-11 rounded-2xl"
+									className={adminInputClassName}
 									placeholder="Founder memo campaign"
 								/>
-							</div>
-							<div className="grid gap-2">
-								<Label>Content kind</Label>
-								<Select
-									value={contentKind}
-									onValueChange={(value) =>
-										setContentKind(value as "text" | "article" | "thread")
-									}
-								>
-									<SelectTrigger className="h-11 rounded-2xl px-4">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="text">Text</SelectItem>
-										<SelectItem value="article">Article</SelectItem>
-										<SelectItem value="thread">Thread</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="grid gap-2">
+							</AdminFormField>
+							<AdminFormField>
 								<Label>Origin platform</Label>
 								<Select
 									value={originPlatform || "generic"}
@@ -558,7 +617,7 @@ export function DashboardNewPost() {
 										setOriginPlatform(value);
 									}}
 								>
-									<SelectTrigger className="h-11 rounded-2xl px-4">
+									<SelectTrigger className={adminSelectTriggerClassName}>
 										<SelectValue placeholder="Generic source" />
 									</SelectTrigger>
 									<SelectContent>
@@ -570,8 +629,8 @@ export function DashboardNewPost() {
 										))}
 									</SelectContent>
 								</Select>
-							</div>
-							<div className="grid gap-2">
+							</AdminFormField>
+							<AdminFormField>
 								<Label>Origin surface</Label>
 								<Select
 									value={originSurface || "generic"}
@@ -580,7 +639,7 @@ export function DashboardNewPost() {
 									}
 									disabled={!originPlatform}
 								>
-									<SelectTrigger className="h-11 rounded-2xl px-4">
+									<SelectTrigger className={adminSelectTriggerClassName}>
 										<SelectValue
 											placeholder={
 												originPlatform
@@ -603,69 +662,108 @@ export function DashboardNewPost() {
 										)}
 									</SelectContent>
 								</Select>
-							</div>
-							{contentKind === "article" ? (
-								<div className="grid gap-2 md:col-span-2">
-									<Label htmlFor="content-title">Article headline</Label>
-									<Input
-										id="content-title"
-										value={contentTitle}
-										onChange={(event) => setContentTitle(event.target.value)}
-										className="h-11 rounded-2xl"
-										placeholder="Headline used inside the article payload"
-									/>
-								</div>
-							) : null}
-							{contentKind === "thread" ? (
-								<div className="grid gap-2 md:col-span-2">
-									<Label htmlFor="thread-text">Thread items</Label>
-									<Textarea
-										id="thread-text"
-										value={threadText}
-										onChange={(event) => setThreadText(event.target.value)}
-										className="min-h-40 rounded-[24px]"
-										placeholder="One line per thread item"
-									/>
-								</div>
-							) : (
-								<div className="grid gap-2 md:col-span-2">
-									<Label htmlFor="content-body">Body</Label>
-									<Textarea
-										id="content-body"
-										value={contentBody}
-										onChange={(event) => setContentBody(event.target.value)}
-										className="min-h-40 rounded-[24px]"
-										placeholder="Draft the canonical copy here"
-									/>
-								</div>
-							)}
-							<div className="grid gap-2 md:col-span-2">
+							</AdminFormField>
+							<AdminFormField className="md:col-span-2">
 								<Label htmlFor="post-notes">Internal notes</Label>
 								<Textarea
 									id="post-notes"
 									value={notes}
 									onChange={(event) => setNotes(event.target.value)}
-									className="min-h-24 rounded-[24px]"
+									className={mediumTextareaClassName}
 									placeholder="Editorial context, approval notes, or internal reminders"
 								/>
-							</div>
-						</div>
+							</AdminFormField>
+						</AdminFormGrid>
 					)}
 				</AdminFormSection>
 
 				<AdminFormSection
-					title="Generic assets"
-					description="Attach shared assets once here, then let variants inherit them or override them."
+					title="Content"
+					description="Draft the canonical source once. Variants inherit this by default."
+				>
+					{loading ? (
+						<div className="text-sm text-muted-foreground">
+							Loading content fields...
+						</div>
+					) : (
+						<AdminFormGrid>
+							<AdminFormField>
+								<Label>Content kind</Label>
+								<Select
+									value={contentKind}
+									onValueChange={(value) =>
+										setContentKind(value as "text" | "article" | "thread")
+									}
+								>
+									<SelectTrigger className={adminSelectTriggerClassName}>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="text">Text</SelectItem>
+										<SelectItem value="article">Article</SelectItem>
+										<SelectItem value="thread">Thread</SelectItem>
+									</SelectContent>
+								</Select>
+							</AdminFormField>
+							<div className="hidden md:block" />
+							{contentKind === "article" ? (
+								<AdminFormField className="md:col-span-2">
+									<Label htmlFor="content-title">Article headline</Label>
+									<Input
+										id="content-title"
+										value={contentTitle}
+										onChange={(event) => setContentTitle(event.target.value)}
+										className={adminInputClassName}
+										placeholder="Headline used inside the article payload"
+									/>
+								</AdminFormField>
+							) : null}
+							{contentKind === "thread" ? (
+								<AdminFormField className="md:col-span-2">
+									<Label htmlFor="thread-text">Thread items</Label>
+									<Textarea
+										id="thread-text"
+										value={threadText}
+										onChange={(event) => setThreadText(event.target.value)}
+										className={longTextareaClassName}
+										placeholder="One line per thread item"
+									/>
+								</AdminFormField>
+							) : (
+								<AdminFormField className="md:col-span-2">
+									<Label htmlFor="content-body">Body</Label>
+									<Textarea
+										id="content-body"
+										value={contentBody}
+										onChange={(event) => setContentBody(event.target.value)}
+										className={longTextareaClassName}
+										placeholder="Draft the canonical copy here"
+									/>
+								</AdminFormField>
+							)}
+						</AdminFormGrid>
+					)}
+				</AdminFormSection>
+
+				<AdminFormSection
+					title="Shared assets"
+					description="Attach reusable media once here, then let each variant inherit or override it."
 				>
 					<div className="space-y-4">
-						<ResourcePicker
-							resources={resources}
-							resourceSets={resourceSets}
-							resolveResourceSetIds={resolveResourceSetIds}
-							value={rootAssetIds}
-							onChange={setRootAssetIds}
-							triggerLabel="Attach shared assets"
-						/>
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div className="text-sm text-muted-foreground">
+								Root assets are available to every variant unless that variant
+								explicitly skips or replaces them.
+							</div>
+							<ResourcePicker
+								resources={resources}
+								resourceSets={resourceSets}
+								resolveResourceSetIds={resolveResourceSetIds}
+								value={rootAssetIds}
+								onChange={setRootAssetIds}
+								triggerLabel="Attach shared assets"
+							/>
+						</div>
 						<ResourceChipList
 							resources={selectedRootResources}
 							onRemove={(resourceId: string) =>
@@ -678,11 +776,15 @@ export function DashboardNewPost() {
 				</AdminFormSection>
 
 				<AdminFormSection
-					title="Platform variants"
-					description="Each variant targets one concrete platform and surface. It can inherit or customize content and assets."
+					title="Variants"
+					description="Create only the platform-specific deliveries you actually need to schedule, review, or track separately."
 				>
 					<div className="space-y-4">
-						<div className="flex justify-end">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div className="text-sm text-muted-foreground">
+								Each variant has four concerns: target, content behavior, asset
+								behavior, and publication state.
+							</div>
 							<Button
 								type="button"
 								variant="outline"
@@ -695,8 +797,8 @@ export function DashboardNewPost() {
 						</div>
 						{variants.length === 0 ? (
 							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-								No platform variants yet. Add one for each publish target you
-								want to schedule or track separately.
+								No platform variants yet. Add one only when a channel needs its
+								own version, assets, or publish plan.
 							</div>
 						) : null}
 						{variants.map((variant, index) => {
@@ -715,16 +817,37 @@ export function DashboardNewPost() {
 							return (
 								<SurfaceCard
 									key={`${variant.id ?? "draft"}-${index}`}
-									className="space-y-4 p-5"
+									className="space-y-5 p-5 md:p-6"
 								>
-									<div className="flex items-start justify-between gap-3">
-										<div>
-											<div className="font-semibold">
-												{variant.platform} · {variant.surface}
+									<div className="flex flex-wrap items-start justify-between gap-4">
+										<div className="space-y-2">
+											<div className="text-lg font-semibold">
+												Variant {index + 1}
 											</div>
-											<div className="mt-1 text-sm text-muted-foreground">
-												Approval: {variant.approvalState} · Publish state:{" "}
-												{variant.publicationState}
+											<div className="flex flex-wrap gap-2">
+												<VariantStateBadge
+													label="Target"
+													value={`${variant.platform} · ${variant.surface}`}
+												/>
+												<VariantStateBadge
+													label="Content"
+													value={variant.contentMode}
+												/>
+												<VariantStateBadge
+													label="Assets"
+													value={variant.assetMode}
+												/>
+												<VariantStateBadge
+													label="Publish"
+													value={variant.publicationState}
+													tone={
+														variant.publicationState === "scheduled"
+															? "warning"
+															: variant.publicationState === "published"
+																? "success"
+																: "muted"
+													}
+												/>
 											</div>
 										</div>
 										<Button
@@ -739,194 +862,222 @@ export function DashboardNewPost() {
 										</Button>
 									</div>
 
-									<div className="grid gap-4 md:grid-cols-2">
-										<div className="grid gap-2">
-											<Label>Platform</Label>
-											<Select
-												value={variant.platform}
-												onValueChange={(value) => {
-													const nextSurface =
-														surfaceOptions(capabilities, value)[0]?.surface ??
-														"";
-													updateVariant(index, {
-														platform: value,
-														surface: nextSurface,
-													});
-												}}
-											>
-												<SelectTrigger className="h-11 rounded-2xl px-4">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													{platformOptions.map((platform) => (
-														<SelectItem key={platform} value={platform}>
-															{platform}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										</div>
-										<div className="grid gap-2">
-											<Label>Surface</Label>
-											<Select
-												value={variant.surface}
-												onValueChange={(value) =>
-													updateVariant(index, { surface: value })
-												}
-											>
-												<SelectTrigger className="h-11 rounded-2xl px-4">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													{platformSurfaceOptions.map((option) => (
-														<SelectItem
-															key={option.surface}
-															value={option.surface}
-														>
-															{option.label}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										</div>
-										<div className="grid gap-2">
-											<Label>Content mode</Label>
-											<Select
-												value={variant.contentMode}
-												onValueChange={(value) =>
-													updateVariant(index, {
-														contentMode: value as "inherit" | "custom",
-													})
-												}
-											>
-												<SelectTrigger className="h-11 rounded-2xl px-4">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="inherit">
-														Inherit generic post
-													</SelectItem>
-													<SelectItem value="custom">Custom variant</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
-										<div className="grid gap-2">
-											<Label>Asset mode</Label>
-											<Select
-												value={variant.assetMode}
-												onValueChange={(value) =>
-													updateVariant(index, {
-														assetMode: value as "inherit" | "replace",
-													})
-												}
-											>
-												<SelectTrigger className="h-11 rounded-2xl px-4">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="inherit">
-														Inherit generic assets
-													</SelectItem>
-													<SelectItem value="replace">
-														Replace assets
-													</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
-									</div>
-
-									{variant.contentMode === "custom" ? (
-										<div className="grid gap-4 md:grid-cols-2">
-											<div className="grid gap-2">
-												<Label>Custom content kind</Label>
+									<AdminFormSubsection
+										title="Target and behavior"
+										description="Choose where this variant goes and whether it inherits the generic source."
+									>
+										<AdminFormGrid>
+											<AdminFormField>
+												<Label>Platform</Label>
 												<Select
-													value={variant.contentKind}
-													onValueChange={(value) =>
+													value={variant.platform}
+													onValueChange={(value) => {
+														const nextSurface =
+															surfaceOptions(capabilities, value)[0]?.surface ??
+															"";
 														updateVariant(index, {
-															contentKind: value as
-																| "text"
-																| "article"
-																| "thread",
-														})
-													}
+															platform: value,
+															surface: nextSurface,
+														});
+													}}
 												>
-													<SelectTrigger className="h-11 rounded-2xl px-4">
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="text">Text</SelectItem>
-														<SelectItem value="article">Article</SelectItem>
-														<SelectItem value="thread">Thread</SelectItem>
+														{platformOptions.map((platform) => (
+															<SelectItem key={platform} value={platform}>
+																{platform}
+															</SelectItem>
+														))}
 													</SelectContent>
 												</Select>
-											</div>
-											<div className="grid gap-2">
-												<Label htmlFor={`variant-notes-${index}`}>
-													Variant notes
-												</Label>
-												<Input
-													id={`variant-notes-${index}`}
-													value={variant.notes}
-													onChange={(event) =>
-														updateVariant(index, { notes: event.target.value })
+											</AdminFormField>
+											<AdminFormField>
+												<Label>Surface</Label>
+												<Select
+													value={variant.surface}
+													onValueChange={(value) =>
+														updateVariant(index, { surface: value })
 													}
-													className="h-11 rounded-2xl"
-													placeholder="Why this variant differs"
-												/>
-											</div>
-											{variant.contentKind === "article" ? (
-												<div className="grid gap-2 md:col-span-2">
-													<Label>Custom article headline</Label>
-													<Input
-														value={variant.contentTitle}
-														onChange={(event) =>
-															updateVariant(index, {
-																contentTitle: event.target.value,
-															})
-														}
-														className="h-11 rounded-2xl"
-													/>
-												</div>
-											) : null}
-											{variant.contentKind === "thread" ? (
-												<div className="grid gap-2 md:col-span-2">
-													<Label>Custom thread items</Label>
-													<Textarea
-														value={variant.threadText}
-														onChange={(event) =>
-															updateVariant(index, {
-																threadText: event.target.value,
-															})
-														}
-														className="min-h-32 rounded-[24px]"
-														placeholder="One line per thread item"
-													/>
-												</div>
-											) : (
-												<div className="grid gap-2 md:col-span-2">
-													<Label>Custom body</Label>
-													<Textarea
-														value={variant.contentBody}
-														onChange={(event) =>
-															updateVariant(index, {
-																contentBody: event.target.value,
-															})
-														}
-														className="min-h-32 rounded-[24px]"
-													/>
-												</div>
-											)}
-										</div>
-									) : null}
+												>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{platformSurfaceOptions.map((option) => (
+															<SelectItem
+																key={option.surface}
+																value={option.surface}
+															>
+																{option.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+											<AdminFormField>
+												<Label>Content behavior</Label>
+												<Select
+													value={variant.contentMode}
+													onValueChange={(value) =>
+														updateVariant(index, {
+															contentMode: value as "inherit" | "custom",
+														})
+													}
+												>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="inherit">
+															Inherit generic post
+														</SelectItem>
+														<SelectItem value="custom">
+															Custom variant
+														</SelectItem>
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+											<AdminFormField>
+												<Label>Asset behavior</Label>
+												<Select
+													value={variant.assetMode}
+													onValueChange={(value) =>
+														updateVariant(index, {
+															assetMode: value as "inherit" | "replace",
+														})
+													}
+												>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="inherit">
+															Inherit shared assets
+														</SelectItem>
+														<SelectItem value="replace">
+															Replace with variant assets
+														</SelectItem>
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+										</AdminFormGrid>
+									</AdminFormSubsection>
 
-									<div className="space-y-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
-										<div className="flex flex-wrap items-center justify-between gap-3">
-											<div>
-												<div className="font-medium">Variant assets</div>
-												<div className="text-sm text-muted-foreground">
-													Attach variant-only assets or replace inherited ones.
-												</div>
+									<AdminFormSubsection
+										title="Content"
+										description={
+											variant.contentMode === "custom"
+												? "Override the canonical copy for this platform target."
+												: "This variant currently inherits the generic content."
+										}
+									>
+										{variant.contentMode === "custom" ? (
+											<AdminFormGrid>
+												<AdminFormField>
+													<Label>Custom content kind</Label>
+													<Select
+														value={variant.contentKind}
+														onValueChange={(value) =>
+															updateVariant(index, {
+																contentKind: value as
+																	| "text"
+																	| "article"
+																	| "thread",
+															})
+														}
+													>
+														<SelectTrigger
+															className={adminSelectTriggerClassName}
+														>
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="text">Text</SelectItem>
+															<SelectItem value="article">Article</SelectItem>
+															<SelectItem value="thread">Thread</SelectItem>
+														</SelectContent>
+													</Select>
+												</AdminFormField>
+												<AdminFormField>
+													<Label htmlFor={`variant-notes-${index}`}>
+														Variant notes
+													</Label>
+													<Input
+														id={`variant-notes-${index}`}
+														value={variant.notes}
+														onChange={(event) =>
+															updateVariant(index, {
+																notes: event.target.value,
+															})
+														}
+														className={adminInputClassName}
+														placeholder="Why this version differs"
+													/>
+												</AdminFormField>
+												{variant.contentKind === "article" ? (
+													<AdminFormField className="md:col-span-2">
+														<Label>Custom article headline</Label>
+														<Input
+															value={variant.contentTitle}
+															onChange={(event) =>
+																updateVariant(index, {
+																	contentTitle: event.target.value,
+																})
+															}
+															className={adminInputClassName}
+														/>
+													</AdminFormField>
+												) : null}
+												{variant.contentKind === "thread" ? (
+													<AdminFormField className="md:col-span-2">
+														<Label>Custom thread items</Label>
+														<Textarea
+															value={variant.threadText}
+															onChange={(event) =>
+																updateVariant(index, {
+																	threadText: event.target.value,
+																})
+															}
+															className={mediumTextareaClassName}
+															placeholder="One line per thread item"
+														/>
+													</AdminFormField>
+												) : (
+													<AdminFormField className="md:col-span-2">
+														<Label>Custom body</Label>
+														<Textarea
+															value={variant.contentBody}
+															onChange={(event) =>
+																updateVariant(index, {
+																	contentBody: event.target.value,
+																})
+															}
+															className={mediumTextareaClassName}
+														/>
+													</AdminFormField>
+												)}
+											</AdminFormGrid>
+										) : (
+											<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-3 text-sm text-muted-foreground">
+												This variant inherits the generic post content.
 											</div>
+										)}
+									</AdminFormSubsection>
+
+									<AdminFormSubsection
+										title="Assets"
+										description="Attach variant-only media or explicitly skip inherited assets."
+										actions={
 											<ResourcePicker
 												resources={resources}
 												resourceSets={resourceSets}
@@ -937,60 +1088,86 @@ export function DashboardNewPost() {
 												}
 												triggerLabel="Select variant assets"
 											/>
-										</div>
-										<ResourceChipList
-											resources={variantResources}
-											onRemove={(resourceId: string) =>
-												updateVariant(index, {
-													assetIds: variant.assetIds.filter(
-														(item) => item !== resourceId,
-													),
-												})
-											}
-										/>
-										{variant.assetMode === "inherit" &&
-										selectedRootResources.length > 0 ? (
-											<div className="space-y-2">
-												<div className="text-sm font-medium">
-													Skip inherited assets
-												</div>
-												<div className="flex flex-wrap gap-2">
-													{selectedRootResources.map((resource) => {
-														const removed =
-															variant.removedInheritedResourceIds.includes(
-																resource.id,
+										}
+									>
+										<div className="space-y-4">
+											<ResourceChipList
+												resources={variantResources}
+												onRemove={(resourceId: string) =>
+													updateVariant(index, {
+														assetIds: variant.assetIds.filter(
+															(item) => item !== resourceId,
+														),
+													})
+												}
+											/>
+											{variant.assetMode === "inherit" &&
+											selectedRootResources.length > 0 ? (
+												<div className="space-y-3">
+													<div className="text-sm font-medium">
+														Skip inherited assets
+													</div>
+													<div className="flex flex-wrap gap-2">
+														{selectedRootResources.map((resource) => {
+															const removed =
+																variant.removedInheritedResourceIds.includes(
+																	resource.id,
+																);
+															return (
+																<Button
+																	key={resource.id}
+																	type="button"
+																	variant={removed ? "secondary" : "outline"}
+																	size="sm"
+																	className="rounded-full"
+																	onClick={() =>
+																		updateVariant(index, {
+																			removedInheritedResourceIds: removed
+																				? variant.removedInheritedResourceIds.filter(
+																						(item) => item !== resource.id,
+																					)
+																				: [
+																						...variant.removedInheritedResourceIds,
+																						resource.id,
+																					],
+																		})
+																	}
+																>
+																	{resource.displayName}
+																</Button>
 															);
-														return (
-															<Button
-																key={resource.id}
-																type="button"
-																variant={removed ? "secondary" : "outline"}
-																size="sm"
-																className="rounded-full"
-																onClick={() =>
-																	updateVariant(index, {
-																		removedInheritedResourceIds: removed
-																			? variant.removedInheritedResourceIds.filter(
-																					(item) => item !== resource.id,
-																				)
-																			: [
-																					...variant.removedInheritedResourceIds,
-																					resource.id,
-																				],
-																	})
-																}
-															>
-																{resource.displayName}
-															</Button>
-														);
-													})}
+														})}
+													</div>
 												</div>
-											</div>
-										) : null}
-									</div>
+											) : null}
+										</div>
+									</AdminFormSubsection>
 
-									<div className="grid gap-4 md:grid-cols-2">
-										<div className="grid gap-2">
+								</SurfaceCard>
+							);
+						})}
+					</div>
+				</AdminFormSection>
+
+				<AdminFormSection
+					title="Publish plans"
+					description="Store the current manual publication state and schedule for each delivery variant."
+				>
+					<div className="space-y-4">
+						{variants.length === 0 ? (
+							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+								Add at least one variant to capture a publish state or planned
+								time.
+							</div>
+						) : (
+							variants.map((variant, index) => (
+								<AdminFormSubsection
+									key={`publish-${variant.id ?? "draft"}-${index}`}
+									title={`Variant ${index + 1} publish plan`}
+									description={`${variant.platform} · ${variant.surface}`}
+								>
+									<AdminFormGrid>
+										<AdminFormField>
 											<Label>Publication state</Label>
 											<Select
 												value={variant.publicationState}
@@ -1001,7 +1178,9 @@ export function DashboardNewPost() {
 													})
 												}
 											>
-												<SelectTrigger className="h-11 rounded-2xl px-4">
+												<SelectTrigger
+													className={adminSelectTriggerClassName}
+												>
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
@@ -1009,38 +1188,42 @@ export function DashboardNewPost() {
 														Unscheduled
 													</SelectItem>
 													<SelectItem value="scheduled">Scheduled</SelectItem>
-													<SelectItem value="publishing">Publishing</SelectItem>
+													<SelectItem value="publishing">
+														Publishing
+													</SelectItem>
 													<SelectItem value="published">Published</SelectItem>
 													<SelectItem value="failed">Failed</SelectItem>
 													<SelectItem value="cancelled">Cancelled</SelectItem>
 												</SelectContent>
 											</Select>
-										</div>
-										<div className="grid gap-2">
+										</AdminFormField>
+										<AdminFormField>
 											<Label htmlFor={`planned-at-${index}`}>
 												Planned publish time
 											</Label>
-											<div className="relative">
-												<CalendarRange className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-												<Input
-													id={`planned-at-${index}`}
-													type="datetime-local"
-													value={variant.plannedAt}
-													onChange={(event) =>
-														updateVariant(index, {
-															plannedAt: event.target.value,
-														})
-													}
-													className="h-11 rounded-2xl pl-10"
-												/>
-											</div>
-										</div>
-									</div>
-								</SurfaceCard>
-							);
-						})}
+											<DateTimePicker
+												id={`planned-at-${index}`}
+												value={variant.plannedAt}
+												onChange={(nextValue) =>
+													updateVariant(index, {
+														plannedAt: nextValue,
+													})
+												}
+											/>
+										</AdminFormField>
+									</AdminFormGrid>
+								</AdminFormSubsection>
+							))
+						)}
 					</div>
 				</AdminFormSection>
+
+				{dataWarning ? (
+					<SurfaceCard className="flex items-start gap-3 border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-700">
+						<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+						<div>{dataWarning}</div>
+					</SurfaceCard>
+				) : null}
 
 				{error ? (
 					<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -1048,42 +1231,83 @@ export function DashboardNewPost() {
 					</SurfaceCard>
 				) : null}
 
-				<SurfaceCard className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-					<div className="text-sm text-muted-foreground">
-						Saving updates the generic post first, then syncs root assets,
-						variants, variant assets, and publication plans.
+				<AdminFormSection
+					title="Review and save"
+					description="Confirm the overall shape, then save the canonical post and all related variant state."
+				>
+					<div className="space-y-4">
+						<div className="grid gap-4 md:grid-cols-3">
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="flex items-center gap-2 text-sm font-medium">
+									<Globe2 className="size-4 text-primary" />
+									Canonical post
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									{title
+										? "Title and canonical source are ready to save."
+										: "Add a title before saving."}
+								</div>
+							</div>
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="flex items-center gap-2 text-sm font-medium">
+									<Sparkles className="size-4 text-primary" />
+									Variants
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									{variants.length === 0
+										? "No variants yet. The generic post can still be saved alone."
+										: `${variants.length} variant${variants.length === 1 ? "" : "s"} will be synchronized.`}
+								</div>
+							</div>
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="flex items-center gap-2 text-sm font-medium">
+									<Clock3 className="size-4 text-primary" />
+									Publish state
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									Publication plans are stored manually for each variant in this
+									phase.
+								</div>
+							</div>
+						</div>
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div className="text-sm text-muted-foreground">
+								Saving updates the canonical post first, then syncs shared
+								assets, variants, variant assets, and publication plans.
+							</div>
+							<div className="flex flex-wrap gap-2">
+								<Button variant="outline" className="rounded-full" asChild>
+									<Link
+										to={
+											isEditMode && id
+												? `/dashboard/posts/${id}`
+												: "/dashboard/posts"
+										}
+									>
+										Cancel
+									</Link>
+								</Button>
+								<Button
+									type="submit"
+									disabled={loading || saving}
+									className="rounded-full border-0 bg-gradient-brand text-white"
+								>
+									{saving ? (
+										<>
+											<LoaderCircle className="size-4 animate-spin" />
+											Saving...
+										</>
+									) : (
+										<>
+											<Save className="size-4" />
+											Save post
+										</>
+									)}
+								</Button>
+							</div>
+						</div>
 					</div>
-					<div className="flex flex-wrap gap-2">
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link
-								to={
-									isEditMode && id
-										? `/dashboard/posts/${id}`
-										: "/dashboard/posts"
-								}
-							>
-								Cancel
-							</Link>
-						</Button>
-						<Button
-							type="submit"
-							disabled={loading || saving}
-							className="rounded-full border-0 bg-gradient-brand text-white"
-						>
-							{saving ? (
-								<>
-									<LoaderCircle className="size-4 animate-spin" />
-									Saving...
-								</>
-							) : (
-								<>
-									<Save className="size-4" />
-									Save post
-								</>
-							)}
-						</Button>
-					</div>
-				</SurfaceCard>
+				</AdminFormSection>
 			</form>
 		</AdminFormPage>
 	);

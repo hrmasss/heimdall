@@ -1,4 +1,5 @@
 import {
+	AlertTriangle,
 	ArrowLeft,
 	CalendarRange,
 	CheckCircle2,
@@ -15,8 +16,9 @@ import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import { ResourceChipList } from "@/components/resources/resource-display";
 import { Button } from "@/components/ui/button";
-import type { PostDetail, PostVariant, ResourceRecord } from "@/lib/api-types";
+import type { PostDetail, PostVariant } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { normalizePostDetail } from "@/lib/post-models";
 
 function renderContentPayload(
 	contentKind: string,
@@ -43,8 +45,8 @@ function renderContentPayload(
 
 function MetricStrip({
 	items,
-}: { items?: { label: string; value: number; unit: string }[] }) {
-	if (!items?.length) {
+}: { items: { label: string; value: number; unit: string }[] }) {
+	if (items.length === 0) {
 		return (
 			<div className="text-sm text-muted-foreground">
 				No KPI observations recorded yet.
@@ -81,6 +83,7 @@ export function DashboardPostDetailPage() {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [dataWarning, setDataWarning] = useState<string | null>(null);
 
 	const loadPost = useCallback(async () => {
 		if (!activeWorkspaceId) {
@@ -90,13 +93,21 @@ export function DashboardPostDetailPage() {
 		setError(null);
 		try {
 			const response = await customerRequest<PostDetail>(`/posts/${id}`);
-			setPost(response);
+			const normalized = normalizePostDetail(response);
+			setPost(normalized.value);
+			setDataWarning(
+				normalized.coerced
+					? "Some post data was incomplete and has been safely normalized for display."
+					: null,
+			);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
 					? loadError.message
 					: "Unable to load this post.",
 			);
+			setPost(null);
+			setDataWarning(null);
 		} finally {
 			setLoading(false);
 		}
@@ -156,12 +167,13 @@ export function DashboardPostDetailPage() {
 		}
 	}
 
-	const aggregateMetrics =
-		post?.metricSnapshot?.slice(0, 3).map((item) => ({
-			label: item.label,
-			value: item.value,
-			unit: item.unit,
-		})) ?? [];
+	const aggregateMetrics = post
+		? post.metricSnapshot.slice(0, 3).map((item) => ({
+				label: item.label,
+				value: item.value,
+				unit: item.unit,
+			}))
+		: [];
 
 	return (
 		<div className="space-y-6">
@@ -202,6 +214,13 @@ export function DashboardPostDetailPage() {
 				</SurfaceCard>
 			) : null}
 
+			{dataWarning ? (
+				<SurfaceCard className="flex items-start gap-3 border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-700">
+					<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+					<div>{dataWarning}</div>
+				</SurfaceCard>
+			) : null}
+
 			<div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_360px]">
 				<div className="space-y-6">
 					<SurfaceCard className="space-y-4 p-5 md:p-6">
@@ -219,7 +238,7 @@ export function DashboardPostDetailPage() {
 									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
 										Content
 									</div>
-									<pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground font-sans">
+									<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-foreground">
 										{renderContentPayload(
 											post.contentKind,
 											post.contentPayload,
@@ -229,9 +248,7 @@ export function DashboardPostDetailPage() {
 								<div>
 									<div className="text-sm font-medium">Generic assets</div>
 									<div className="mt-3">
-										<ResourceChipList
-											resources={post.assets as ResourceRecord[]}
-										/>
+										<ResourceChipList resources={post.assets} />
 									</div>
 								</div>
 							</>
@@ -250,7 +267,7 @@ export function DashboardPostDetailPage() {
 								Loading variants...
 							</div>
 						) : post.variants.length === 0 ? (
-							<div className="text-sm text-muted-foreground">
+							<div className="rounded-[22px] border border-dashed border-[var(--brand-border-soft)] px-4 py-5 text-sm text-muted-foreground">
 								No variants created yet.
 							</div>
 						) : (
@@ -334,9 +351,7 @@ export function DashboardPostDetailPage() {
 												</div>
 												<div className="mt-3">
 													<ResourceChipList
-														resources={
-															variant.effectiveAssets as ResourceRecord[]
-														}
+														resources={variant.effectiveAssets}
 													/>
 												</div>
 											</div>
@@ -354,7 +369,7 @@ export function DashboardPostDetailPage() {
 												<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm">
 													<div className="font-medium">Review timeline</div>
 													<div className="mt-2 space-y-2">
-														{variant.reviewHistory?.length ? (
+														{variant.reviewHistory.length > 0 ? (
 															variant.reviewHistory.map((review) => (
 																<div
 																	key={review.id}
@@ -375,13 +390,11 @@ export function DashboardPostDetailPage() {
 										</div>
 
 										<MetricStrip
-											items={variant.metricSnapshot
-												?.slice(0, 3)
-												.map((item) => ({
-													label: item.label,
-													value: item.value,
-													unit: item.unit,
-												}))}
+											items={variant.metricSnapshot.slice(0, 3).map((item) => ({
+												label: item.label,
+												value: item.value,
+												unit: item.unit,
+											}))}
 										/>
 									</SurfaceCard>
 								))}
