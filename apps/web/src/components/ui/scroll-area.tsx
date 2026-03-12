@@ -8,6 +8,7 @@ type ScrollAreaProps = React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
 	viewportRef?: React.Ref<HTMLDivElement>;
 	scrollbarClassName?: string;
 	thumbClassName?: string;
+	showHorizontalScrollbar?: boolean;
 };
 
 function ScrollArea({
@@ -17,6 +18,7 @@ function ScrollArea({
 	viewportRef,
 	scrollbarClassName,
 	thumbClassName,
+	showHorizontalScrollbar = false,
 	...props
 }: ScrollAreaProps) {
 	return (
@@ -39,6 +41,13 @@ function ScrollArea({
 				className={scrollbarClassName}
 				thumbClassName={thumbClassName}
 			/>
+			{showHorizontalScrollbar ? (
+				<ScrollBar
+					orientation="horizontal"
+					className={scrollbarClassName}
+					thumbClassName={thumbClassName}
+				/>
+			) : null}
 			<ScrollAreaPrimitive.Corner />
 		</ScrollAreaPrimitive.Root>
 	);

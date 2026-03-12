@@ -14,6 +14,7 @@ import { DashboardPageHeader } from "@/components/app/dashboard";
 import {
 	ResourceCompatibilityBadge,
 	ResourceThumb,
+	ResourceViewer,
 	formatBytes,
 	formatResourceMeta,
 } from "@/components/resources/resource-display";
@@ -216,8 +217,8 @@ export function DashboardLibraryDetailPage() {
 			<div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
 				<div className="space-y-6">
 					<SurfaceCard className="overflow-hidden p-0">
-						<div className="aspect-[16/10] bg-muted">
-							{resource ? <ResourceThumb resource={resource} /> : null}
+						<div className="p-5">
+							{resource ? <ResourceViewer resource={resource} /> : null}
 						</div>
 						<div className="border-t border-[var(--brand-border-soft)] p-5">
 							<div className="flex flex-wrap items-start justify-between gap-3">

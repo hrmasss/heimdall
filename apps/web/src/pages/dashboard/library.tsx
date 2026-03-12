@@ -285,7 +285,7 @@ export function DashboardLibrary() {
 				accessor: (resource) => (
 					<div className="flex items-center gap-3">
 						<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-							<ResourceThumb resource={resource} />
+							<ResourceThumb resource={resource} variant="compact" />
 						</div>
 						<div className="min-w-0">
 							<div className="truncate font-medium">{resource.displayName}</div>
@@ -638,7 +638,7 @@ export function DashboardLibrary() {
 					renderGridCard={(resource) => (
 						<>
 							<div className="aspect-[16/10] overflow-hidden bg-muted">
-								<ResourceThumb resource={resource} />
+								<ResourceThumb resource={resource} variant="minimal" />
 							</div>
 							<div className="space-y-4 p-5">
 								<div className="flex items-start justify-between gap-3">

@@ -1,8 +1,37 @@
-import { Check, FileText, ImageIcon, TriangleAlert, Video } from "lucide-react";
+import {
+	Check,
+	ChevronLeft,
+	ChevronRight,
+	FileText,
+	ImageIcon,
+	Maximize2,
+	Minimize2,
+	Minus,
+	RotateCcw,
+	TriangleAlert,
+	Video,
+	ZoomIn,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ResourceRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
+
+const pdfWorkerSrc = new URL(
+	"pdfjs-dist/build/pdf.worker.min.mjs",
+	import.meta.url,
+).toString();
+
+if (
+	typeof window !== "undefined" &&
+	pdfjs.GlobalWorkerOptions.workerSrc !== pdfWorkerSrc
+) {
+	pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+}
 
 export function formatBytes(sizeBytes: number) {
 	if (sizeBytes < 1024) {
@@ -46,33 +75,894 @@ function formatDuration(durationMs: number) {
 	return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function buildPdfPreviewUrl(source: string) {
-	return `${source}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+function getDocumentLabel(
+	mimeType?: string,
+	name?: string,
+	defaultLabel = "Document",
+) {
+	if (mimeType === "application/pdf" || name?.toLowerCase().endsWith(".pdf")) {
+		return "PDF";
+	}
+	if (
+		mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+		name?.toLowerCase().endsWith(".docx")
+	) {
+		return "DOCX";
+	}
+	if (
+		mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+		name?.toLowerCase().endsWith(".pptx")
+	) {
+		return "PPTX";
+	}
+	if (
+		mimeType === "application/msword" ||
+		name?.toLowerCase().endsWith(".doc")
+	) {
+		return "DOC";
+	}
+	if (
+		mimeType === "application/vnd.ms-powerpoint" ||
+		name?.toLowerCase().endsWith(".ppt")
+	) {
+		return "PPT";
+	}
+	return defaultLabel;
 }
 
-function DocumentPlaceholder({
-	className,
-	icon: Icon = FileText,
+function useClientReady() {
+	const [ready, setReady] = useState(false);
+
+	useEffect(() => {
+		setReady(true);
+	}, []);
+
+	return ready;
+}
+
+function useFullscreenTarget() {
+	const targetRef = useRef<HTMLDivElement | null>(null);
+	const [isFullscreen, setIsFullscreen] = useState(false);
+
+	useEffect(() => {
+		function syncState() {
+			setIsFullscreen(document.fullscreenElement === targetRef.current);
+		}
+		document.addEventListener("fullscreenchange", syncState);
+		return () => {
+			document.removeEventListener("fullscreenchange", syncState);
+		};
+	}, []);
+
+	async function toggleFullscreen() {
+		const target = targetRef.current;
+		if (!target) {
+			return;
+		}
+		if (document.fullscreenElement === target) {
+			await document.exitFullscreen();
+			return;
+		}
+		await target.requestFullscreen();
+	}
+
+	return { isFullscreen, targetRef, toggleFullscreen };
+}
+
+function useElementWidth<T extends HTMLElement>() {
+	const elementRef = useRef<T | null>(null);
+	const [width, setWidth] = useState(0);
+
+	useEffect(() => {
+		const target = elementRef.current;
+		if (!target || typeof ResizeObserver === "undefined") {
+			return;
+		}
+
+		const observer = new ResizeObserver((entries) => {
+			const nextWidth = entries[0]?.contentRect.width ?? 0;
+			setWidth(nextWidth);
+		});
+
+		observer.observe(target);
+		setWidth(target.getBoundingClientRect().width);
+
+		return () => {
+			observer.disconnect();
+		};
+	}, []);
+
+	return { elementRef, width };
+}
+
+function DocumentPoster({
 	label,
+	title,
+	subtitle,
+	pageCount,
+	className,
+	children,
+	showPageCount = true,
+	showDetails = true,
 }: {
-	className?: string;
-	icon?: typeof FileText;
 	label: string;
+	title: string;
+	subtitle?: string;
+	pageCount?: number;
+	className?: string;
+	children?: React.ReactNode;
+	showPageCount?: boolean;
+	showDetails?: boolean;
 }) {
 	return (
 		<div
 			className={cn(
-				"flex h-full w-full items-center justify-center bg-[linear-gradient(160deg,var(--brand-highlight),transparent)] text-primary",
+				"relative flex h-full w-full overflow-hidden rounded-[inherit] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(183,118,79,0.2),transparent_55%),linear-gradient(180deg,#1d1a18,#0d0b0a)] text-white",
 				className,
 			)}
 		>
-			<div className="flex flex-col items-center gap-2 text-center">
-				<Icon className="size-8" />
-				<div className="max-w-[80%] truncate text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-					{label}
+			{children ? (
+				<div className="absolute inset-0 overflow-hidden">
+					{children}
+					<div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,4,3,0.12),rgba(7,4,3,0.4)_55%,rgba(7,4,3,0.78))]" />
 				</div>
+			) : (
+				<div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.3))]" />
+			)}
+			<div className="relative flex h-full w-full flex-col justify-between p-4">
+				<div className="flex items-start justify-between gap-2">
+					<Badge
+						variant="outline"
+						className="rounded-full border-white/15 bg-white/10 text-[0.62rem] uppercase tracking-[0.24em] text-white"
+					>
+						{label}
+					</Badge>
+					{showPageCount && pageCount ? (
+						<div className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[0.68rem] font-medium text-white/85">
+							{pageCount} pg
+						</div>
+					) : null}
+				</div>
+				{showDetails ? (
+					<div className="space-y-2">
+						<div className="line-clamp-3 text-sm font-semibold leading-tight tracking-tight text-white">
+							{title}
+						</div>
+						{subtitle ? (
+							<div className="text-[0.72rem] uppercase tracking-[0.2em] text-white/65">
+								{subtitle}
+							</div>
+						) : null}
+					</div>
+				) : null}
 			</div>
 		</div>
+	);
+}
+
+function PdfPagePreview({
+	file,
+	pageNumber = 1,
+	title,
+	label,
+	subtitle,
+	pageCount,
+	className,
+	pageClassName,
+	width = 360,
+	minimal = false,
+}: {
+	file: string;
+	pageNumber?: number;
+	title: string;
+	label: string;
+	subtitle?: string;
+	pageCount?: number;
+	className?: string;
+	pageClassName?: string;
+	width?: number;
+	minimal?: boolean;
+}) {
+	const isClient = useClientReady();
+
+	const fallback = (
+		<DocumentPoster
+			label={label}
+			title={title}
+			subtitle={subtitle}
+			pageCount={pageCount}
+			className={className}
+			showPageCount={!minimal}
+			showDetails={!minimal}
+		/>
+	);
+
+	if (!isClient) {
+		return fallback;
+	}
+
+	return (
+		<DocumentPoster
+			label={label}
+			title={title}
+			subtitle={subtitle}
+			pageCount={pageCount}
+			className={className}
+			showPageCount={!minimal}
+			showDetails={!minimal}
+		>
+			<div className="flex h-full w-full items-center justify-center bg-[#120f0d]">
+				<Document
+					file={file}
+					loading={null}
+					error={null}
+					noData={null}
+					externalLinkTarget="_blank"
+				>
+					<Page
+						pageNumber={pageNumber}
+						width={width}
+						renderAnnotationLayer={false}
+						renderTextLayer={false}
+						className={cn(
+							"pointer-events-none origin-top scale-[1.02] opacity-92 [&_canvas]:!h-auto [&_canvas]:!w-full [&_canvas]:shadow-[0_28px_80px_rgba(0,0,0,0.38)]",
+							pageClassName,
+						)}
+					/>
+				</Document>
+			</div>
+		</DocumentPoster>
+	);
+}
+
+function ResourceDocumentPoster({
+	resource,
+	className,
+	variant = "default",
+}: {
+	resource: ResourceRecord;
+	className?: string;
+	variant?: "default" | "minimal";
+}) {
+	if (resource.mimeType === "application/pdf") {
+		return (
+			<PdfPagePreview
+				file={resource.previewUrl}
+				label="PDF"
+				title={resource.displayName}
+				subtitle={formatBytes(resource.sizeBytes)}
+				pageCount={resource.pageCount}
+				className={className}
+				pageClassName="translate-y-5 scale-[1.06] [&_canvas]:rounded-[18px]"
+				minimal={variant === "minimal"}
+			/>
+		);
+	}
+
+	return (
+		<DocumentPoster
+			label={getDocumentLabel(resource.mimeType, resource.originalName)}
+			title={resource.displayName}
+			subtitle={formatBytes(resource.sizeBytes)}
+			pageCount={resource.pageCount}
+			className={className}
+			showPageCount={variant !== "minimal"}
+			showDetails={variant !== "minimal"}
+		/>
+	);
+}
+
+function LocalDocumentPoster({
+	file,
+	previewUrl,
+	className,
+	variant = "default",
+}: {
+	file: File;
+	previewUrl: string;
+	className?: string;
+	variant?: "default" | "minimal";
+}) {
+	if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+		return (
+			<PdfPagePreview
+				file={previewUrl}
+				label="PDF"
+				title={file.name}
+				subtitle={formatBytes(file.size)}
+				className={className}
+				pageClassName="translate-y-5 scale-[1.06] [&_canvas]:rounded-[18px]"
+				minimal={variant === "minimal"}
+			/>
+		);
+	}
+
+	return (
+		<DocumentPoster
+			label={getDocumentLabel(file.type, file.name)}
+			title={file.name}
+			subtitle={formatBytes(file.size)}
+			className={className}
+			showDetails={variant !== "minimal"}
+		/>
+	);
+}
+
+function CompactDocumentThumb({
+	label,
+	className,
+}: {
+	label: string;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"flex h-full w-full items-center justify-center rounded-[inherit] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(183,118,79,0.18),transparent_55%),linear-gradient(180deg,#171311,#0d0b0a)]",
+				className,
+			)}
+		>
+			<Badge
+				variant="outline"
+				className="rounded-full border-white/15 bg-white/10 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.26em] text-white"
+			>
+				{label}
+			</Badge>
+		</div>
+	);
+}
+
+function ViewerSurface({
+	title,
+	description,
+	controls,
+	children,
+	className,
+	contentClassName,
+	surfaceRef,
+}: {
+	title: string;
+	description: string;
+	controls?: React.ReactNode;
+	children: React.ReactNode;
+	className?: string;
+	contentClassName?: string;
+	surfaceRef?: React.Ref<HTMLDivElement>;
+}) {
+	return (
+		<div
+			ref={surfaceRef}
+			className={cn(
+				"flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75",
+				className,
+			)}
+		>
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--brand-border-soft)] px-4 py-3">
+				<div className="space-y-1">
+					<div className="text-sm font-medium">{title}</div>
+					<div className="text-xs text-muted-foreground">{description}</div>
+				</div>
+				{controls ? <div className="flex flex-wrap items-center gap-2">{controls}</div> : null}
+			</div>
+			<div className={cn("min-h-0 flex-1", contentClassName)}>{children}</div>
+		</div>
+	);
+}
+
+function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
+	const [zoom, setZoom] = useState(1);
+	const [fitMode, setFitMode] = useState<"contain" | "edge">("contain");
+	const { isFullscreen, targetRef, toggleFullscreen } = useFullscreenTarget();
+
+	return (
+		<ViewerSurface
+			surfaceRef={targetRef}
+			title="Image viewer"
+			description="Zoom, inspect, and expand the original image without leaving the library."
+			className={cn(
+				isFullscreen &&
+					"h-screen w-screen rounded-none border-0 bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]",
+			)}
+			contentClassName={cn(isFullscreen && "bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]")}
+			controls={
+				<>
+					<Button
+						type="button"
+						variant={fitMode === "contain" ? "secondary" : "outline"}
+						size="sm"
+						className="rounded-full"
+						onClick={() => setFitMode("contain")}
+					>
+						Fit
+					</Button>
+					<Button
+						type="button"
+						variant={fitMode === "edge" ? "secondary" : "outline"}
+						size="sm"
+						className="rounded-full"
+						onClick={() => setFitMode("edge")}
+					>
+						Edge to edge
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="icon-sm"
+						className="rounded-full"
+						onClick={() => setZoom((current) => Math.max(0.5, current - 0.25))}
+						aria-label="Zoom out"
+					>
+						<Minus className="size-4" />
+					</Button>
+					<div className="min-w-14 text-center text-xs font-medium text-muted-foreground">
+						{Math.round(zoom * 100)}%
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						size="icon-sm"
+						className="rounded-full"
+						onClick={() => setZoom((current) => Math.min(3, current + 0.25))}
+						aria-label="Zoom in"
+					>
+						<ZoomIn className="size-4" />
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="rounded-full"
+						onClick={() => setZoom(1)}
+					>
+						<RotateCcw className="size-4" />
+						Reset
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="rounded-full"
+						onClick={() => void toggleFullscreen()}
+					>
+						{isFullscreen ? (
+							<Minimize2 className="size-4" />
+						) : (
+							<Maximize2 className="size-4" />
+						)}
+						{isFullscreen ? "Exit full screen" : "Full screen"}
+					</Button>
+				</>
+			}
+		>
+			<div
+				className={cn(
+					"relative bg-[radial-gradient(circle_at_top,rgba(183,118,79,0.18),transparent_46%),linear-gradient(180deg,#f4eee9,#ece4dc)]",
+					isFullscreen ? "h-full" : "h-[min(74vh,920px)]",
+				)}
+			>
+				<ScrollArea
+					className="h-full"
+					viewportClassName="h-full w-full"
+					scrollbarClassName="dashboard-content-scrollbar"
+					thumbClassName="dashboard-content-scrollbar-thumb"
+					showHorizontalScrollbar
+				>
+					<div className="flex min-h-full min-w-full items-center justify-center p-6">
+						<img
+							src={resource.previewUrl}
+							alt={resource.displayName}
+							className={cn(
+								"rounded-[24px] border border-black/5 shadow-[0_30px_80px_rgba(15,10,7,0.12)]",
+								fitMode === "contain"
+									? "h-auto object-contain"
+									: "h-full max-h-none w-full object-cover",
+							)}
+							style={
+								fitMode === "contain"
+									? { maxWidth: "none", width: `${zoom * 100}%` }
+									: {
+											transform: `scale(${zoom})`,
+											transformOrigin: "center center",
+										}
+							}
+						/>
+					</div>
+				</ScrollArea>
+			</div>
+		</ViewerSurface>
+	);
+}
+
+function VideoResourceViewer({ resource }: { resource: ResourceRecord }) {
+	const { isFullscreen, targetRef, toggleFullscreen } = useFullscreenTarget();
+
+	return (
+		<ViewerSurface
+			surfaceRef={targetRef}
+			title="Video viewer"
+			description="Playback controls stay available inline, including sound and scrub."
+			className={cn(isFullscreen && "h-screen w-screen rounded-none border-0 bg-black")}
+			contentClassName={cn(isFullscreen && "bg-black")}
+			controls={
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="rounded-full"
+					onClick={() => void toggleFullscreen()}
+				>
+					{isFullscreen ? (
+						<Minimize2 className="size-4" />
+					) : (
+						<Maximize2 className="size-4" />
+					)}
+					{isFullscreen ? "Exit full screen" : "Full screen"}
+				</Button>
+			}
+		>
+			<div
+				className={cn(
+					"flex items-center justify-center bg-black",
+					isFullscreen ? "h-full" : "h-[min(74vh,920px)]",
+				)}
+			>
+				<video
+					src={resource.previewUrl}
+					className="h-full w-full object-contain"
+					preload="metadata"
+					controls
+					playsInline
+				/>
+			</div>
+		</ViewerSurface>
+	);
+}
+
+function PdfThumbnailRail({
+	file,
+	numPages,
+	currentPage,
+	onSelectPage,
+	isFullscreen,
+}: {
+	file: string;
+	numPages: number;
+	currentPage: number;
+	onSelectPage: (pageNumber: number) => void;
+	isFullscreen?: boolean;
+}) {
+	return (
+		<ScrollArea
+			className={cn(
+				"min-h-0 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65",
+				isFullscreen ? "h-full" : "h-[min(72vh,920px)]",
+			)}
+			viewportClassName="h-full w-full"
+			scrollbarClassName="dashboard-content-scrollbar"
+			thumbClassName="dashboard-content-scrollbar-thumb"
+		>
+			<div className="space-y-3 p-3">
+				{Array.from({ length: numPages }, (_, index) => {
+					const pageNumber = index + 1;
+					return (
+						<button
+							key={`pdf-thumbnail-${pageNumber}`}
+							type="button"
+							onClick={() => onSelectPage(pageNumber)}
+							className={cn(
+								"w-full rounded-[20px] border p-2 text-left transition-colors",
+								pageNumber === currentPage
+									? "border-primary/35 bg-primary/10"
+									: "border-[var(--brand-border-soft)] bg-background/75 hover:bg-accent/25",
+							)}
+						>
+							<PdfPagePreview
+								file={file}
+								pageNumber={pageNumber}
+								label="Page"
+								title={`Page ${pageNumber}`}
+								pageCount={numPages}
+								className="aspect-[3/4] rounded-[14px]"
+								pageClassName="translate-y-0 scale-100 [&_canvas]:rounded-[10px]"
+								width={180}
+							/>
+							<div className="mt-2 px-1 text-xs font-medium text-muted-foreground">
+								Page {pageNumber}
+							</div>
+						</button>
+					);
+				})}
+			</div>
+		</ScrollArea>
+	);
+}
+
+function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
+	const [pageNumber, setPageNumber] = useState(1);
+	const [zoom, setZoom] = useState(1);
+	const [numPages, setNumPages] = useState(resource.pageCount ?? 1);
+	const { isFullscreen, targetRef, toggleFullscreen } = useFullscreenTarget();
+	const { elementRef: viewportRef, width } = useElementWidth<HTMLDivElement>();
+	const isClient = useClientReady();
+	const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+	const pageNumberRef = useRef(pageNumber);
+
+	const availablePages = Math.max(1, numPages);
+	const basePageWidth = Math.max(360, Math.min((width || 920) - 56, 1040));
+	const renderWidth = Math.round(basePageWidth * zoom);
+
+	useEffect(() => {
+		setPageNumber((current) => Math.min(current, availablePages));
+	}, [availablePages]);
+
+	useEffect(() => {
+		pageNumberRef.current = pageNumber;
+	}, [pageNumber]);
+
+	function handleLoadSuccess(documentProxy: { numPages: number }) {
+		setNumPages(documentProxy.numPages);
+	}
+
+	function scrollToPage(nextPage: number) {
+		const clampedPage = Math.min(Math.max(1, nextPage), availablePages);
+		setPageNumber(clampedPage);
+		pageRefs.current[clampedPage]?.scrollIntoView({
+			block: "start",
+			behavior: "smooth",
+		});
+	}
+
+	useEffect(() => {
+		const viewport = viewportRef.current;
+		if (!viewport) {
+			return;
+		}
+		const viewportElement = viewport;
+
+		let frameId = 0;
+
+		function syncVisiblePage() {
+			frameId = 0;
+
+			const viewportRect = viewportElement.getBoundingClientRect();
+			let nextPage = pageNumberRef.current;
+			let bestDistance = Number.POSITIVE_INFINITY;
+
+			for (let index = 1; index <= availablePages; index += 1) {
+				const pageElement = pageRefs.current[index];
+				if (!pageElement) {
+					continue;
+				}
+
+				const rect = pageElement.getBoundingClientRect();
+				const distance = Math.abs(rect.top - viewportRect.top - 24);
+				if (distance < bestDistance) {
+					bestDistance = distance;
+					nextPage = index;
+				}
+			}
+
+			if (nextPage !== pageNumber) {
+				setPageNumber(nextPage);
+			}
+		}
+
+		function onScroll() {
+			if (frameId) {
+				return;
+			}
+			frameId = window.requestAnimationFrame(syncVisiblePage);
+		}
+
+		syncVisiblePage();
+		viewportElement.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("resize", onScroll);
+
+		return () => {
+			viewportElement.removeEventListener("scroll", onScroll);
+			window.removeEventListener("resize", onScroll);
+			if (frameId) {
+				window.cancelAnimationFrame(frameId);
+			}
+		};
+	}, [availablePages, renderWidth, viewportRef]);
+
+	const controls = (
+		<>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon-sm"
+				className="rounded-full"
+				onClick={() => scrollToPage(pageNumber - 1)}
+				disabled={pageNumber <= 1}
+				aria-label="Previous page"
+			>
+				<ChevronLeft className="size-4" />
+			</Button>
+			<div className="min-w-24 text-center text-xs font-medium text-muted-foreground">
+				Page {pageNumber} / {availablePages}
+			</div>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon-sm"
+				className="rounded-full"
+				onClick={() => scrollToPage(pageNumber + 1)}
+				disabled={pageNumber >= availablePages}
+				aria-label="Next page"
+			>
+				<ChevronRight className="size-4" />
+			</Button>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon-sm"
+				className="rounded-full"
+				onClick={() => setZoom((current) => Math.max(0.75, current - 0.2))}
+				aria-label="Zoom out"
+			>
+				<Minus className="size-4" />
+			</Button>
+			<div className="min-w-14 text-center text-xs font-medium text-muted-foreground">
+				{Math.round(zoom * 100)}%
+			</div>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon-sm"
+				className="rounded-full"
+				onClick={() => setZoom((current) => Math.min(2.4, current + 0.2))}
+				aria-label="Zoom in"
+			>
+				<ZoomIn className="size-4" />
+			</Button>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="rounded-full"
+				onClick={() => setZoom(1)}
+			>
+				<RotateCcw className="size-4" />
+				Reset
+			</Button>
+			<Button variant="outline" size="sm" className="rounded-full" asChild>
+				<a href={resource.downloadUrl} target="_blank" rel="noreferrer">
+					Open in new tab
+				</a>
+			</Button>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="rounded-full"
+				onClick={() => void toggleFullscreen()}
+			>
+				{isFullscreen ? (
+					<Minimize2 className="size-4" />
+				) : (
+					<Maximize2 className="size-4" />
+				)}
+				{isFullscreen ? "Exit full screen" : "Full screen"}
+			</Button>
+		</>
+	);
+
+	return (
+		<ViewerSurface
+			surfaceRef={targetRef}
+			title="PDF reader"
+			description="First-page preview in cards, page navigation in detail, and branded scrollbars inside the reader."
+			className={cn(
+				isFullscreen &&
+					"h-[100dvh] w-[100dvw] rounded-none border-0 bg-[#ece2d9]",
+			)}
+			contentClassName={cn(isFullscreen && "bg-[#ece2d9]")}
+			controls={controls}
+		>
+			<div
+				className={cn(
+					"grid min-h-0 gap-4 overflow-hidden bg-[#ece2d9] p-4",
+					isFullscreen
+						? "h-full lg:grid-cols-[220px_minmax(0,1fr)]"
+						: "grid-cols-1",
+				)}
+			>
+				{isClient && isFullscreen ? (
+					<PdfThumbnailRail
+						file={resource.previewUrl}
+						numPages={availablePages}
+						currentPage={pageNumber}
+						onSelectPage={scrollToPage}
+						isFullscreen={isFullscreen}
+					/>
+				) : null}
+				<ScrollArea
+					className={cn(
+						"min-h-0 rounded-[24px] border border-[var(--brand-border-soft)] bg-[#efe6df]",
+						isFullscreen ? "h-full" : "h-[min(72vh,920px)]",
+					)}
+					viewportClassName="h-full w-full"
+					viewportRef={viewportRef}
+					scrollbarClassName="dashboard-content-scrollbar"
+					thumbClassName="dashboard-content-scrollbar-thumb"
+					showHorizontalScrollbar
+				>
+					<div className="flex min-h-full min-w-full items-start justify-center p-6">
+						{isClient ? (
+							<Document
+								file={resource.previewUrl}
+								onLoadSuccess={handleLoadSuccess}
+								loading={
+									<div className="flex h-full min-h-[480px] items-center justify-center text-sm text-muted-foreground">
+										Loading PDF...
+									</div>
+								}
+								error={
+									<div className="flex h-full min-h-[480px] items-center justify-center text-sm text-destructive">
+										Unable to render this PDF preview.
+									</div>
+								}
+								noData={
+									<div className="flex h-full min-h-[480px] items-center justify-center text-sm text-muted-foreground">
+										PDF preview unavailable.
+									</div>
+								}
+							>
+								<div className="flex min-w-full flex-col items-center gap-6">
+									{Array.from({ length: availablePages }, (_, index) => {
+										const documentPageNumber = index + 1;
+										return (
+											<div
+												key={`pdf-page-${documentPageNumber}`}
+												ref={(element) => {
+													pageRefs.current[documentPageNumber] = element;
+												}}
+												className="flex w-full min-w-fit justify-center"
+											>
+												<Page
+													pageNumber={documentPageNumber}
+													width={renderWidth}
+													renderAnnotationLayer={false}
+													renderTextLayer={false}
+													className={cn(
+														"[&_canvas]:rounded-[20px] [&_canvas]:shadow-[0_30px_90px_rgba(16,12,10,0.18)]",
+														documentPageNumber === pageNumber &&
+															"[&_canvas]:ring-1 [&_canvas]:ring-primary/20",
+													)}
+												/>
+											</div>
+										);
+									})}
+								</div>
+							</Document>
+						) : (
+							<DocumentPoster
+								label="PDF"
+								title={resource.displayName}
+								subtitle={formatBytes(resource.sizeBytes)}
+								pageCount={resource.pageCount}
+								className="aspect-[3/4] w-full max-w-[420px]"
+							/>
+						)}
+					</div>
+				</ScrollArea>
+			</div>
+		</ViewerSurface>
+	);
+}
+
+function DocumentFallbackViewer({ resource }: { resource: ResourceRecord }) {
+	return (
+		<ViewerSurface
+			title="Document preview"
+			description="This format does not have an inline reader yet. Open the original file for the full experience."
+		>
+			<div className="h-[min(60vh,680px)] p-6">
+				<ResourceDocumentPoster resource={resource} />
+			</div>
+		</ViewerSurface>
 	);
 }
 
@@ -80,10 +970,12 @@ export function LocalFileThumb({
 	file,
 	previewUrl,
 	className,
+	variant = "default",
 }: {
 	file: File;
 	previewUrl: string;
 	className?: string;
+	variant?: "default" | "compact" | "minimal";
 }) {
 	if (file.type.startsWith("image/")) {
 		return (
@@ -113,31 +1005,33 @@ export function LocalFileThumb({
 		);
 	}
 
-	if (
-		file.type === "application/pdf" ||
-		file.name.toLowerCase().endsWith(".pdf")
-	) {
+	if (variant === "compact") {
 		return (
-			<iframe
-				title={file.name}
-				src={buildPdfPreviewUrl(previewUrl)}
-				className={cn(
-					"pointer-events-none h-full w-full border-0 bg-background",
-					className,
-				)}
+			<CompactDocumentThumb
+				label={getDocumentLabel(file.type, file.name)}
+				className={className}
 			/>
 		);
 	}
 
-	return <DocumentPlaceholder className={className} label="Document" />;
+	return (
+		<LocalDocumentPoster
+			file={file}
+			previewUrl={previewUrl}
+			className={className}
+			variant={variant}
+		/>
+	);
 }
 
 export function ResourceThumb({
 	resource,
 	className,
+	variant = "default",
 }: {
 	resource: ResourceRecord;
 	className?: string;
+	variant?: "default" | "compact" | "minimal";
 }) {
 	if (resource.mediaKind === "image") {
 		return (
@@ -167,20 +1061,57 @@ export function ResourceThumb({
 		);
 	}
 
-	if (resource.mimeType === "application/pdf") {
+	if (variant === "compact") {
 		return (
-			<iframe
-				title={resource.displayName}
-				src={buildPdfPreviewUrl(resource.previewUrl)}
-				className={cn(
-					"pointer-events-none h-full w-full border-0 bg-background",
-					className,
-				)}
+			<CompactDocumentThumb
+				label={getDocumentLabel(resource.mimeType, resource.originalName)}
+				className={className}
 			/>
 		);
 	}
 
-	return <DocumentPlaceholder className={className} label="Document" />;
+	return (
+		<ResourceDocumentPoster
+			resource={resource}
+			className={className}
+			variant={variant}
+		/>
+	);
+}
+
+export function ResourceViewer({
+	resource,
+	className,
+}: {
+	resource: ResourceRecord;
+	className?: string;
+}) {
+	if (resource.mediaKind === "image") {
+		return (
+			<div className={cn("w-full", className)}>
+				<ImageResourceViewer resource={resource} />
+			</div>
+		);
+	}
+	if (resource.mediaKind === "video") {
+		return (
+			<div className={cn("w-full", className)}>
+				<VideoResourceViewer resource={resource} />
+			</div>
+		);
+	}
+	if (resource.mimeType === "application/pdf") {
+		return (
+			<div className={cn("w-full", className)}>
+				<PdfResourceViewer resource={resource} />
+			</div>
+		);
+	}
+	return (
+		<div className={cn("w-full", className)}>
+			<DocumentFallbackViewer resource={resource} />
+		</div>
+	);
 }
 
 export function ResourceCompatibilityBadge({
