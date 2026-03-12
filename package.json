@@ -5,7 +5,7 @@
   "description": "Centralized Social Media Management Platform",
   "workspaces": ["apps/*"],
   "scripts": {
-    "predev": "node scripts/free-dev-ports.mjs 8080 5173",
+    "predev": "node scripts/free-dev-ports.mjs 18080 5173",
     "dev": "pnpm run predev && concurrently -k -n api,web -c blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
     "dev:api": "cd apps/api && go run ./cmd/server",
     "dev:web": "pnpm --dir apps/web dev",

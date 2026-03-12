@@ -3,21 +3,38 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
-function resolveDevApiTarget(value?: string) {
-	const fallbackTarget = "http://127.0.0.1:8080";
-	if (!value) {
-		return fallbackTarget;
+function normalizeLocalhostHost(value?: string) {
+	if (!value || value === "localhost" || value === "0.0.0.0") {
+		return "127.0.0.1";
+	}
+	return value;
+}
+
+function normalizeDevTarget(value: string) {
+	// Vite's proxy can resolve localhost to IPv6 on Windows while the Go API
+	// is bound to IPv4 only. Normalize localhost to 127.0.0.1 for dev stability.
+	return value.replace("://localhost", "://127.0.0.1");
+}
+
+function resolveDevApiTarget(env: Record<string, string>) {
+	const apiHost = normalizeLocalhostHost(env.API_HOST?.trim());
+	const apiPort = env.API_PORT?.trim() || "18080";
+	if (apiHost && apiPort) {
+		return normalizeDevTarget(`http://${apiHost}:${apiPort}`);
 	}
 
-	// Vite's proxy can resolve localhost to IPv6 on Windows while the Go API
-	// is bound to 127.0.0.1. Normalize localhost to IPv4 for dev stability.
-	return value.replace("://localhost", "://127.0.0.1");
+	const configuredBase = env.VITE_API_URL?.trim();
+	if (configuredBase) {
+		return normalizeDevTarget(configuredBase);
+	}
+
+	return "http://127.0.0.1:18080";
 }
 
 export default defineConfig(({ mode, isSsrBuild }) => {
 	// Load env from root directory
 	const env = loadEnv(mode, path.resolve(__dirname, "../.."), "");
-	const apiProxyTarget = resolveDevApiTarget(env.VITE_API_URL);
+	const apiProxyTarget = resolveDevApiTarget(env);
 
 	return {
 		plugins: [react(), tailwindcss()],

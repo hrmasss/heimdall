@@ -605,7 +605,6 @@ func (h *AppHandler) serveResourceBlob(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, fmt.Errorf("%w: invalid or expired resource link", iam.ErrUnauthorized))
 	}
-	defer blob.Reader.Close()
 	c.Set("Content-Type", blob.ContentType)
 	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", blob.Filename))
 	return c.SendStream(blob.Reader, int(blob.Size))

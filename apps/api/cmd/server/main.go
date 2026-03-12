@@ -59,6 +59,7 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName:      "Heimdall API v0.1.0",
 		ServerHeader: "Heimdall",
+		BodyLimit:    int(cfg.Storage.MaxUploadSizeBytes),
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

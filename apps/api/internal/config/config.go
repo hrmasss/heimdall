@@ -63,7 +63,7 @@ func Load() *Config {
 		Environment: getEnv("GO_ENV", "development"),
 		API: APIConfig{
 			Host:   getEnv("API_HOST", "localhost"),
-			Port:   getEnv("API_PORT", "8080"),
+			Port:   getEnv("API_PORT", "18080"),
 			Prefix: getEnv("API_PREFIX", "/api/v1"),
 		},
 		Database: DatabaseConfig{
