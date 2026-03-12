@@ -19,6 +19,9 @@ const CUSTOMER_TOKEN_KEY = "heimdall:customer-access-token";
 const PLATFORM_TOKEN_KEY = "heimdall:platform-access-token";
 const ACTIVE_WORKSPACE_KEY = "heimdall:active-workspace-id";
 
+let customerSessionLoadInFlight: Promise<AuthSession | null> | null = null;
+let platformSessionLoadInFlight: Promise<AuthSession | null> | null = null;
+
 type AuthContextValue = {
 	bootstrapping: boolean;
 	customerSession: AuthSession | null;
@@ -96,6 +99,52 @@ function resolvePreferredWorkspace(session: AuthSession) {
 	);
 }
 
+function preserveAccessToken(
+	session: AuthSession | null,
+	accessToken: string | null | undefined,
+) {
+	if (!session || session.accessToken || !accessToken) {
+		return session;
+	}
+	return {
+		...session,
+		accessToken,
+	};
+}
+
+function runSingleFlight(
+	portal: "customer" | "platform",
+	loader: () => Promise<AuthSession | null>,
+) {
+	const inFlight =
+		portal === "customer"
+			? customerSessionLoadInFlight
+			: platformSessionLoadInFlight;
+	if (inFlight) {
+		return inFlight;
+	}
+
+	const request = loader().finally(() => {
+		if (portal === "customer") {
+			if (customerSessionLoadInFlight === request) {
+				customerSessionLoadInFlight = null;
+			}
+			return;
+		}
+		if (platformSessionLoadInFlight === request) {
+			platformSessionLoadInFlight = null;
+		}
+	});
+
+	if (portal === "customer") {
+		customerSessionLoadInFlight = request;
+	} else {
+		platformSessionLoadInFlight = request;
+	}
+
+	return request;
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
 	const [bootstrapping, setBootstrapping] = useState(true);
 	const [customerSession, setCustomerSession] = useState<AuthSession | null>(
@@ -132,43 +181,88 @@ export function AuthProvider({ children }: PropsWithChildren) {
 	}, []);
 
 	const loadCustomerSession = useCallback(
-		async (tokenOverride?: string | null) => {
-			try {
-				return await apiRequest<AuthSession>("/auth/refresh", {
-					method: "POST",
-				});
-			} catch {
+		async (
+			tokenOverride?: string | null,
+			options: { preferExistingToken?: boolean } = {},
+		) => {
+			return runSingleFlight("customer", async () => {
 				const token = tokenOverride ?? readStorage(CUSTOMER_TOKEN_KEY);
-				if (!token) {
-					return null;
+
+				if (options.preferExistingToken && token) {
+					try {
+						const session = await apiRequest<AuthSession>("/auth/me", {
+							token,
+						});
+						return preserveAccessToken(session, token);
+					} catch {
+						// Fall back to refresh when the access token is stale.
+					}
 				}
+
 				try {
-					return await apiRequest<AuthSession>("/auth/me", { token });
+					const session = await apiRequest<AuthSession>("/auth/refresh", {
+						method: "POST",
+					});
+					return preserveAccessToken(session, token);
 				} catch {
-					return null;
+					if (!token) {
+						return null;
+					}
+					try {
+						const session = await apiRequest<AuthSession>("/auth/me", {
+							token,
+						});
+						return preserveAccessToken(session, token);
+					} catch {
+						return null;
+					}
 				}
-			}
+			});
 		},
 		[],
 	);
 
 	const loadPlatformSession = useCallback(
-		async (tokenOverride?: string | null) => {
-			try {
-				return await apiRequest<AuthSession>("/platform/auth/refresh", {
-					method: "POST",
-				});
-			} catch {
+		async (
+			tokenOverride?: string | null,
+			options: { preferExistingToken?: boolean } = {},
+		) => {
+			return runSingleFlight("platform", async () => {
 				const token = tokenOverride ?? readStorage(PLATFORM_TOKEN_KEY);
-				if (!token) {
-					return null;
+
+				if (options.preferExistingToken && token) {
+					try {
+						const session = await apiRequest<AuthSession>("/platform/me", {
+							token,
+						});
+						return preserveAccessToken(session, token);
+					} catch {
+						// Fall back to refresh when the access token is stale.
+					}
 				}
+
 				try {
-					return await apiRequest<AuthSession>("/platform/me", { token });
+					const session = await apiRequest<AuthSession>(
+						"/platform/auth/refresh",
+						{
+							method: "POST",
+						},
+					);
+					return preserveAccessToken(session, token);
 				} catch {
-					return null;
+					if (!token) {
+						return null;
+					}
+					try {
+						const session = await apiRequest<AuthSession>("/platform/me", {
+							token,
+						});
+						return preserveAccessToken(session, token);
+					} catch {
+						return null;
+					}
 				}
-			}
+			});
 		},
 		[],
 	);
@@ -188,8 +282,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 					Boolean(readStorage(PLATFORM_TOKEN_KEY));
 
 				const [customer, platform] = await Promise.all([
-					shouldRefreshCustomer ? loadCustomerSession() : Promise.resolve(null),
-					shouldRefreshPlatform ? loadPlatformSession() : Promise.resolve(null),
+					shouldRefreshCustomer
+						? loadCustomerSession(undefined, { preferExistingToken: true })
+						: Promise.resolve(null),
+					shouldRefreshPlatform
+						? loadPlatformSession(undefined, { preferExistingToken: true })
+						: Promise.resolve(null),
 				]);
 
 				if (cancelled) {
