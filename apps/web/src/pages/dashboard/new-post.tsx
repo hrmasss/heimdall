@@ -192,6 +192,21 @@ function buildContentPayload(content: DraftContent) {
 	return { body: content.textBody };
 }
 
+function extractCaptionFromDraftContent(content: DraftContent): string {
+	if (content.kind === "article") {
+		return [content.articleTitle.trim(), content.articleBody.trim()]
+			.filter(Boolean)
+			.join("\n\n");
+	}
+	if (content.kind === "thread") {
+		return content.threadItems
+			.map((item) => item.trim())
+			.filter(Boolean)
+			.join("\n\n");
+	}
+	return content.textBody;
+}
+
 function extractDraftContent(
 	kind: ContentKind,
 	payload: Record<string, unknown>,
@@ -282,6 +297,57 @@ function findRule(
 	);
 }
 
+function preferredContentKindForRule(
+	rule: ResourceCapabilityRule | undefined,
+	currentKind: ContentKind,
+): ContentKind {
+	if (!rule || rule.supportedContentKinds.length === 0) {
+		return currentKind;
+	}
+	if (shouldPreferTextCaption(rule, currentKind)) {
+		return "text";
+	}
+	if (rule.supportedContentKinds.includes(currentKind)) {
+		return currentKind;
+	}
+	if (rule.supportedContentKinds.includes("text")) {
+		return "text";
+	}
+	return (rule.supportedContentKinds[0] as ContentKind) ?? currentKind;
+}
+
+function shouldPreferTextCaption(
+	rule: Pick<ResourceCapabilityRule, "accepts" | "supportedContentKinds">,
+	currentKind: ContentKind,
+) {
+	if (currentKind === "text" || !rule.supportedContentKinds.includes("text")) {
+		return false;
+	}
+	return rule.accepts.some((accepted) =>
+		["image", "video", "audio"].includes(accepted),
+	);
+}
+
+function coerceDraftContentForRule(
+	content: DraftContent,
+	rule: ResourceCapabilityRule | undefined,
+): DraftContent {
+	const preferredKind = preferredContentKindForRule(rule, content.kind);
+	if (preferredKind === content.kind) {
+		return content;
+	}
+	if (preferredKind === "text") {
+		return {
+			kind: "text",
+			textBody: extractCaptionFromDraftContent(content),
+			articleTitle: "",
+			articleBody: "",
+			threadItems: [""],
+		};
+	}
+	return createDraftContent(preferredKind);
+}
+
 function inferMinItems(
 	rule: Pick<ResourceCapabilityRule, "surface" | "label">,
 ) {
@@ -294,6 +360,32 @@ function inferMinItems(
 		return 2;
 	}
 	return 1;
+}
+
+function inferSupportedContentKinds(
+	rule: Pick<
+		ResourceCapabilityRule,
+		"platform" | "surface" | "label" | "accepts"
+	>,
+): ContentKind[] {
+	const kinds: ContentKind[] = ["text"];
+	const surfaceKey =
+		`${rule.platform} ${rule.surface} ${rule.label}`.toLowerCase();
+	const accepts = Array.isArray(rule.accepts) ? rule.accepts : [];
+	if (surfaceKey.includes("thread") || rule.platform === "x") {
+		kinds.push("thread");
+	}
+	if (
+		accepts.includes("document") ||
+		surfaceKey.includes("article") ||
+		surfaceKey.includes("document") ||
+		rule.platform === "linkedin" ||
+		rule.platform === "facebook" ||
+		rule.platform === "instagram"
+	) {
+		kinds.push("article");
+	}
+	return Array.from(new Set(kinds));
 }
 
 function normalizeCapabilities(
@@ -320,7 +412,12 @@ function normalizeCapabilities(
 					Array.isArray(rule.supportedContentKinds) &&
 					rule.supportedContentKinds.length > 0
 						? rule.supportedContentKinds
-						: ["text", "article", "thread"],
+						: inferSupportedContentKinds({
+								platform: rule.platform,
+								surface: rule.surface,
+								label: rule.label,
+								accepts,
+							}),
 				assetRequired,
 				minItems:
 					typeof rule.minItems === "number"
@@ -573,6 +670,7 @@ function resolveVariantSnapshot(
 	const resolvedContent =
 		variant.contentMode === "custom" ? variant.content : sourceContent;
 	const rule = findRule(capabilities, variant.platform, variant.surface);
+	const normalizedContent = coerceDraftContentForRule(resolvedContent, rule);
 	const readiness = blankReadiness();
 	const pushBlocker = (issue: ReadinessIssue, draft = false) => {
 		if (draft) {
@@ -588,20 +686,20 @@ function resolveVariantSnapshot(
 	if (rule) {
 		if (
 			rule.supportedContentKinds.length > 0 &&
-			!rule.supportedContentKinds.includes(resolvedContent.kind)
+			!rule.supportedContentKinds.includes(normalizedContent.kind)
 		) {
 			pushBlocker(
 				{
 					code: "content_kind_unsupported",
-					message: `${rule.label} does not support ${resolvedContent.kind} content.`,
+					message: `${rule.label} does not support ${normalizedContent.kind} content.`,
 				},
 				false,
 			);
 		}
 		if (
-			resolvedContent.kind === "thread" &&
+			normalizedContent.kind === "thread" &&
 			((
-				buildContentPayload(resolvedContent).items as
+				buildContentPayload(normalizedContent).items as
 					| { body: string }[]
 					| undefined
 			)?.length ?? 0) === 0
@@ -615,8 +713,8 @@ function resolveVariantSnapshot(
 			);
 		}
 		if (
-			resolvedContent.kind === "article" &&
-			resolvedContent.articleBody.trim() === ""
+			normalizedContent.kind === "article" &&
+			normalizedContent.articleBody.trim() === ""
 		) {
 			pushBlocker(
 				{ code: "article_body_required", message: "Add article body content." },
@@ -686,8 +784,8 @@ function resolveVariantSnapshot(
 	return {
 		rule,
 		sourceLabel,
-		contentKind: resolvedContent.kind,
-		contentPayload: buildContentPayload(resolvedContent),
+		contentKind: normalizedContent.kind,
+		contentPayload: buildContentPayload(normalizedContent),
 		sourceAssets,
 		effectiveAssets,
 		readiness,
@@ -800,9 +898,11 @@ export function DashboardNewPost() {
 						? customerRequest<PostDetail>(`/posts/${nextId}`)
 						: Promise.resolve(null),
 				]);
+				const normalizedCapabilities =
+					normalizeCapabilities(capabilityResponse);
 				setResources(resourceResponse.items);
 				setResourceSets(setResponse.items);
-				setCapabilities(normalizeCapabilities(capabilityResponse));
+				setCapabilities(normalizedCapabilities);
 
 				if (!postResponse) {
 					const emptyState = {
@@ -837,15 +937,18 @@ export function DashboardNewPost() {
 				const normalized = normalizePostDetail(postResponse);
 				const post = normalized.value;
 				const mappedVariants: DraftVariant[] = post.variants.map((variant) => ({
+					content: coerceDraftContentForRule(
+						extractDraftContent(
+							(variant.contentKind ?? post.contentKind) as ContentKind,
+							variant.contentPayload ?? {},
+						),
+						findRule(normalizedCapabilities, variant.platform, variant.surface),
+					),
 					id: variant.id,
 					platform: variant.platform,
 					surface: variant.surface,
 					inheritSource: variant.inheritSource,
 					contentMode: variant.contentMode,
-					content: extractDraftContent(
-						(variant.contentKind ?? post.contentKind) as ContentKind,
-						variant.contentPayload ?? {},
-					),
 					assetMode: variant.assetMode,
 					assetIds: variant.assets.map((asset) => asset.id),
 					removedInheritedResourceIds: variant.removedInheritedResourceIds,
@@ -918,10 +1021,19 @@ export function DashboardNewPost() {
 	function ensurePlatformTab(platform: string, surface?: string) {
 		setVariants((current) => {
 			const existing = current.find((variant) => variant.platform === platform);
+			const nextSurface =
+				surface ??
+				surfaceOptions(capabilities, platform)[0]?.surface ??
+				"feed_post";
+			const nextRule = findRule(capabilities, platform, nextSurface);
 			if (existing) {
 				return current.map((variant) =>
 					variant.platform === platform
-						? { ...variant, surface: surface ?? variant.surface }
+						? {
+								...variant,
+								surface: nextSurface,
+								content: coerceDraftContentForRule(variant.content, nextRule),
+							}
 						: variant,
 				);
 			}
@@ -930,13 +1042,13 @@ export function DashboardNewPost() {
 				{
 					id: undefined,
 					platform,
-					surface:
-						surface ??
-						surfaceOptions(capabilities, platform)[0]?.surface ??
-						"feed_post",
+					surface: nextSurface,
 					inheritSource: "shared",
 					contentMode: "inherit",
-					content: createDraftContent(sharedDraft.kind),
+					content: coerceDraftContentForRule(
+						createDraftContent(sharedDraft.kind),
+						nextRule,
+					),
 					assetMode: "inherit",
 					assetIds: [],
 					removedInheritedResourceIds: [],
@@ -956,6 +1068,10 @@ export function DashboardNewPost() {
 				variant.platform === platform ? { ...variant, ...patch } : variant,
 			),
 		);
+	}
+
+	function contentFromSnapshot(snapshot: VariantSnapshot): DraftContent {
+		return extractDraftContent(snapshot.contentKind, snapshot.contentPayload);
 	}
 
 	function removeVariant(platform: string) {
@@ -1701,9 +1817,20 @@ export function DashboardNewPost() {
 													<Label>Post format</Label>
 													<Select
 														value={variant.surface}
-														onValueChange={(value) =>
-															updateVariant(platform, { surface: value })
-														}
+														onValueChange={(value) => {
+															const nextRule = findRule(
+																capabilities,
+																platform,
+																value,
+															);
+															updateVariant(platform, {
+																surface: value,
+																content: coerceDraftContentForRule(
+																	variant.content,
+																	nextRule,
+																),
+															});
+														}}
 													>
 														<SelectTrigger
 															className={adminSelectTriggerClassName}
@@ -1758,11 +1885,16 @@ export function DashboardNewPost() {
 													<Label>Content behavior</Label>
 													<Select
 														value={variant.contentMode}
-														onValueChange={(value) =>
+														onValueChange={(value) => {
+															const nextMode = value as "inherit" | "custom";
 															updateVariant(platform, {
-																contentMode: value as "inherit" | "custom",
-															})
-														}
+																contentMode: nextMode,
+																content:
+																	nextMode === "custom"
+																		? contentFromSnapshot(snapshot)
+																		: variant.content,
+															});
+														}}
 													>
 														<SelectTrigger
 															className={adminSelectTriggerClassName}

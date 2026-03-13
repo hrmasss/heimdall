@@ -290,3 +290,47 @@ func TestEvaluateVariantReadinessDetectsIncompatibleAssets(t *testing.T) {
 		t.Fatalf("expected asset_type_incompatible blocker, got %#v", readiness.PublishBlockers)
 	}
 }
+
+func TestEvaluateVariantReadinessCoercesArticleToTextWhenFormatSupportsCaptions(t *testing.T) {
+	t.Parallel()
+
+	minItems := 1
+	readiness := evaluateVariantReadiness(
+		database.PostVariant{
+			Platform:      "instagram",
+			Surface:       "reel",
+			ApprovalState: "approved",
+		},
+		resolvedVariantState{
+			contentKind: "article",
+			contentPayload: map[string]any{
+				"title": "Launch recap",
+				"body":  "Behind the scenes from the launch.",
+			},
+			effectiveAssets: []resources.ResourceListItem{
+				{ID: "asset-1", MediaKind: "video"},
+			},
+		},
+		nil,
+		false,
+		resources.CapabilityMatrix{
+			Rules: []resources.CapabilityRule{
+				{
+					Platform:              "instagram",
+					Surface:               "reel",
+					Label:                 "Instagram reel",
+					Accepts:               []string{"video"},
+					SupportedContentKinds: []string{"text"},
+					AssetRequired:         true,
+					MinItems:              &minItems,
+				},
+			},
+		},
+	)
+
+	for _, issue := range readiness.PublishBlockers {
+		if issue.Code == "content_kind_unsupported" {
+			t.Fatalf("expected article content to be coerced to text caption, got %#v", readiness.PublishBlockers)
+		}
+	}
+}

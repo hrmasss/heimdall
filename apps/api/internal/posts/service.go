@@ -42,13 +42,13 @@ type Service struct {
 }
 
 type UpsertPostInput struct {
-	Title          string
-	ContentKind    string
-	ContentPayload map[string]any
-	OriginPlatform string
-	OriginSurface  string
+	Title            string
+	ContentKind      string
+	ContentPayload   map[string]any
+	OriginPlatform   string
+	OriginSurface    string
 	RequiresApproval bool
-	Notes          string
+	Notes            string
 }
 
 type UpsertVariantInput struct {
@@ -231,10 +231,10 @@ type metricObservationRow struct {
 }
 
 type resolvedVariantState struct {
-	contentKind    string
-	contentPayload map[string]any
+	contentKind     string
+	contentPayload  map[string]any
 	effectiveAssets []resources.ResourceListItem
-	issues         []ReadinessIssue
+	issues          []ReadinessIssue
 }
 
 type variantResolutionContext struct {
@@ -298,19 +298,19 @@ func (s *Service) CreatePost(ctx context.Context, principal *iam.Principal, work
 	}
 	now := time.Now().UTC()
 	record := &database.Post{
-		ID:              uuid.New(),
-		WorkspaceID:     workspaceID,
-		Title:           strings.TrimSpace(input.Title),
-		ContentKind:     contentKind,
-		ContentPayload:  payload,
-		OriginPlatform:  originPlatform,
-		OriginSurface:   originSurface,
+		ID:               uuid.New(),
+		WorkspaceID:      workspaceID,
+		Title:            strings.TrimSpace(input.Title),
+		ContentKind:      contentKind,
+		ContentPayload:   payload,
+		OriginPlatform:   originPlatform,
+		OriginSurface:    originSurface,
 		RequiresApproval: input.RequiresApproval,
-		Notes:           strings.TrimSpace(input.Notes),
-		CreatedByUserID: &principal.UserID,
-		UpdatedByUserID: &principal.UserID,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		Notes:            strings.TrimSpace(input.Notes),
+		CreatedByUserID:  &principal.UserID,
+		UpdatedByUserID:  &principal.UserID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	if _, err := s.db.NewInsert().Model(record).Exec(ctx); err != nil {
 		return nil, err
@@ -992,11 +992,11 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	for _, record := range posts {
 		postVariantRecords := variantRecordsByPost[record.ID.String()]
 		resolutionContext := variantResolutionContext{
-			post:             record,
-			rootAssets:       ensureResourceItems(rootAssetCache[record.ID.String()]),
-			variantAssets:    variantAssetCache,
-			removedByVariant: removedByVariant,
-			recordsByID:      map[string]database.PostVariant{},
+			post:              record,
+			rootAssets:        ensureResourceItems(rootAssetCache[record.ID.String()]),
+			variantAssets:     variantAssetCache,
+			removedByVariant:  removedByVariant,
+			recordsByID:       map[string]database.PostVariant{},
 			primaryByPlatform: map[string]database.PostVariant{},
 		}
 		for _, variantRecord := range postVariantRecords {
@@ -1429,8 +1429,8 @@ func resolveVariantState(
 	}
 	if resolving[record.ID.String()] {
 		return resolvedVariantState{
-			contentKind:    ctx.post.ContentKind,
-			contentPayload: parseMetadata(ctx.post.ContentPayload),
+			contentKind:     ctx.post.ContentKind,
+			contentPayload:  parseMetadata(ctx.post.ContentPayload),
 			effectiveAssets: ensureResourceItems(ctx.rootAssets),
 			issues: []ReadinessIssue{
 				{Code: "inherit_source_cycle", Message: "This tab inherits from a cycle. Switch the inheritance source or make it custom."},
@@ -1440,10 +1440,10 @@ func resolveVariantState(
 	resolving[record.ID.String()] = true
 
 	resolved := resolvedVariantState{
-		contentKind:    ctx.post.ContentKind,
-		contentPayload: parseMetadata(ctx.post.ContentPayload),
+		contentKind:     ctx.post.ContentKind,
+		contentPayload:  parseMetadata(ctx.post.ContentPayload),
 		effectiveAssets: ensureResourceItems(ctx.rootAssets),
-		issues:         []ReadinessIssue{},
+		issues:          []ReadinessIssue{},
 	}
 	sourceAssets := ensureResourceItems(ctx.rootAssets)
 
@@ -1534,6 +1534,8 @@ func evaluateVariantReadiness(
 		return readiness
 	}
 
+	resolved = coerceResolvedContentForRule(rule, resolved)
+
 	if len(rule.SupportedContentKinds) > 0 && !slices.Contains(rule.SupportedContentKinds, resolved.contentKind) {
 		issue := ReadinessIssue{
 			Code:    "content_kind_unsupported",
@@ -1616,6 +1618,44 @@ func evaluateVariantReadiness(
 	return readiness
 }
 
+func coerceResolvedContentForRule(rule resources.CapabilityRule, resolved resolvedVariantState) resolvedVariantState {
+	if shouldPreferTextCaption(rule, resolved.contentKind) {
+		textBody := extractCaptionText(resolved.contentKind, resolved.contentPayload)
+		return resolvedVariantState{
+			contentKind:     "text",
+			contentPayload:  map[string]any{"body": textBody},
+			effectiveAssets: resolved.effectiveAssets,
+			issues:          resolved.issues,
+		}
+	}
+	if len(rule.SupportedContentKinds) == 0 || slices.Contains(rule.SupportedContentKinds, resolved.contentKind) {
+		return resolved
+	}
+	if !slices.Contains(rule.SupportedContentKinds, "text") {
+		return resolved
+	}
+	textBody := extractCaptionText(resolved.contentKind, resolved.contentPayload)
+	return resolvedVariantState{
+		contentKind:     "text",
+		contentPayload:  map[string]any{"body": textBody},
+		effectiveAssets: resolved.effectiveAssets,
+		issues:          resolved.issues,
+	}
+}
+
+func shouldPreferTextCaption(rule resources.CapabilityRule, contentKind string) bool {
+	if contentKind == "text" || !slices.Contains(rule.SupportedContentKinds, "text") {
+		return false
+	}
+	for _, accepted := range rule.Accepts {
+		switch accepted {
+		case "image", "video", "audio":
+			return true
+		}
+	}
+	return false
+}
+
 func findCapabilityRule(matrix resources.CapabilityMatrix, platform, surface string) (resources.CapabilityRule, bool) {
 	for _, rule := range matrix.Rules {
 		if rule.Platform == platform && rule.Surface == surface {
@@ -1644,6 +1684,34 @@ func extractThreadItems(payload map[string]any) []map[string]any {
 func extractTextBody(payload map[string]any) string {
 	body, _ := payload["body"].(string)
 	return strings.TrimSpace(body)
+}
+
+func extractCaptionText(contentKind string, payload map[string]any) string {
+	switch contentKind {
+	case "article":
+		title, _ := payload["title"].(string)
+		body, _ := payload["body"].(string)
+		parts := make([]string, 0, 2)
+		if strings.TrimSpace(title) != "" {
+			parts = append(parts, strings.TrimSpace(title))
+		}
+		if strings.TrimSpace(body) != "" {
+			parts = append(parts, strings.TrimSpace(body))
+		}
+		return strings.Join(parts, "\n\n")
+	case "thread":
+		items := extractThreadItems(payload)
+		parts := make([]string, 0, len(items))
+		for _, item := range items {
+			body, _ := item["body"].(string)
+			if strings.TrimSpace(body) != "" {
+				parts = append(parts, strings.TrimSpace(body))
+			}
+		}
+		return strings.Join(parts, "\n\n")
+	default:
+		return extractTextBody(payload)
+	}
 }
 
 func resolveEffectiveAssets(sourceAssets, variantAssets []resources.ResourceListItem, assetMode string, removedIDs []string) []resources.ResourceListItem {
