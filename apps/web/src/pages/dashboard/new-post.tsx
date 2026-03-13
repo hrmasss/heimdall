@@ -1,12 +1,4 @@
 import {
-	RiFacebookCircleFill,
-	RiInstagramFill,
-	RiLinkedinFill,
-	RiTiktokFill,
-	RiTwitterXFill,
-	RiYoutubeFill,
-} from "@remixicon/react";
-import {
 	AlertTriangle,
 	ArrowLeft,
 	CalendarClock,
@@ -21,10 +13,8 @@ import {
 	Save,
 	Send,
 	Trash2,
-	Video,
 	XCircle,
 } from "lucide-react";
-import type { CSSProperties, ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -74,6 +64,7 @@ import type {
 	VariantReadiness,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
 import { normalizePostDetail } from "@/lib/post-models";
 import { cn } from "@/lib/utils";
 
@@ -124,45 +115,6 @@ const mediumTextareaClassName = `${adminTextareaClassName} min-h-28`;
 const compactTextareaClassName = `${adminTextareaClassName} min-h-24`;
 const DEFAULT_HOUR = 9;
 const DEFAULT_MINUTE = 0;
-const PLATFORM_META: Record<
-	string,
-	{
-		label: string;
-		color: string;
-		icon: ComponentType<{ className?: string; style?: CSSProperties }>;
-	}
-> = {
-	facebook: {
-		label: "Facebook",
-		color: "#1877F2",
-		icon: RiFacebookCircleFill,
-	},
-	instagram: {
-		label: "Instagram",
-		color: "#E1306C",
-		icon: RiInstagramFill,
-	},
-	linkedin: {
-		label: "LinkedIn",
-		color: "#0A66C2",
-		icon: RiLinkedinFill,
-	},
-	tiktok: {
-		label: "TikTok",
-		color: "#FF0050",
-		icon: RiTiktokFill,
-	},
-	x: {
-		label: "X",
-		color: "#94A3B8",
-		icon: RiTwitterXFill,
-	},
-	youtube: {
-		label: "YouTube",
-		color: "#FF0000",
-		icon: RiYoutubeFill,
-	},
-};
 
 function createDraftContent(kind: ContentKind = "text"): DraftContent {
 	return {
@@ -309,17 +261,6 @@ function extractDraftContent(
 		threadItems: [""],
 		tags: extractTagsFromPayload(payload),
 	};
-}
-
-function formatPlatformLabel(platform: string) {
-	const knownPlatform = PLATFORM_META[platform];
-	if (knownPlatform) {
-		return knownPlatform.label;
-	}
-	return platform
-		.split(/[_-]/g)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
 }
 
 function formatSurfaceLabel(rule?: ResourceCapabilityRule, surface?: string) {
@@ -620,33 +561,6 @@ function TagBadgeRow({ tags }: { tags: string[] }) {
 					{formatTagLabel(tag)}
 				</Badge>
 			))}
-		</div>
-	);
-}
-
-function platformIcon(platform: string) {
-	const knownPlatform = PLATFORM_META[platform];
-	if (knownPlatform) {
-		const Icon = knownPlatform.icon;
-		return (
-			<span
-				className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border"
-				style={{
-					color: knownPlatform.color,
-					borderColor: `${knownPlatform.color}33`,
-					backgroundColor: `${knownPlatform.color}14`,
-				}}
-			>
-				<Icon className="size-4" />
-			</span>
-		);
-	}
-	if (platform === "youtube" || platform === "tiktok") {
-		return <Video className="size-4" />;
-	}
-	return (
-		<div className="flex size-4 items-center justify-center text-[0.65rem] font-semibold uppercase">
-			{platform.slice(0, 1)}
 		</div>
 	);
 }

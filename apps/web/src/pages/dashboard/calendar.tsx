@@ -1,12 +1,4 @@
 import {
-	RiFacebookCircleFill,
-	RiInstagramFill,
-	RiLinkedinFill,
-	RiTiktokFill,
-	RiTwitterXFill,
-	RiYoutubeFill,
-} from "@remixicon/react";
-import {
 	AlertTriangle,
 	ArrowUpRight,
 	CalendarDays,
@@ -17,6 +9,7 @@ import {
 	Clock3,
 	FilePlus2,
 	FolderKanban,
+	Globe2,
 	GripVertical,
 	LoaderCircle,
 	Plus,
@@ -25,22 +18,17 @@ import {
 	XCircle,
 } from "lucide-react";
 import {
-	type CSSProperties,
-	type ComponentType,
 	startTransition,
 	useDeferredValue,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	DashboardPanel,
-} from "@/components/app/dashboard";
 import { DateTimePicker } from "@/components/app/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +61,12 @@ import type {
 	ResourceCapabilityMatrix,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import {
+	formatPlatformLabel,
+	getPlatformMeta,
+	platformIcon,
+	withAlpha,
+} from "@/lib/platforms";
 import { normalizePostDetail } from "@/lib/post-models";
 import { cn } from "@/lib/utils";
 
@@ -108,44 +102,24 @@ type DragPayload = {
 	plannedAt?: string;
 };
 
-type PlatformMeta = {
-	label: string;
-	color: string;
-	icon: ComponentType<{ className?: string; style?: CSSProperties }>;
-};
-
-const PLATFORM_META: Record<string, PlatformMeta> = {
-	facebook: {
-		label: "Facebook",
-		color: "#1877F2",
-		icon: RiFacebookCircleFill,
-	},
-	instagram: {
-		label: "Instagram",
-		color: "#E1306C",
-		icon: RiInstagramFill,
-	},
-	linkedin: {
-		label: "LinkedIn",
-		color: "#0A66C2",
-		icon: RiLinkedinFill,
-	},
-	tiktok: {
-		label: "TikTok",
-		color: "#FF0050",
-		icon: RiTiktokFill,
-	},
-	x: {
-		label: "X",
-		color: "#94A3B8",
-		icon: RiTwitterXFill,
-	},
-	youtube: {
-		label: "YouTube",
-		color: "#FF0000",
-		icon: RiYoutubeFill,
-	},
-};
+type ActiveDropTarget =
+	| {
+			kind: "week";
+			platform: string;
+			dateKey: string;
+			valid: boolean;
+	  }
+	| {
+			kind: "timeline";
+			platform: string;
+			hour: number;
+			valid: boolean;
+	  }
+	| {
+			kind: "backlog";
+			platform?: string;
+			valid: boolean;
+	  };
 
 const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
 
@@ -294,17 +268,6 @@ function formatDateTimeLabel(value?: string) {
 				minute: "2-digit",
 			})
 		: "Unscheduled";
-}
-
-function platformLabel(platform: string) {
-	const known = PLATFORM_META[platform];
-	if (known) {
-		return known.label;
-	}
-	return platform
-		.split(/[_-]/g)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
 }
 
 function surfaceLabel(surface: string) {
@@ -505,16 +468,95 @@ function weekDays(anchor: Date) {
 	return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 }
 
+function usePrefersReducedMotion() {
+	const [reducedMotion, setReducedMotion] = useState(false);
+
+	useEffect(() => {
+		if (typeof window === "undefined" || !window.matchMedia) {
+			return;
+		}
+		const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const update = () => setReducedMotion(mediaQuery.matches);
+		update();
+		mediaQuery.addEventListener("change", update);
+		return () => mediaQuery.removeEventListener("change", update);
+	}, []);
+
+	return reducedMotion;
+}
+
+function laneChrome(platform: string) {
+	const meta = getPlatformMeta(platform);
+	if (!meta) {
+		return {
+			borderColor: "var(--brand-border-soft)",
+			headerBackground: "rgba(255,255,255,0.72)",
+			bodyBackground: "rgba(255,255,255,0.52)",
+			softBackground: "rgba(255,255,255,0.68)",
+			highlightBackground:
+				"color-mix(in srgb, var(--brand-highlight) 16%, transparent)",
+			textColor: "inherit",
+		};
+	}
+	return {
+		borderColor: withAlpha(meta.color, 0.2),
+		headerBackground: `linear-gradient(135deg, ${withAlpha(
+			meta.color,
+			0.18,
+		)}, ${withAlpha(meta.color, 0.08)})`,
+		bodyBackground: `linear-gradient(180deg, ${withAlpha(
+			meta.color,
+			0.1,
+		)}, ${withAlpha(meta.color, 0.03)})`,
+		softBackground: withAlpha(meta.color, 0.08),
+		highlightBackground: withAlpha(meta.color, 0.14),
+		textColor: meta.color,
+	};
+}
+
+function PlanningStatChip({
+	label,
+	value,
+	detail,
+	icon: Icon,
+}: {
+	label: string;
+	value: string;
+	detail: string;
+	icon: typeof CalendarRange;
+}) {
+	return (
+		<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3 shadow-[0_18px_35px_-34px_rgba(15,23,42,0.52)]">
+			<div className="flex items-start justify-between gap-4">
+				<div className="space-y-1">
+					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+						{label}
+					</div>
+					<div className="text-xl font-semibold tracking-tight">{value}</div>
+					<div className="text-xs text-muted-foreground">{detail}</div>
+				</div>
+				<span className="inline-flex size-9 items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/80 text-muted-foreground">
+					<Icon className="size-4" />
+				</span>
+			</div>
+		</div>
+	);
+}
+
 function CalendarCard({
 	card,
 	onClick,
+	onDragStart,
+	onDragEnd,
 }: {
 	card: CalendarCardItem;
 	onClick: () => void;
+	onDragStart?: (payload: DragPayload) => void;
+	onDragEnd?: () => void;
 }) {
 	const item = card.item;
-	const meta = PLATFORM_META[item.platform];
-	const Icon = meta?.icon;
+	const meta = getPlatformMeta(item.platform);
+	const payload = dragDataFor(card.kind, item);
 
 	return (
 		<button
@@ -522,37 +564,33 @@ function CalendarCard({
 			draggable
 			onDragStart={(event) => {
 				event.dataTransfer.effectAllowed = "move";
-				event.dataTransfer.setData(
-					"application/json",
-					JSON.stringify(dragDataFor(card.kind, item)),
-				);
+				event.dataTransfer.setData("application/json", JSON.stringify(payload));
+				onDragStart?.(payload);
 			}}
+			onDragEnd={onDragEnd}
 			onClick={onClick}
 			className={cn(
-				"w-full rounded-[20px] border border-[var(--brand-border-soft)] bg-background/85 p-3 text-left shadow-[0_16px_36px_-30px_rgba(15,23,42,0.48)] transition hover:border-primary/30 hover:bg-background",
+				"w-full rounded-[20px] border border-[var(--brand-border-soft)] bg-background/88 p-3 text-left shadow-[0_16px_36px_-30px_rgba(15,23,42,0.48)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background",
 				card.kind === "backlog" &&
 					"bg-[color-mix(in_srgb,var(--background)_88%,var(--brand-highlight)_12%)]",
 			)}
+			style={
+				meta
+					? {
+							boxShadow: `inset 0 1px 0 ${withAlpha(meta.color, 0.14)}, 0 16px 36px -30px rgba(15,23,42,0.48)`,
+						}
+					: undefined
+			}
 		>
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 space-y-2">
 					<div className="flex items-center gap-2">
-						{Icon ? (
-							<span
-								className="inline-flex size-7 items-center justify-center rounded-full border"
-								style={{
-									color: meta.color,
-									borderColor: `${meta.color}33`,
-									backgroundColor: `${meta.color}14`,
-								}}
-							>
-								<Icon className="size-4" />
-							</span>
-						) : null}
+						{platformIcon(item.platform)}
 						<div className="min-w-0">
 							<div className="truncate text-sm font-medium">{item.title}</div>
 							<div className="text-xs text-muted-foreground">
-								{platformLabel(item.platform)} · {surfaceLabel(item.surface)}
+								{formatPlatformLabel(item.platform)} ·{" "}
+								{surfaceLabel(item.surface)}
 							</div>
 						</div>
 					</div>
@@ -586,37 +624,6 @@ function CalendarCard({
 	);
 }
 
-function CalendarMetric({
-	label,
-	value,
-	detail,
-	icon: Icon,
-}: {
-	label: string;
-	value: string;
-	detail: string;
-	icon: ComponentType<{ className?: string }>;
-}) {
-	return (
-		<SurfaceCard className="p-4">
-			<div className="flex items-start justify-between gap-4">
-				<div>
-					<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-						{label}
-					</div>
-					<div className="mt-2 text-2xl font-semibold tracking-tight">
-						{value}
-					</div>
-					<div className="mt-1 text-sm text-muted-foreground">{detail}</div>
-				</div>
-				<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-					<Icon className="size-4" />
-				</div>
-			</div>
-		</SurfaceCard>
-	);
-}
-
 export function DashboardCalendar() {
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
@@ -638,11 +645,17 @@ export function DashboardCalendar() {
 	const [panelError, setPanelError] = useState<string | null>(null);
 	const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
 	const [loadingPost, setLoadingPost] = useState(false);
+	const [dragPlatform, setDragPlatform] = useState<string | null>(null);
+	const [highlightedLane, setHighlightedLane] = useState<string | null>(null);
+	const [activeDropTarget, setActiveDropTarget] =
+		useState<ActiveDropTarget | null>(null);
 	const deferredSearch = useDeferredValue(search);
+	const prefersReducedMotion = usePrefersReducedMotion();
 	const timezone = useMemo(
 		() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
 		[],
 	);
+	const today = useMemo(() => startOfDay(new Date()), []);
 	const currentRange = useMemo(
 		() => selectedRange(view, anchorDate),
 		[anchorDate, view],
@@ -652,6 +665,32 @@ export function DashboardCalendar() {
 		() => monthGridDays(anchorDate),
 		[anchorDate],
 	);
+	const platformPillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+	const weekLaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const timelineLaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+	function revealPlatformLane(platform: string) {
+		const behavior = prefersReducedMotion ? "auto" : "smooth";
+		platformPillRefs.current[platform]?.scrollIntoView({
+			behavior,
+			block: "nearest",
+			inline: "nearest",
+		});
+		if (view === "week") {
+			weekLaneRefs.current[platform]?.scrollIntoView({
+				behavior,
+				block: "nearest",
+				inline: "nearest",
+			});
+		}
+		if (view === "timeline") {
+			timelineLaneRefs.current[platform]?.scrollIntoView({
+				behavior,
+				block: "nearest",
+				inline: "nearest",
+			});
+		}
+	}
 
 	useEffect(() => {
 		if (!activeWorkspaceId) {
@@ -884,6 +923,81 @@ export function DashboardCalendar() {
 		[filteredBacklog, filteredEntries],
 	);
 
+	function clearDragState() {
+		setDragPlatform(null);
+		setHighlightedLane(null);
+		setActiveDropTarget(null);
+	}
+
+	function beginDrag(payload: DragPayload) {
+		setDragPlatform(payload.platform);
+		setHighlightedLane(payload.platform);
+		setActiveDropTarget(null);
+		revealPlatformLane(payload.platform);
+	}
+
+	function setWeekHoverState(
+		targetPlatform: string,
+		day: Date,
+		event: React.DragEvent,
+	) {
+		const payload = readDragPayload(event);
+		if (!payload) {
+			return;
+		}
+		const dateKey = startOfDay(day).toISOString();
+		const valid = payload.platform === targetPlatform;
+		setDragPlatform(payload.platform);
+		setHighlightedLane(valid ? targetPlatform : payload.platform);
+		setActiveDropTarget({
+			kind: "week",
+			platform: targetPlatform,
+			dateKey,
+			valid,
+		});
+		if (valid) {
+			revealPlatformLane(targetPlatform);
+		}
+	}
+
+	function setTimelineHoverState(
+		targetPlatform: string,
+		hour: number,
+		event: React.DragEvent,
+	) {
+		const payload = readDragPayload(event);
+		if (!payload) {
+			return;
+		}
+		const valid = payload.platform === targetPlatform;
+		setDragPlatform(payload.platform);
+		setHighlightedLane(valid ? targetPlatform : payload.platform);
+		setActiveDropTarget({
+			kind: "timeline",
+			platform: targetPlatform,
+			hour,
+			valid,
+		});
+		if (valid) {
+			revealPlatformLane(targetPlatform);
+		}
+	}
+
+	function setBacklogHoverState(event: React.DragEvent) {
+		const payload = readDragPayload(event);
+		if (!payload) {
+			return;
+		}
+		const valid = payload.source === "entry";
+		setDragPlatform(payload.platform);
+		setHighlightedLane(payload.platform);
+		setActiveDropTarget({
+			kind: "backlog",
+			platform: payload.platform,
+			valid,
+		});
+	}
+
 	function closePanel() {
 		setPanelState({ mode: "closed" });
 		setPanelError(null);
@@ -1060,6 +1174,8 @@ export function DashboardCalendar() {
 					? scheduleError.message
 					: "Unable to unschedule this variant.",
 			);
+		} finally {
+			clearDragState();
 		}
 	}
 
@@ -1071,9 +1187,16 @@ export function DashboardCalendar() {
 		event.preventDefault();
 		const payload = readDragPayload(event);
 		if (!payload) {
+			clearDragState();
 			return;
 		}
 		if (payload.platform !== targetPlatform) {
+			setActiveDropTarget({
+				kind: "week",
+				platform: targetPlatform,
+				dateKey: startOfDay(day).toISOString(),
+				valid: false,
+			});
 			toast.error("Move content inside the matching platform lane.");
 			return;
 		}
@@ -1088,6 +1211,7 @@ export function DashboardCalendar() {
 			0,
 		);
 		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		clearDragState();
 	}
 
 	async function handleTimelineDrop(
@@ -1099,9 +1223,16 @@ export function DashboardCalendar() {
 		event.preventDefault();
 		const payload = readDragPayload(event);
 		if (!payload) {
+			clearDragState();
 			return;
 		}
 		if (payload.platform !== targetPlatform) {
+			setActiveDropTarget({
+				kind: "timeline",
+				platform: targetPlatform,
+				hour,
+				valid: false,
+			});
 			toast.error("Move content inside the matching platform lane.");
 			return;
 		}
@@ -1116,6 +1247,7 @@ export function DashboardCalendar() {
 			0,
 		);
 		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		clearDragState();
 	}
 
 	async function saveExistingItem() {
@@ -1349,226 +1481,324 @@ export function DashboardCalendar() {
 		panelDraft.platform,
 	);
 	const panelOpen = panelState.mode !== "closed";
+	const rangeLabel =
+		view === "month"
+			? formatMonthLabel(anchorDate)
+			: view === "timeline"
+				? anchorDate.toLocaleDateString(undefined, {
+						weekday: "long",
+						month: "long",
+						day: "numeric",
+						year: "numeric",
+					})
+				: `${formatDayHeader(currentWeek[0])} - ${formatDayHeader(
+						currentWeek.at(-1) ?? currentWeek[0],
+					)}`;
 
 	return (
 		<div className="space-y-6">
-			<DashboardPageHeader
-				eyebrow="Publishing control"
-				title="Calendar"
-				description="See this week’s content coverage by platform, fill open gaps, drag work into better slots, and jump straight into the right draft or detail view."
-				actions={
-					<>
-						<Button
-							variant="outline"
-							className="rounded-full"
-							onClick={() => {
-								startTransition(() => setAnchorDate(startOfDay(new Date())));
-							}}
-						>
-							<CalendarDays className="size-4" />
-							Today
-						</Button>
-						<Button
-							className="rounded-full border-0 bg-gradient-brand text-white"
-							onClick={() => setPanelState({ mode: "new", date: new Date() })}
-						>
-							<FilePlus2 className="size-4" />
-							New draft
-						</Button>
-					</>
-				}
-			/>
-
-			<div className="grid gap-4 md:grid-cols-4">
-				<CalendarMetric
-					label="Scheduled now"
-					value={String(filteredEntries.length)}
-					detail="Visible items in the current range"
-					icon={CalendarRange}
-				/>
-				<CalendarMetric
-					label="Open gaps"
-					value={String(gapCount)}
-					detail="Empty platform-day cells this week"
-					icon={AlertTriangle}
-				/>
-				<CalendarMetric
-					label="Backlog"
-					value={String(filteredBacklog.length)}
-					detail="Unscheduled variants ready to place"
-					icon={Clock3}
-				/>
-				<CalendarMetric
-					label="Blocked"
-					value={String(blockedCount)}
-					detail="Items with schedule or publish blockers"
-					icon={XCircle}
-				/>
-			</div>
-
-			<DashboardPanel
-				title="Planning surface"
-				description="Week view is the operating system for content planning. Month view helps you scan density, and timeline mode lets you place exact publication times."
-			>
-				<div className="space-y-4">
-					<div className="flex flex-col gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4 lg:flex-row lg:items-center lg:justify-between">
-						<div className="flex flex-wrap items-center gap-2">
-							<Button
-								variant="outline"
-								size="icon-sm"
-								onClick={() =>
-									startTransition(() =>
-										setAnchorDate((current) =>
-											view === "month"
-												? addMonths(current, -1)
-												: view === "timeline"
-													? addDays(current, -1)
-													: addWeeks(current, -1),
-										),
-									)
-								}
-							>
-								<ChevronLeft className="size-4" />
-							</Button>
-							<div className="min-w-[11rem] rounded-full border border-[var(--brand-border-soft)] px-4 py-2 text-sm font-medium">
-								{view === "month"
-									? formatMonthLabel(anchorDate)
-									: view === "timeline"
-										? anchorDate.toLocaleDateString(undefined, {
-												weekday: "long",
-												month: "long",
-												day: "numeric",
-												year: "numeric",
-											})
-										: `${formatDayHeader(currentWeek[0])} - ${formatDayHeader(
-												currentWeek.at(-1) ?? currentWeek[0],
-											)}`}
+			<SurfaceCard className="rounded-[32px] border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(255,255,255,0.7))] p-4 sm:p-5 lg:p-6">
+				<div className="space-y-5">
+					<div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+									Publishing control
+								</div>
+								<div className="space-y-2">
+									<h1 className="text-2xl font-semibold tracking-tight sm:text-[2rem]">
+										Content calendar
+									</h1>
+									<p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
+										See this week’s content coverage by platform, drag work into
+										better slots, spot open gaps, and jump straight into the
+										right draft from one planning surface.
+									</p>
+								</div>
 							</div>
-							<Button
-								variant="outline"
-								size="icon-sm"
-								onClick={() =>
-									startTransition(() =>
-										setAnchorDate((current) =>
-											view === "month"
-												? addMonths(current, 1)
-												: view === "timeline"
-													? addDays(current, 1)
-													: addWeeks(current, 1),
-										),
-									)
-								}
-							>
-								<ChevronRight className="size-4" />
-							</Button>
+							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+								<PlanningStatChip
+									label="Scheduled"
+									value={String(filteredEntries.length)}
+									detail="Visible items in range"
+									icon={CalendarRange}
+								/>
+								<PlanningStatChip
+									label="Open gaps"
+									value={String(gapCount)}
+									detail="Empty platform-day cells"
+									icon={AlertTriangle}
+								/>
+								<PlanningStatChip
+									label="Backlog"
+									value={String(filteredBacklog.length)}
+									detail="Unscheduled variants"
+									icon={Clock3}
+								/>
+								<PlanningStatChip
+									label="Blocked"
+									value={String(blockedCount)}
+									detail="Needs an unblock first"
+									icon={XCircle}
+								/>
+							</div>
 						</div>
-
-						<div className="flex flex-col gap-3 lg:items-end">
-							<Tabs
-								value={view}
-								onValueChange={(value) =>
-									startTransition(() => setView(value as CalendarView))
-								}
+						<div className="flex flex-wrap items-center gap-3 xl:justify-end">
+							<Button
+								variant="outline"
+								className="rounded-full bg-background/80"
+								onClick={() => {
+									startTransition(() => setAnchorDate(startOfDay(new Date())));
+								}}
 							>
-								<TabsList
-									variant="line"
-									className="rounded-full border bg-background/80 p-1"
-								>
-									<TabsTrigger value="week" className="rounded-full px-4">
-										Week board
-									</TabsTrigger>
-									<TabsTrigger value="month" className="rounded-full px-4">
-										Month overview
-									</TabsTrigger>
-									<TabsTrigger value="timeline" className="rounded-full px-4">
-										Timeline
-									</TabsTrigger>
-								</TabsList>
-							</Tabs>
-							<div className="flex flex-wrap items-center gap-2">
-								<div className="relative min-w-[15rem]">
-									<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-									<Input
-										id="calendar-search"
-										name="calendar-search"
-										aria-label="Search calendar content"
-										value={search}
-										onChange={(event) =>
-											startTransition(() => setSearch(event.target.value))
-										}
-										placeholder="Search titles, captions, surfaces..."
-										className="h-10 rounded-full bg-background pl-10"
-									/>
-								</div>
-								<Select
-									value={statusFilter}
-									onValueChange={(value) =>
-										startTransition(() =>
-											setStatusFilter(value as CalendarStatusFilter),
-										)
-									}
-								>
-									<SelectTrigger
-										id="calendar-status-filter"
-										aria-label="Filter calendar by status"
-										className="h-10 rounded-full px-4"
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All states</SelectItem>
-										<SelectItem value="ready">Ready</SelectItem>
-										<SelectItem value="blocked">Blocked</SelectItem>
-										<SelectItem value="in_review">In review</SelectItem>
-									</SelectContent>
-								</Select>
-								<div className="flex items-center gap-3 rounded-full border border-[var(--brand-border-soft)] bg-background px-4 py-2.5 text-sm">
-									<Switch
-										id="calendar-show-gaps"
-										aria-label="Show gaps only"
-										checked={showGapsOnly}
-										onCheckedChange={setShowGapsOnly}
-										size="sm"
-									/>
-									<Label htmlFor="calendar-show-gaps">Show gaps</Label>
-								</div>
-							</div>
+								<CalendarDays className="size-4" />
+								Today
+							</Button>
+							<Button
+								className="rounded-full border-0 bg-gradient-brand text-white shadow-[0_18px_40px_-26px_rgba(168,107,76,0.9)]"
+								onClick={() => setPanelState({ mode: "new", date: new Date() })}
+							>
+								<FilePlus2 className="size-4" />
+								New draft
+							</Button>
 						</div>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<Button
-							variant={selectedPlatforms.length === 0 ? "default" : "outline"}
-							className="rounded-full"
-							onClick={() => startTransition(() => setSelectedPlatforms([]))}
-						>
-							All platforms
-						</Button>
-						{lanes.map((lane) => {
-							const selected = selectedPlatforms.includes(lane.platform);
-							return (
+
+					<div className="space-y-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 shadow-[0_22px_44px_-36px_rgba(15,23,42,0.56)]">
+						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+							<div className="flex flex-wrap items-center gap-3">
 								<Button
-									key={lane.platform}
-									variant={selected ? "default" : "outline"}
-									className="rounded-full"
+									variant="outline"
+									size="icon-sm"
+									className="rounded-full bg-background/80"
 									onClick={() =>
 										startTransition(() =>
-											setSelectedPlatforms((current) =>
-												current.includes(lane.platform)
-													? current.filter((item) => item !== lane.platform)
-													: [...current, lane.platform],
+											setAnchorDate((current) =>
+												view === "month"
+													? addMonths(current, -1)
+													: view === "timeline"
+														? addDays(current, -1)
+														: addWeeks(current, -1),
 											),
 										)
 									}
 								>
-									{lane.label}
-									<span className="text-xs opacity-70">
-										{lane.scheduledCount}/{lane.backlogCount}
-									</span>
+									<ChevronLeft className="size-4" />
 								</Button>
-							);
-						})}
-					</div>
+								<div className="min-w-[15rem] rounded-[22px] border border-[var(--brand-border-soft)] bg-background/86 px-4 py-3 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+									<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+										Active range
+									</div>
+									<div className="mt-1">{rangeLabel}</div>
+								</div>
+								<Button
+									variant="outline"
+									size="icon-sm"
+									className="rounded-full bg-background/80"
+									onClick={() =>
+										startTransition(() =>
+											setAnchorDate((current) =>
+												view === "month"
+													? addMonths(current, 1)
+													: view === "timeline"
+														? addDays(current, 1)
+														: addWeeks(current, 1),
+											),
+										)
+									}
+								>
+									<ChevronRight className="size-4" />
+								</Button>
+							</div>
 
+							<div className="xl:flex-[0_0_auto]">
+								<Tabs
+									value={view}
+									onValueChange={(value) =>
+										startTransition(() => setView(value as CalendarView))
+									}
+								>
+									<TabsList
+										variant="default"
+										className="!h-auto min-h-[4rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-2 sm:w-auto xl:flex-nowrap"
+									>
+										<TabsTrigger
+											value="week"
+											className="h-auto min-h-10 flex-none self-stretch rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90"
+										>
+											<CalendarRange className="size-4" />
+											Week board
+										</TabsTrigger>
+										<TabsTrigger
+											value="month"
+											className="h-auto min-h-10 flex-none self-stretch rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90"
+										>
+											<CalendarDays className="size-4" />
+											Month overview
+										</TabsTrigger>
+										<TabsTrigger
+											value="timeline"
+											className="h-auto min-h-10 flex-none self-stretch rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90"
+										>
+											<Clock3 className="size-4" />
+											Timeline
+										</TabsTrigger>
+									</TabsList>
+								</Tabs>
+							</div>
+						</div>
+
+						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:gap-4">
+							<div className="min-w-0 xl:flex-1">
+								<div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
+									<Button
+										variant="outline"
+										title="Show all platforms"
+										className={cn(
+											"shrink-0 rounded-full border px-2.5 py-2 shadow-none transition duration-200",
+											selectedPlatforms.length === 0
+												? "border-transparent bg-foreground text-background"
+												: "border-[var(--brand-border-soft)] bg-background/80",
+										)}
+										onClick={() =>
+											startTransition(() => setSelectedPlatforms([]))
+										}
+									>
+										<span className="inline-flex size-6 items-center justify-center rounded-full border border-current/10 bg-current/10">
+											<Globe2 className="size-3.5" />
+										</span>
+										<span className="font-medium">All</span>
+										{selectedPlatforms.length === 0 ? (
+											<span className="text-[11px] opacity-75">
+												{lanes.reduce(
+													(total, lane) =>
+														total + lane.scheduledCount + lane.backlogCount,
+													0,
+												)}
+											</span>
+										) : null}
+									</Button>
+									{lanes.map((lane) => {
+										const meta = getPlatformMeta(lane.platform);
+										const selected = selectedPlatforms.includes(lane.platform);
+										return (
+											<Button
+												key={lane.platform}
+												ref={(element) => {
+													platformPillRefs.current[lane.platform] = element;
+												}}
+												variant="outline"
+												title={lane.label}
+												className={cn(
+													"shrink-0 rounded-full border px-2 py-2 shadow-none transition duration-200",
+													dragPlatform &&
+														dragPlatform !== lane.platform &&
+														"opacity-60",
+												)}
+												style={{
+													borderColor: selected
+														? withAlpha(meta?.color ?? "#64748B", 0.3)
+														: withAlpha(meta?.color ?? "#64748B", 0.16),
+													backgroundColor: selected
+														? withAlpha(meta?.color ?? "#64748B", 0.14)
+														: withAlpha(meta?.color ?? "#64748B", 0.06),
+													color: selected ? meta?.color : undefined,
+													boxShadow: selected
+														? `inset 0 0 0 1px ${withAlpha(
+																meta?.color ?? "#64748B",
+																0.28,
+															)}`
+														: undefined,
+												}}
+												onClick={() =>
+													startTransition(() =>
+														setSelectedPlatforms((current) =>
+															current.includes(lane.platform)
+																? current.filter(
+																		(item) => item !== lane.platform,
+																	)
+																: [...current, lane.platform],
+														),
+													)
+												}
+											>
+												{platformIcon(lane.platform, {
+													containerClassName: "size-6",
+													iconClassName: "size-3.5",
+													backgroundAlpha: selected ? 0.16 : 0.08,
+													borderAlpha: selected ? 0.24 : 0.14,
+												})}
+												<span
+													className={cn(
+														"text-sm font-medium",
+														selected ? "inline" : "sr-only",
+													)}
+												>
+													{lane.label}
+												</span>
+												{selected ? (
+													<span className="text-[11px] opacity-75">
+														{lane.scheduledCount}/{lane.backlogCount}
+													</span>
+												) : null}
+											</Button>
+										);
+									})}
+								</div>
+							</div>
+
+							<div className="xl:flex-[0_0_auto]">
+								<div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/72 p-2 xl:flex-nowrap">
+									<div className="relative min-w-[12rem] flex-1 xl:w-[14rem] xl:flex-none">
+										<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											id="calendar-search"
+											name="calendar-search"
+											aria-label="Search calendar content"
+											value={search}
+											onChange={(event) =>
+												startTransition(() => setSearch(event.target.value))
+											}
+											placeholder="Search titles, captions..."
+											className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/88 pl-10"
+										/>
+									</div>
+									<Select
+										value={statusFilter}
+										onValueChange={(value) =>
+											startTransition(() =>
+												setStatusFilter(value as CalendarStatusFilter),
+											)
+										}
+									>
+										<SelectTrigger
+											id="calendar-status-filter"
+											aria-label="Filter calendar by status"
+											className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/88 px-3.5 xl:w-[8rem]"
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="all">All states</SelectItem>
+											<SelectItem value="ready">Ready</SelectItem>
+											<SelectItem value="blocked">Blocked</SelectItem>
+											<SelectItem value="in_review">In review</SelectItem>
+										</SelectContent>
+									</Select>
+									<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/88 px-3 py-2 text-sm">
+										<Switch
+											id="calendar-show-gaps"
+											aria-label="Show gaps only"
+											checked={showGapsOnly}
+											onCheckedChange={setShowGapsOnly}
+											size="sm"
+										/>
+										<Label htmlFor="calendar-show-gaps">Show gaps</Label>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 					{loading ? (
 						<div className="flex min-h-[24rem] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] bg-background/45">
 							<div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -1584,7 +1814,7 @@ export function DashboardCalendar() {
 						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 							<div className="space-y-4">
 								{view === "week" ? (
-									<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
+									<div className="overflow-x-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
 										<div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] gap-px bg-[var(--brand-border-soft)]">
 											<div className="bg-background/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 												Platforms
@@ -1598,80 +1828,187 @@ export function DashboardCalendar() {
 														{formatDayHeader(day)}
 													</div>
 													<div className="text-xs text-muted-foreground">
-														{isSameDay(day, new Date()) ? "Today" : " "}
+														{isSameDay(day, today) ? "Today" : " "}
 													</div>
 												</div>
 											))}
 
-											{lanes.map((lane) => (
-												<div key={lane.platform} className="contents">
-													<div className="bg-background/78 px-4 py-4">
-														<div className="font-medium">{lane.label}</div>
-														<div className="mt-1 text-xs text-muted-foreground">
-															{lane.scheduledCount} scheduled ·{" "}
-															{lane.backlogCount} backlog
-														</div>
-													</div>
-													{currentWeek.map((day) => {
-														const key = `${lane.platform}:${startOfDay(day).toISOString()}`;
-														const cellEntries = entriesByLaneDay.get(key) ?? [];
-														const isGap = cellEntries.length === 0;
-														return (
-															<div
-																key={`${lane.platform}-${day.toISOString()}`}
-																onDragOver={(event) => event.preventDefault()}
-																onDrop={(event) =>
-																	void handleWeekDrop(lane.platform, day, event)
-																}
-																className={cn(
-																	"min-h-40 bg-background/60 p-3 align-top",
-																	isGap &&
-																		"bg-[color-mix(in_srgb,var(--brand-highlight)_14%,transparent)]",
-																)}
-															>
-																<div className="flex min-h-full flex-col gap-2">
-																	{isGap ? (
-																		<button
-																			type="button"
-																			onClick={() =>
-																				setPanelState({
-																					mode: "gap",
-																					platform: lane.platform,
-																					date: day,
-																				})
-																			}
-																			className="flex min-h-28 flex-1 flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-4 text-center text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
-																		>
-																			<Plus className="mb-2 size-4" />
-																			<span className="font-medium text-foreground">
-																				Gap detected
-																			</span>
-																			<span className="mt-1 text-xs">
-																				Add or drag content into this lane.
-																			</span>
-																		</button>
-																	) : showGapsOnly ? (
-																		<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-3 py-2 text-xs text-muted-foreground">
-																			Covered by {cellEntries.length} item
-																			{cellEntries.length === 1 ? "" : "s"}
-																		</div>
-																	) : (
-																		cellEntries.map((item) => (
-																			<CalendarCard
-																				key={item.variantId}
-																				card={{ kind: "entry", item }}
-																				onClick={() =>
-																					setPanelState({ mode: "entry", item })
-																				}
-																			/>
-																		))
-																	)}
+											{lanes.map((lane) => {
+												const chrome = laneChrome(lane.platform);
+												const laneDimmed =
+													Boolean(dragPlatform) &&
+													dragPlatform !== lane.platform;
+												const laneEmphasized =
+													highlightedLane === lane.platform ||
+													dragPlatform === lane.platform;
+												return (
+													<div key={lane.platform} className="contents">
+														<div
+															ref={(element) => {
+																weekLaneRefs.current[lane.platform] = element;
+															}}
+															className={cn(
+																"px-4 py-4 transition duration-200",
+																laneEmphasized &&
+																	"shadow-[inset_0_0_0_1px_rgba(255,255,255,0.58)]",
+															)}
+															style={{
+																background: chrome.headerBackground,
+																opacity: laneDimmed ? 0.52 : 1,
+																transform:
+																	laneEmphasized && !prefersReducedMotion
+																		? "translateX(2px)"
+																		: undefined,
+															}}
+														>
+															<div className="flex items-center gap-3">
+																{platformIcon(lane.platform)}
+																<div>
+																	<div
+																		className="font-medium"
+																		style={{ color: chrome.textColor }}
+																	>
+																		{lane.label}
+																	</div>
+																	<div className="mt-1 text-xs text-muted-foreground">
+																		{lane.scheduledCount} scheduled ·{" "}
+																		{lane.backlogCount} backlog
+																	</div>
 																</div>
 															</div>
-														);
-													})}
-												</div>
-											))}
+														</div>
+														{currentWeek.map((day) => {
+															const dateKey = startOfDay(day).toISOString();
+															const key = `${lane.platform}:${dateKey}`;
+															const cellEntries =
+																entriesByLaneDay.get(key) ?? [];
+															const isGap = cellEntries.length === 0;
+															const activeWeekTarget =
+																activeDropTarget?.kind === "week" &&
+																activeDropTarget.platform === lane.platform &&
+																activeDropTarget.dateKey === dateKey
+																	? activeDropTarget
+																	: null;
+															return (
+																<div
+																	key={`${lane.platform}-${day.toISOString()}`}
+																	onDragOver={(event) => event.preventDefault()}
+																	onDragEnter={(event) =>
+																		setWeekHoverState(lane.platform, day, event)
+																	}
+																	onDragLeave={() =>
+																		setActiveDropTarget((current) =>
+																			current?.kind === "week" &&
+																			current.platform === lane.platform &&
+																			current.dateKey === dateKey
+																				? null
+																				: current,
+																		)
+																	}
+																	onDrop={(event) =>
+																		void handleWeekDrop(
+																			lane.platform,
+																			day,
+																			event,
+																		)
+																	}
+																	className={cn(
+																		"min-h-40 p-3 align-top transition duration-200",
+																		laneDimmed && "opacity-60",
+																	)}
+																	style={{
+																		background: activeWeekTarget?.valid
+																			? `linear-gradient(180deg, ${withAlpha(
+																					chrome.textColor === "inherit"
+																						? "#64748B"
+																						: chrome.textColor,
+																					0.18,
+																				)}, ${chrome.softBackground})`
+																			: activeWeekTarget &&
+																					!activeWeekTarget.valid
+																				? "linear-gradient(180deg, rgba(239,68,68,0.16), rgba(239,68,68,0.04))"
+																				: isGap
+																					? chrome.bodyBackground
+																					: "rgba(255,255,255,0.62)",
+																		boxShadow: activeWeekTarget?.valid
+																			? `inset 0 0 0 1px ${chrome.borderColor}`
+																			: activeWeekTarget &&
+																					!activeWeekTarget.valid
+																				? "inset 0 0 0 1px rgba(239,68,68,0.28)"
+																				: undefined,
+																	}}
+																>
+																	<div className="flex min-h-full flex-col gap-2">
+																		{isGap ? (
+																			<button
+																				type="button"
+																				onClick={() =>
+																					setPanelState({
+																						mode: "gap",
+																						platform: lane.platform,
+																						date: day,
+																					})
+																				}
+																				className="flex min-h-28 flex-1 flex-col items-center justify-center rounded-[20px] border border-dashed px-3 py-4 text-center text-sm text-muted-foreground transition duration-200 hover:text-foreground"
+																				style={{
+																					borderColor: activeWeekTarget?.valid
+																						? chrome.borderColor
+																						: activeWeekTarget &&
+																								!activeWeekTarget.valid
+																							? "rgba(239,68,68,0.32)"
+																							: chrome.borderColor,
+																					backgroundColor:
+																						activeWeekTarget?.valid
+																							? chrome.highlightBackground
+																							: withAlpha(
+																									chrome.textColor === "inherit"
+																										? "#64748B"
+																										: chrome.textColor,
+																									0.04,
+																								),
+																				}}
+																			>
+																				<Plus className="mb-2 size-4" />
+																				<span className="font-medium text-foreground">
+																					{activeWeekTarget?.valid
+																						? "Drop to schedule here"
+																						: "Gap detected"}
+																				</span>
+																				<span className="mt-1 text-xs">
+																					{activeWeekTarget &&
+																					!activeWeekTarget.valid
+																						? "This slot only accepts the matching platform."
+																						: "Add or drag content into this lane."}
+																				</span>
+																			</button>
+																		) : showGapsOnly ? (
+																			<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-3 py-2 text-xs text-muted-foreground">
+																				Covered by {cellEntries.length} item
+																				{cellEntries.length === 1 ? "" : "s"}
+																			</div>
+																		) : (
+																			cellEntries.map((item) => (
+																				<CalendarCard
+																					key={item.variantId}
+																					card={{ kind: "entry", item }}
+																					onDragStart={beginDrag}
+																					onDragEnd={clearDragState}
+																					onClick={() =>
+																						setPanelState({
+																							mode: "entry",
+																							item,
+																						})
+																					}
+																				/>
+																			))
+																		)}
+																	</div>
+																</div>
+															);
+														})}
+													</div>
+												);
+											})}
 										</div>
 									</div>
 								) : null}
@@ -1702,7 +2039,7 @@ export function DashboardCalendar() {
 															"min-h-32 bg-background/60 px-3 py-3 text-left transition hover:bg-background/85",
 															day.getMonth() !== anchorDate.getMonth() &&
 																"text-muted-foreground/55",
-															isSameDay(day, new Date()) &&
+															isSameDay(day, today) &&
 																"bg-[color-mix(in_srgb,var(--brand-highlight)_14%,transparent)]",
 														)}
 														onClick={() => {
@@ -1725,7 +2062,14 @@ export function DashboardCalendar() {
 															{items.slice(0, 2).map((item) => (
 																<div
 																	key={item.variantId}
-																	className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/80 px-2.5 py-2 text-xs"
+																	className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/82 px-2.5 py-2 text-xs"
+																	style={{
+																		boxShadow: `inset 0 1px 0 ${withAlpha(
+																			getPlatformMeta(item.platform)?.color ??
+																				"#64748B",
+																			0.12,
+																		)}`,
+																	}}
 																>
 																	<div className="truncate font-medium">
 																		{item.title}
@@ -1742,15 +2086,36 @@ export function DashboardCalendar() {
 															) : null}
 															{visiblePlatforms.length > 0 ? (
 																<div className="flex flex-wrap gap-1">
-																	{visiblePlatforms.map((platform) => (
-																		<Badge
-																			key={platform}
-																			variant="secondary"
-																			className="rounded-full bg-background/80 text-[10px]"
-																		>
-																			{platformLabel(platform)}
-																		</Badge>
-																	))}
+																	{visiblePlatforms.map((platform) => {
+																		const meta = getPlatformMeta(platform);
+																		return (
+																			<Badge
+																				key={platform}
+																				variant="secondary"
+																				className="rounded-full border bg-background/85 px-2 py-1 text-[10px] font-medium"
+																				style={{
+																					borderColor: withAlpha(
+																						meta?.color ?? "#64748B",
+																						0.18,
+																					),
+																					backgroundColor: withAlpha(
+																						meta?.color ?? "#64748B",
+																						0.08,
+																					),
+																					color: meta?.color,
+																				}}
+																			>
+																				{platformIcon(platform, {
+																					containerClassName:
+																						"mr-1 size-4 border-0 bg-transparent",
+																					iconClassName: "size-3",
+																					backgroundAlpha: 0,
+																					borderAlpha: 0,
+																				})}
+																				{formatPlatformLabel(platform)}
+																			</Badge>
+																		);
+																	})}
 																</div>
 															) : null}
 														</div>
@@ -1763,110 +2128,228 @@ export function DashboardCalendar() {
 
 								{view === "timeline" ? (
 									<div className="space-y-4">
-										{lanes.map((lane) => (
-											<SurfaceCard
-												key={lane.platform}
-												tone="muted"
-												className="p-4"
-											>
-												<div className="mb-4 flex items-center justify-between gap-3">
-													<div>
-														<div className="font-medium">{lane.label}</div>
-														<div className="text-sm text-muted-foreground">
-															Drop onto an hour to set the precise publish time.
-														</div>
-													</div>
-													<Badge variant="outline" className="rounded-full">
-														{
-															(
-																entriesByLaneDay.get(
-																	`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
-																) ?? []
-															).length
-														}{" "}
-														item(s)
-													</Badge>
-												</div>
-												<div className="grid gap-2">
-													{TIMELINE_HOURS.map((hour) => {
-														const items = (
-															entriesByLaneDay.get(
-																`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
-															) ?? []
-														).filter(
-															(entry) =>
-																parseIso(entry.plannedAt)?.getHours() === hour,
-														);
-														return (
-															<div
-																key={`${lane.platform}-${hour}`}
-																onDragOver={(event) => event.preventDefault()}
-																onDrop={(event) =>
-																	void handleTimelineDrop(
-																		lane.platform,
-																		anchorDate,
-																		hour,
-																		event,
-																	)
-																}
-																className={cn(
-																	"grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/65 p-3 md:grid-cols-[84px_minmax(0,1fr)]",
-																	items.length === 0 && "border-dashed",
-																)}
-															>
-																<div className="pt-1 text-sm font-medium text-muted-foreground">
-																	{new Date(
-																		anchorDate.getFullYear(),
-																		anchorDate.getMonth(),
-																		anchorDate.getDate(),
-																		hour,
-																	).toLocaleTimeString(undefined, {
-																		hour: "numeric",
-																		minute: "2-digit",
-																	})}
-																</div>
-																<div className="flex min-h-16 flex-col gap-2">
-																	{items.length === 0 ? (
-																		<button
-																			type="button"
-																			className="flex min-h-16 items-center justify-center rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-3 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
-																			onClick={() =>
-																				setPanelState({
-																					mode: "gap",
-																					platform: lane.platform,
-																					date: new Date(
-																						anchorDate.getFullYear(),
-																						anchorDate.getMonth(),
-																						anchorDate.getDate(),
-																						hour,
-																						0,
-																						0,
-																						0,
-																					),
-																				})
-																			}
+										{lanes.map((lane) => {
+											const chrome = laneChrome(lane.platform);
+											const laneDimmed =
+												Boolean(dragPlatform) && dragPlatform !== lane.platform;
+											const laneEmphasized =
+												highlightedLane === lane.platform ||
+												dragPlatform === lane.platform;
+											return (
+												<div
+													key={lane.platform}
+													ref={(element) => {
+														timelineLaneRefs.current[lane.platform] = element;
+													}}
+												>
+													<SurfaceCard
+														tone="muted"
+														className={cn(
+															"overflow-hidden p-0 transition duration-200",
+															laneDimmed && "opacity-60",
+														)}
+														style={{
+															boxShadow: laneEmphasized
+																? `0 22px 44px -38px ${withAlpha(
+																		chrome.textColor === "inherit"
+																			? "#64748B"
+																			: chrome.textColor,
+																		0.62,
+																	)}`
+																: undefined,
+														}}
+													>
+														<div
+															className="border-b px-4 py-4"
+															style={{
+																borderColor: chrome.borderColor,
+																background: chrome.headerBackground,
+															}}
+														>
+															<div className="flex items-center justify-between gap-3">
+																<div className="flex items-center gap-3">
+																	{platformIcon(lane.platform)}
+																	<div>
+																		<div
+																			className="font-medium"
+																			style={{ color: chrome.textColor }}
 																		>
-																			<Plus className="mr-2 size-4" />
-																			Plan content here
-																		</button>
-																	) : (
-																		items.map((item) => (
-																			<CalendarCard
-																				key={item.variantId}
-																				card={{ kind: "entry", item }}
-																				onClick={() =>
-																					setPanelState({ mode: "entry", item })
-																				}
-																			/>
-																		))
-																	)}
+																			{lane.label}
+																		</div>
+																		<div className="text-sm text-muted-foreground">
+																			Drop onto an hour to set the precise
+																			publish time.
+																		</div>
+																	</div>
 																</div>
+																<Badge
+																	variant="outline"
+																	className="rounded-full bg-background/80"
+																	style={{ borderColor: chrome.borderColor }}
+																>
+																	{
+																		(
+																			entriesByLaneDay.get(
+																				`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
+																			) ?? []
+																		).length
+																	}{" "}
+																	item(s)
+																</Badge>
 															</div>
-														);
-													})}
+														</div>
+														<div className="grid gap-2 p-4">
+															{TIMELINE_HOURS.map((hour) => {
+																const items = (
+																	entriesByLaneDay.get(
+																		`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
+																	) ?? []
+																).filter(
+																	(entry) =>
+																		parseIso(entry.plannedAt)?.getHours() ===
+																		hour,
+																);
+																const activeTimelineTarget =
+																	activeDropTarget?.kind === "timeline" &&
+																	activeDropTarget.platform === lane.platform &&
+																	activeDropTarget.hour === hour
+																		? activeDropTarget
+																		: null;
+																return (
+																	<div
+																		key={`${lane.platform}-${hour}`}
+																		onDragOver={(event) =>
+																			event.preventDefault()
+																		}
+																		onDragEnter={(event) =>
+																			setTimelineHoverState(
+																				lane.platform,
+																				hour,
+																				event,
+																			)
+																		}
+																		onDragLeave={() =>
+																			setActiveDropTarget((current) =>
+																				current?.kind === "timeline" &&
+																				current.platform === lane.platform &&
+																				current.hour === hour
+																					? null
+																					: current,
+																			)
+																		}
+																		onDrop={(event) =>
+																			void handleTimelineDrop(
+																				lane.platform,
+																				anchorDate,
+																				hour,
+																				event,
+																			)
+																		}
+																		className={cn(
+																			"grid gap-3 rounded-[20px] border p-3 transition duration-200 md:grid-cols-[84px_minmax(0,1fr)]",
+																			items.length === 0 && "border-dashed",
+																		)}
+																		style={{
+																			borderColor: activeTimelineTarget?.valid
+																				? chrome.borderColor
+																				: activeTimelineTarget &&
+																						!activeTimelineTarget.valid
+																					? "rgba(239,68,68,0.28)"
+																					: withAlpha(
+																							chrome.textColor === "inherit"
+																								? "#64748B"
+																								: chrome.textColor,
+																							items.length === 0 ? 0.22 : 0.16,
+																						),
+																			background: activeTimelineTarget?.valid
+																				? `linear-gradient(180deg, ${chrome.highlightBackground}, rgba(255,255,255,0.74))`
+																				: activeTimelineTarget &&
+																						!activeTimelineTarget.valid
+																					? "linear-gradient(180deg, rgba(239,68,68,0.14), rgba(255,255,255,0.7))"
+																					: `linear-gradient(180deg, ${chrome.softBackground}, rgba(255,255,255,0.7))`,
+																		}}
+																	>
+																		<div
+																			className="pt-1 text-sm font-medium"
+																			style={{ color: chrome.textColor }}
+																		>
+																			{new Date(
+																				anchorDate.getFullYear(),
+																				anchorDate.getMonth(),
+																				anchorDate.getDate(),
+																				hour,
+																			).toLocaleTimeString(undefined, {
+																				hour: "numeric",
+																				minute: "2-digit",
+																			})}
+																		</div>
+																		<div className="flex min-h-16 flex-col gap-2">
+																			{items.length === 0 ? (
+																				<button
+																					type="button"
+																					className="flex min-h-16 items-center justify-center rounded-[16px] border border-dashed px-3 text-sm text-muted-foreground transition duration-200 hover:text-foreground"
+																					style={{
+																						borderColor:
+																							activeTimelineTarget?.valid
+																								? chrome.borderColor
+																								: withAlpha(
+																										chrome.textColor ===
+																											"inherit"
+																											? "#64748B"
+																											: chrome.textColor,
+																										0.18,
+																									),
+																						backgroundColor:
+																							activeTimelineTarget?.valid
+																								? chrome.highlightBackground
+																								: "rgba(255,255,255,0.72)",
+																					}}
+																					onClick={() =>
+																						setPanelState({
+																							mode: "gap",
+																							platform: lane.platform,
+																							date: new Date(
+																								anchorDate.getFullYear(),
+																								anchorDate.getMonth(),
+																								anchorDate.getDate(),
+																								hour,
+																								0,
+																								0,
+																								0,
+																							),
+																						})
+																					}
+																				>
+																					<Plus className="mr-2 size-4" />
+																					{activeTimelineTarget?.valid
+																						? "Drop to place here"
+																						: "Plan content here"}
+																				</button>
+																			) : (
+																				items.map((item) => (
+																					<CalendarCard
+																						key={item.variantId}
+																						card={{ kind: "entry", item }}
+																						onDragStart={beginDrag}
+																						onDragEnd={clearDragState}
+																						onClick={() =>
+																							setPanelState({
+																								mode: "entry",
+																								item,
+																							})
+																						}
+																					/>
+																				))
+																			)}
+																		</div>
+																	</div>
+																);
+															})}
+														</div>
+													</SurfaceCard>
 												</div>
-											</SurfaceCard>
-										))}
+											);
+										})}
 									</div>
 								) : null}
 							</div>
@@ -1886,6 +2369,12 @@ export function DashboardCalendar() {
 								</div>
 								<div
 									onDragOver={(event) => event.preventDefault()}
+									onDragEnter={setBacklogHoverState}
+									onDragLeave={() =>
+										setActiveDropTarget((current) =>
+											current?.kind === "backlog" ? null : current,
+										)
+									}
 									onDrop={(event) => {
 										const payload = readDragPayload(event);
 										if (!payload || payload.source !== "entry") {
@@ -1893,9 +2382,32 @@ export function DashboardCalendar() {
 										}
 										void handleUnscheduleVariant(payload.variantId);
 									}}
-									className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-3 text-xs text-muted-foreground"
+									className="rounded-[20px] border border-dashed p-3 text-xs text-muted-foreground transition duration-200"
+									style={{
+										borderColor:
+											activeDropTarget?.kind === "backlog" &&
+											activeDropTarget.valid
+												? withAlpha(
+														getPlatformMeta(activeDropTarget.platform ?? "")
+															?.color ?? "#64748B",
+														0.28,
+													)
+												: "var(--brand-border-soft)",
+										background:
+											activeDropTarget?.kind === "backlog" &&
+											activeDropTarget.valid
+												? `linear-gradient(180deg, ${withAlpha(
+														getPlatformMeta(activeDropTarget.platform ?? "")
+															?.color ?? "#64748B",
+														0.12,
+													)}, rgba(255,255,255,0.6))`
+												: "rgba(255,255,255,0.55)",
+									}}
 								>
-									Drop scheduled cards here to unschedule them.
+									{activeDropTarget?.kind === "backlog" &&
+									activeDropTarget.valid
+										? "Drop to send this variant back to backlog."
+										: "Drop scheduled cards here to unschedule them."}
 								</div>
 								<div className="space-y-3">
 									{filteredBacklog.length === 0 ? (
@@ -1907,6 +2419,8 @@ export function DashboardCalendar() {
 											<CalendarCard
 												key={item.variantId}
 												card={{ kind: "backlog", item }}
+												onDragStart={beginDrag}
+												onDragEnd={clearDragState}
 												onClick={() => setPanelState({ mode: "backlog", item })}
 											/>
 										))
@@ -1916,7 +2430,7 @@ export function DashboardCalendar() {
 						</div>
 					)}
 				</div>
-			</DashboardPanel>
+			</SurfaceCard>
 
 			<Sheet
 				open={panelOpen}
@@ -2006,7 +2520,7 @@ export function DashboardCalendar() {
 												calendar?.platforms.map((lane) => lane.platform) ?? []
 											).map((platform) => (
 												<SelectItem key={platform} value={platform}>
-													{platformLabel(platform)}
+													{formatPlatformLabel(platform)}
 												</SelectItem>
 											))}
 										</SelectContent>
