@@ -1376,14 +1376,15 @@ func normalizeContentPayload(contentKind string, payload map[string]any) (string
 	if payload == nil {
 		payload = map[string]any{}
 	}
+	tags := normalizeTags(extractTagsFromPayload(payload))
 	switch contentKind {
 	case "text":
 		body, _ := payload["body"].(string)
-		return marshalMust(map[string]any{"body": body}), contentKind, nil
+		return marshalMust(map[string]any{"body": body, "tags": tags}), contentKind, nil
 	case "article":
 		title, _ := payload["title"].(string)
 		body, _ := payload["body"].(string)
-		return marshalMust(map[string]any{"title": title, "body": body}), contentKind, nil
+		return marshalMust(map[string]any{"title": title, "body": body, "tags": tags}), contentKind, nil
 	case "thread":
 		items := make([]map[string]any, 0)
 		switch raw := payload["items"].(type) {
@@ -1399,7 +1400,7 @@ func normalizeContentPayload(contentKind string, payload map[string]any) (string
 				items = append(items, map[string]any{"body": body})
 			}
 		}
-		return marshalMust(map[string]any{"items": items}), contentKind, nil
+		return marshalMust(map[string]any{"items": items, "tags": tags}), contentKind, nil
 	default:
 		return "", "", fmt.Errorf("%w: content kind must be text, article, or thread", iam.ErrValidation)
 	}
@@ -1623,7 +1624,7 @@ func coerceResolvedContentForRule(rule resources.CapabilityRule, resolved resolv
 		textBody := extractCaptionText(resolved.contentKind, resolved.contentPayload)
 		return resolvedVariantState{
 			contentKind:     "text",
-			contentPayload:  map[string]any{"body": textBody},
+			contentPayload:  map[string]any{"body": textBody, "tags": extractTagsFromPayload(resolved.contentPayload)},
 			effectiveAssets: resolved.effectiveAssets,
 			issues:          resolved.issues,
 		}
@@ -1637,7 +1638,7 @@ func coerceResolvedContentForRule(rule resources.CapabilityRule, resolved resolv
 	textBody := extractCaptionText(resolved.contentKind, resolved.contentPayload)
 	return resolvedVariantState{
 		contentKind:     "text",
-		contentPayload:  map[string]any{"body": textBody},
+		contentPayload:  map[string]any{"body": textBody, "tags": extractTagsFromPayload(resolved.contentPayload)},
 		effectiveAssets: resolved.effectiveAssets,
 		issues:          resolved.issues,
 	}
@@ -1712,6 +1713,44 @@ func extractCaptionText(contentKind string, payload map[string]any) string {
 	default:
 		return extractTextBody(payload)
 	}
+}
+
+func extractTagsFromPayload(payload map[string]any) []string {
+	switch raw := payload["tags"].(type) {
+	case []string:
+		return normalizeTags(raw)
+	case []any:
+		tags := make([]string, 0, len(raw))
+		for _, item := range raw {
+			if value, ok := item.(string); ok {
+				tags = append(tags, value)
+			}
+		}
+		return normalizeTags(tags)
+	default:
+		return []string{}
+	}
+}
+
+func normalizeTags(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		tag := strings.TrimSpace(strings.TrimLeft(value, "#"))
+		if tag == "" {
+			continue
+		}
+		key := strings.ToLower(tag)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, tag)
+	}
+	return normalized
 }
 
 func resolveEffectiveAssets(sourceAssets, variantAssets []resources.ResourceListItem, assetMode string, removedIDs []string) []resources.ResourceListItem {

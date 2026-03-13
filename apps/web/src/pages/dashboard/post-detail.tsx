@@ -16,6 +16,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import { ResourceChipList } from "@/components/resources/resource-display";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { PostDetail, PostVariant } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
@@ -42,6 +43,31 @@ function renderContentPayload(
 		return [payload.title, payload.body].filter(Boolean).join("\n\n");
 	}
 	return typeof payload.body === "string" ? payload.body : "";
+}
+
+function extractTags(payload: Record<string, unknown>) {
+	return Array.isArray(payload.tags)
+		? payload.tags.filter((tag): tag is string => typeof tag === "string")
+		: [];
+}
+
+function TagRow({ tags }: { tags: string[] }) {
+	if (tags.length === 0) {
+		return null;
+	}
+	return (
+		<div className="mt-3 flex flex-wrap gap-2">
+			{tags.map((tag) => (
+				<Badge
+					key={tag}
+					variant="secondary"
+					className="rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs font-medium"
+				>
+					{tag.startsWith("#") ? tag : `#${tag}`}
+				</Badge>
+			))}
+		</div>
+	);
 }
 
 function MetricStrip({
@@ -282,6 +308,7 @@ export function DashboardPostDetailPage() {
 											post.contentPayload,
 										)}
 									</pre>
+									<TagRow tags={extractTags(post.contentPayload)} />
 								</div>
 								<div>
 									<div className="text-sm font-medium">Generic assets</div>
@@ -409,6 +436,9 @@ export function DashboardPostDetailPage() {
 														variant.contentPayload ?? {},
 													)}
 												</pre>
+												<TagRow
+													tags={extractTags(variant.contentPayload ?? {})}
+												/>
 											</div>
 										) : (
 											<div className="text-sm text-muted-foreground">

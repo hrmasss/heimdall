@@ -334,3 +334,24 @@ func TestEvaluateVariantReadinessCoercesArticleToTextWhenFormatSupportsCaptions(
 		}
 	}
 }
+
+func TestNormalizeContentPayloadPreservesTags(t *testing.T) {
+	t.Parallel()
+
+	payload, contentKind, err := normalizeContentPayload("article", map[string]any{
+		"title": "Launch recap",
+		"body":  "Behind the scenes from the launch.",
+		"tags":  []any{"#Launch", "behindthescenes", "Launch", ""},
+	})
+	if err != nil {
+		t.Fatalf("expected payload to normalize, got %v", err)
+	}
+	if contentKind != "article" {
+		t.Fatalf("expected article content kind, got %q", contentKind)
+	}
+	parsed := parseMetadata(payload)
+	tags := extractTagsFromPayload(parsed)
+	if len(tags) != 2 || tags[0] != "Launch" || tags[1] != "behindthescenes" {
+		t.Fatalf("expected normalized tags to be preserved, got %#v", tags)
+	}
+}

@@ -84,6 +84,7 @@ type DraftContent = {
 	articleTitle: string;
 	articleBody: string;
 	threadItems: string[];
+	tags: string[];
 };
 
 type DraftVariant = {
@@ -170,11 +171,63 @@ function createDraftContent(kind: ContentKind = "text"): DraftContent {
 		articleTitle: "",
 		articleBody: "",
 		threadItems: [""],
+		tags: [],
 	};
 }
 
 function blankReadiness(): VariantReadiness {
 	return { draftIssues: [], scheduleBlockers: [], publishBlockers: [] };
+}
+
+function normalizeTags(values: string[]) {
+	const normalized: string[] = [];
+	const seen = new Set<string>();
+	for (const value of values) {
+		const tag = value.trim().replace(/^#+/, "");
+		if (!tag) {
+			continue;
+		}
+		const key = tag.toLowerCase();
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		normalized.push(tag);
+	}
+	return normalized;
+}
+
+function parseTagInput(value: string) {
+	return normalizeTags(value.replace(/\s+#/g, "\n#").split(/[\n,]+|(?=#)/g));
+}
+
+function extractTagsFromPayload(payload: Record<string, unknown>) {
+	return normalizeTags(
+		Array.isArray(payload.tags)
+			? payload.tags.filter((tag): tag is string => typeof tag === "string")
+			: [],
+	);
+}
+
+function formatTagLabel(tag: string) {
+	return tag.startsWith("#") ? tag : `#${tag}`;
+}
+
+function formatTagsForAppend(tags: string[]) {
+	return normalizeTags(tags).map(formatTagLabel).join(" ");
+}
+
+function formatTagsForEditor(tags: string[]) {
+	return normalizeTags(tags).map(formatTagLabel).join(", ");
+}
+
+function appendTagsToBody(body: string, tags: string[]) {
+	const formatted = formatTagsForAppend(tags);
+	if (!formatted) {
+		return body;
+	}
+	const trimmed = body.trimEnd();
+	return trimmed ? `${trimmed}\n\n${formatted}` : formatted;
 }
 
 function buildContentPayload(content: DraftContent) {
@@ -184,12 +237,17 @@ function buildContentPayload(content: DraftContent) {
 				.map((item) => item.trim())
 				.filter(Boolean)
 				.map((body) => ({ body })),
+			tags: content.tags,
 		};
 	}
 	if (content.kind === "article") {
-		return { title: content.articleTitle, body: content.articleBody };
+		return {
+			title: content.articleTitle,
+			body: content.articleBody,
+			tags: content.tags,
+		};
 	}
-	return { body: content.textBody };
+	return { body: content.textBody, tags: content.tags };
 }
 
 function extractCaptionFromDraftContent(content: DraftContent): string {
@@ -230,6 +288,7 @@ function extractDraftContent(
 			articleTitle: "",
 			articleBody: "",
 			threadItems: items.length > 0 ? items : [""],
+			tags: extractTagsFromPayload(payload),
 		};
 	}
 	if (kind === "article") {
@@ -239,6 +298,7 @@ function extractDraftContent(
 			articleTitle: typeof payload.title === "string" ? payload.title : "",
 			articleBody: typeof payload.body === "string" ? payload.body : "",
 			threadItems: [""],
+			tags: extractTagsFromPayload(payload),
 		};
 	}
 	return {
@@ -247,6 +307,7 @@ function extractDraftContent(
 		articleTitle: "",
 		articleBody: "",
 		threadItems: [""],
+		tags: extractTagsFromPayload(payload),
 	};
 }
 
@@ -343,6 +404,7 @@ function coerceDraftContentForRule(
 			articleTitle: "",
 			articleBody: "",
 			threadItems: [""],
+			tags: content.tags,
 		};
 	}
 	return createDraftContent(preferredKind);
@@ -538,6 +600,27 @@ function renderContentPreview(
 	return (
 		(typeof contentPayload.body === "string" ? contentPayload.body : "") ||
 		"No body text yet."
+	);
+}
+
+function TagBadgeRow({ tags }: { tags: string[] }) {
+	if (tags.length === 0) {
+		return (
+			<div className="text-sm text-muted-foreground">No shared tags yet.</div>
+		);
+	}
+	return (
+		<div className="flex flex-wrap gap-2">
+			{tags.map((tag) => (
+				<Badge
+					key={tag}
+					variant="secondary"
+					className="rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs font-medium"
+				>
+					{formatTagLabel(tag)}
+				</Badge>
+			))}
+		</div>
 	);
 }
 
@@ -819,6 +902,7 @@ export function DashboardNewPost() {
 	const [startsFromPlatform, setStartsFromPlatform] = useState("");
 	const [startsFromSurface, setStartsFromSurface] = useState("");
 	const [sharedDraft, setSharedDraft] = useState(createDraftContent());
+	const [sharedTagInput, setSharedTagInput] = useState("");
 	const [rootAssetIds, setRootAssetIds] = useState<string[]>([]);
 	const [variants, setVariants] = useState<DraftVariant[]>([]);
 	const [legacyVariants, setLegacyVariants] = useState<PostVariant[]>([]);
@@ -923,6 +1007,7 @@ export function DashboardNewPost() {
 					setStartsFromPlatform(emptyState.startsFromPlatform);
 					setStartsFromSurface(emptyState.startsFromSurface);
 					setSharedDraft(emptyState.sharedDraft);
+					setSharedTagInput(formatTagsForEditor(emptyState.sharedDraft.tags));
 					setRootAssetIds(emptyState.rootAssetIds);
 					setVariants([]);
 					setLegacyVariants([]);
@@ -978,6 +1063,7 @@ export function DashboardNewPost() {
 				setStartsFromPlatform(nextState.startsFromPlatform);
 				setStartsFromSurface(nextState.startsFromSurface);
 				setSharedDraft(nextState.sharedDraft);
+				setSharedTagInput(formatTagsForEditor(nextState.sharedDraft.tags));
 				setRootAssetIds(nextState.rootAssetIds);
 				setVariants(nextState.variants);
 				setLegacyVariants(post.legacyVariants);
@@ -1072,6 +1158,49 @@ export function DashboardNewPost() {
 
 	function contentFromSnapshot(snapshot: VariantSnapshot): DraftContent {
 		return extractDraftContent(snapshot.contentKind, snapshot.contentPayload);
+	}
+
+	function updateSharedTags(value: string) {
+		setSharedTagInput(value);
+		setSharedDraft((current) => ({
+			...current,
+			tags: parseTagInput(value),
+		}));
+	}
+
+	function appendDraftTagsToBody(content: DraftContent, tags: string[]) {
+		if (content.kind === "article") {
+			return {
+				...content,
+				articleBody: appendTagsToBody(content.articleBody, tags),
+			};
+		}
+		if (content.kind === "thread") {
+			const nextItems =
+				content.threadItems.length > 0 ? [...content.threadItems] : [""];
+			nextItems.push(formatTagsForAppend(tags));
+			return { ...content, threadItems: nextItems };
+		}
+		return {
+			...content,
+			textBody: appendTagsToBody(content.textBody, tags),
+		};
+	}
+
+	function appendSharedTagsToVariantBody(platform: string) {
+		if (sharedDraft.tags.length === 0) {
+			return;
+		}
+		setVariants((current) =>
+			current.map((variant) =>
+				variant.platform === platform
+					? {
+							...variant,
+							content: appendDraftTagsToBody(variant.content, sharedDraft.tags),
+						}
+					: variant,
+			),
+		);
 	}
 
 	function removeVariant(platform: string) {
@@ -1699,6 +1828,48 @@ export function DashboardNewPost() {
 												placeholder="Shared draft body"
 											/>
 										)}
+										<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/45 p-4">
+											<div className="flex flex-wrap items-center justify-between gap-3">
+												<div>
+													<div className="text-sm font-medium">Shared tags</div>
+													<div className="text-sm text-muted-foreground">
+														Stored separately from the body so we can adapt them
+														per platform later.
+													</div>
+												</div>
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													className="rounded-full"
+													disabled={sharedDraft.tags.length === 0}
+													onClick={() =>
+														setSharedDraft((current) =>
+															appendDraftTagsToBody(current, current.tags),
+														)
+													}
+												>
+													<Plus className="size-4" />
+													{sharedDraft.kind === "thread"
+														? "Add tags as final item"
+														: "Append tags to body"}
+												</Button>
+											</div>
+											<Textarea
+												value={sharedTagInput}
+												onChange={(event) =>
+													updateSharedTags(event.target.value)
+												}
+												onBlur={() =>
+													setSharedTagInput(
+														formatTagsForEditor(sharedDraft.tags),
+													)
+												}
+												className={compactTextareaClassName}
+												placeholder="#launch, #behindthescenes"
+											/>
+											<TagBadgeRow tags={sharedDraft.tags} />
+										</div>
 									</SurfaceCard>
 									<SurfaceCard className="space-y-4 p-5">
 										<div className="flex flex-wrap items-center justify-between gap-3">
@@ -1735,6 +1906,7 @@ export function DashboardNewPost() {
 											buildContentPayload(sharedDraft),
 										)}
 									</pre>
+									<TagBadgeRow tags={sharedDraft.tags} />
 								</SurfaceCard>
 							</div>
 						</TabsContent>
@@ -2178,7 +2350,24 @@ export function DashboardNewPost() {
 										</SurfaceCard>
 
 										<SurfaceCard className="space-y-4 p-5">
-											<div className="text-sm font-medium">Content</div>
+											<div className="flex flex-wrap items-center justify-between gap-3">
+												<div className="text-sm font-medium">Content</div>
+												{variant.contentMode === "custom" ? (
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														className="rounded-full"
+														disabled={sharedDraft.tags.length === 0}
+														onClick={() =>
+															appendSharedTagsToVariantBody(platform)
+														}
+													>
+														<Plus className="size-4" />
+														Append shared tags
+													</Button>
+												) : null}
+											</div>
 											{variant.contentMode === "inherit" ? (
 												<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
 													<div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -2190,6 +2379,13 @@ export function DashboardNewPost() {
 															snapshot.contentPayload,
 														)}
 													</pre>
+													<div className="mt-4">
+														<TagBadgeRow
+															tags={extractTagsFromPayload(
+																snapshot.contentPayload,
+															)}
+														/>
+													</div>
 												</div>
 											) : variant.content.kind === "article" ? (
 												<>
@@ -2219,6 +2415,7 @@ export function DashboardNewPost() {
 														className={longTextareaClassName}
 														placeholder="# Heading\n\nWrite the article in markdown."
 													/>
+													<TagBadgeRow tags={sharedDraft.tags} />
 												</>
 											) : variant.content.kind === "thread" ? (
 												<div className="space-y-3">
@@ -2311,21 +2508,32 @@ export function DashboardNewPost() {
 														<Plus className="size-4" />
 														Add thread item
 													</Button>
+													<div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/45 p-4">
+														<div className="space-y-2">
+															<div className="text-sm font-medium">
+																Shared tags
+															</div>
+															<TagBadgeRow tags={sharedDraft.tags} />
+														</div>
+													</div>
 												</div>
 											) : (
-												<Textarea
-													value={variant.content.textBody}
-													onChange={(event) =>
-														updateVariant(platform, {
-															content: {
-																...variant.content,
-																textBody: event.target.value,
-															},
-														})
-													}
-													className={longTextareaClassName}
-													placeholder="Platform-specific body"
-												/>
+												<div className="space-y-3">
+													<Textarea
+														value={variant.content.textBody}
+														onChange={(event) =>
+															updateVariant(platform, {
+																content: {
+																	...variant.content,
+																	textBody: event.target.value,
+																},
+															})
+														}
+														className={longTextareaClassName}
+														placeholder="Platform-specific body"
+													/>
+													<TagBadgeRow tags={sharedDraft.tags} />
+												</div>
 											)}
 										</SurfaceCard>
 
