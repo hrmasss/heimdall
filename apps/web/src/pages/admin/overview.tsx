@@ -158,9 +158,9 @@ export function AdminOverview() {
 					className="lg:col-span-2"
 				>
 					<div className="space-y-3">
-						{recentActivity.map((activity, index) => (
+						{recentActivity.map((activity) => (
 							<div
-								key={index}
+								key={activity.title}
 								className={cn(
 									"flex items-start gap-4 rounded-2xl border p-4 transition-colors",
 									activity.isWarning
@@ -194,10 +194,7 @@ export function AdminOverview() {
 					</div>
 				</DashboardPanel>
 
-				<DashboardPanel
-					title="Quick Actions"
-					description="Common admin tasks"
-				>
+				<DashboardPanel title="Quick Actions" description="Common admin tasks">
 					<div className="space-y-2">
 						{quickActions.map((action) => (
 							<Link

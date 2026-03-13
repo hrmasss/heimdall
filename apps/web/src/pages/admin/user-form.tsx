@@ -14,6 +14,7 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { AdminFormPage, AdminFormSection } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +25,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import type {
+	ApiListResponse,
+	PlatformUserRecord,
+	Role,
+} from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
-import type { ApiListResponse, PlatformUserRecord, Role } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 function getPlatformRoles(record: PlatformUserRecord) {
 	return record.platformRoles ?? [];
@@ -97,7 +101,9 @@ function RoleSelector({
 							<div className="font-medium">{role.label}</div>
 							<div className="text-sm text-muted-foreground">{role.code}</div>
 							<div className="text-sm text-muted-foreground">
-								{role.permissions.map((permission) => permission.label).join(", ")}
+								{role.permissions
+									.map((permission) => permission.label)
+									.join(", ")}
 							</div>
 						</div>
 					</label>
@@ -259,42 +265,38 @@ export function AdminUserFormPage({ mode }: { mode: "create" | "edit" }) {
 					</Link>
 				</Button>
 			}
-			aside={
-				<>
-					<SurfaceCard className="p-5">
-						<div className="flex size-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
-							<ShieldCheck className="size-5" />
+			aside=<SurfaceCard className="p-5">
+				<div className="flex size-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+					<ShieldCheck className="size-5" />
+				</div>
+				<div className="mt-4 space-y-2">
+					<div className="text-lg font-semibold">Access scope</div>
+					<p className="text-sm text-muted-foreground">
+						Platform users work above the tenant boundary. Keep this list for
+						staff, support, and administrative operators.
+					</p>
+				</div>
+				<div className="mt-4 space-y-3 text-sm text-muted-foreground">
+					<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
+						<div className="font-medium text-foreground">Selected roles</div>
+						<div className="mt-2">
+							{selectedRoles.length
+								? selectedRoles.map((role) => role.label).join(", ")
+								: "No platform role selected yet."}
 						</div>
-						<div className="mt-4 space-y-2">
-							<div className="text-lg font-semibold">Access scope</div>
-							<p className="text-sm text-muted-foreground">
-								Platform users work above the tenant boundary. Keep this list for
-								staff, support, and administrative operators.
-							</p>
-						</div>
-						<div className="mt-4 space-y-3 text-sm text-muted-foreground">
-							<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
-								<div className="font-medium text-foreground">
-									Selected roles
-								</div>
-								<div className="mt-2">
-									{selectedRoles.length
-										? selectedRoles.map((role) => role.label).join(", ")
-										: "No platform role selected yet."}
-								</div>
+					</div>
+					{record ? (
+						<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
+							<div className="font-medium text-foreground">
+								Workspace footprint
 							</div>
-							{record ? (
-								<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
-									<div className="font-medium text-foreground">
-										Workspace footprint
-									</div>
-									<div className="mt-2">{record.workspaceCount} linked workspaces</div>
-								</div>
-							) : null}
+							<div className="mt-2">
+								{record.workspaceCount} linked workspaces
+							</div>
 						</div>
-					</SurfaceCard>
-				</>
-			}
+					) : null}
+				</div>
+			</SurfaceCard>
 		>
 			<form className="space-y-6" onSubmit={handleSubmit}>
 				<AdminFormSection
@@ -355,7 +357,9 @@ export function AdminUserFormPage({ mode }: { mode: "create" | "edit" }) {
 												size="icon-sm"
 												className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
 												onClick={() => setShowPassword((value) => !value)}
-												aria-label={showPassword ? "Hide password" : "Show password"}
+												aria-label={
+													showPassword ? "Hide password" : "Show password"
+												}
 											>
 												{showPassword ? (
 													<EyeOff className="size-4" />
@@ -398,8 +402,8 @@ export function AdminUserFormPage({ mode }: { mode: "create" | "edit" }) {
 											</Button>
 										</div>
 										<div className="text-sm text-muted-foreground">
-											Use a temporary password and share it securely. The user can
-											reset it after first sign-in.
+											Use a temporary password and share it securely. The user
+											can reset it after first sign-in.
 										</div>
 										{passwordFeedback ? (
 											<div className="text-sm text-amber-600">

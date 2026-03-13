@@ -16,10 +16,7 @@ import {
 import { useState } from "react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	InsightCard,
-} from "@/components/app/dashboard";
+import { DashboardPageHeader, InsightCard } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -185,7 +182,10 @@ const permissionConfig = {
 		label: "Read Only",
 		className: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 	},
-} satisfies Record<ApiKeyRecord["permissions"], { label: string; className: string }>;
+} satisfies Record<
+	ApiKeyRecord["permissions"],
+	{ label: string; className: string }
+>;
 
 const metrics = [
 	{
@@ -222,7 +222,10 @@ function StatusBadge({ status }: { status: ApiKeyRecord["status"] }) {
 	const config = statusConfig[status];
 
 	return (
-		<Badge variant="outline" className={cn("gap-1 rounded-full", config.className)}>
+		<Badge
+			variant="outline"
+			className={cn("gap-1 rounded-full", config.className)}
+		>
 			<config.icon className="size-3" />
 			{config.label}
 		</Badge>
@@ -294,7 +297,9 @@ export function AdminApiKeys() {
 			accessor: (apiKey) => (
 				<div>
 					<div className="font-medium">{apiKey.owner}</div>
-					<div className="mt-1 text-sm text-muted-foreground">{apiKey.email}</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						{apiKey.email}
+					</div>
 				</div>
 			),
 			getSortValue: (apiKey) => apiKey.owner,
@@ -320,7 +325,9 @@ export function AdminApiKeys() {
 			accessor: (apiKey) => (
 				<div>
 					<div className="font-medium">{apiKey.requests}</div>
-					<div className="mt-1 text-sm text-muted-foreground">{apiKey.lastUsed}</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						{apiKey.lastUsed}
+					</div>
 				</div>
 			),
 			getSortValue: (apiKey) => apiKey.requestsSort,
@@ -352,7 +359,8 @@ export function AdminApiKeys() {
 							<DialogHeader>
 								<DialogTitle>Create API Key</DialogTitle>
 								<DialogDescription>
-									Generate a new API key for programmatic access. Store it securely because the full token will not be shown again.
+									Generate a new API key for programmatic access. Store it
+									securely because the full token will not be shown again.
 								</DialogDescription>
 							</DialogHeader>
 							<div className="grid gap-4 py-4">
@@ -375,9 +383,15 @@ export function AdminApiKeys() {
 								<div className="grid gap-2">
 									<Label htmlFor="permissions">Permissions</Label>
 									<NativeSelect defaultValue="read" className="rounded-xl">
-										<NativeSelectOption value="read">Read Only</NativeSelectOption>
-										<NativeSelectOption value="write">Read/Write</NativeSelectOption>
-										<NativeSelectOption value="full">Full Access</NativeSelectOption>
+										<NativeSelectOption value="read">
+											Read Only
+										</NativeSelectOption>
+										<NativeSelectOption value="write">
+											Read/Write
+										</NativeSelectOption>
+										<NativeSelectOption value="full">
+											Full Access
+										</NativeSelectOption>
 									</NativeSelect>
 								</div>
 								<div className="grid gap-2">

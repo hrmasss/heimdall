@@ -14,10 +14,7 @@ import {
 } from "lucide-react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	InsightCard,
-} from "@/components/app/dashboard";
+import { DashboardPageHeader, InsightCard } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -214,7 +211,10 @@ function StatusBadge({ status }: { status: BlogPostRecord["status"] }) {
 	const config = statusConfig[status];
 
 	return (
-		<Badge variant="outline" className={cn("gap-1 rounded-full", config.className)}>
+		<Badge
+			variant="outline"
+			className={cn("gap-1 rounded-full", config.className)}
+		>
 			<config.icon className="size-3" />
 			{config.label}
 		</Badge>
@@ -256,7 +256,11 @@ const columns: DataTableColumn<BlogPostRecord>[] = [
 		id: "category",
 		label: "Category",
 		width: 140,
-		accessor: (post) => <Badge variant="outline" className="rounded-full">{post.category}</Badge>,
+		accessor: (post) => (
+			<Badge variant="outline" className="rounded-full">
+				{post.category}
+			</Badge>
+		),
 		getSortValue: (post) => post.category,
 	},
 	{
@@ -301,7 +305,8 @@ export function AdminBlogPosts() {
 							<DialogHeader>
 								<DialogTitle>Create New Post</DialogTitle>
 								<DialogDescription>
-									Start a new blog post. You can save it as a draft and publish it later.
+									Start a new blog post. You can save it as a draft and publish
+									it later.
 								</DialogDescription>
 							</DialogHeader>
 							<div className="grid gap-4 py-4">
@@ -335,9 +340,15 @@ export function AdminBlogPosts() {
 									<div className="grid gap-2">
 										<Label htmlFor="post-author">Author</Label>
 										<NativeSelect defaultValue="current" className="rounded-xl">
-											<NativeSelectOption value="current">Current Admin</NativeSelectOption>
-											<NativeSelectOption value="sarah">Sarah Chen</NativeSelectOption>
-											<NativeSelectOption value="mike">Mike Johnson</NativeSelectOption>
+											<NativeSelectOption value="current">
+												Current Admin
+											</NativeSelectOption>
+											<NativeSelectOption value="sarah">
+												Sarah Chen
+											</NativeSelectOption>
+											<NativeSelectOption value="mike">
+												Mike Johnson
+											</NativeSelectOption>
 										</NativeSelect>
 									</div>
 								</div>
@@ -431,7 +442,9 @@ export function AdminBlogPosts() {
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<div className="text-lg font-medium">{post.title}</div>
-									<div className="mt-1 text-sm text-muted-foreground">/{post.slug}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										/{post.slug}
+									</div>
 								</div>
 								<StatusBadge status={post.status} />
 							</div>

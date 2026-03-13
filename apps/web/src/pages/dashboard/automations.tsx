@@ -1,10 +1,10 @@
 import { CheckCircle2, Clock3, PlayCircle, WandSparkles } from "lucide-react";
 
+import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
-import { SurfaceCard } from "@/components/app/brand";
 import { Button } from "@/components/ui/button";
 
 const rules = [

@@ -11,7 +11,6 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
-import { ResourceSetSummaryStrip } from "@/components/resources/resource-set-display";
 import {
 	ResourceCompatibilityBadge,
 	ResourceThumb,
@@ -19,6 +18,7 @@ import {
 	formatBytes,
 	formatResourceMeta,
 } from "@/components/resources/resource-display";
+import { ResourceSetSummaryStrip } from "@/components/resources/resource-set-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ResourceCompatibility, ResourceDetail } from "@/lib/api-types";

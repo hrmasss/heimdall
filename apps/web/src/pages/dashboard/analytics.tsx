@@ -7,12 +7,12 @@ import {
 	Users2,
 } from "lucide-react";
 
+import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
 	InsightCard,
 } from "@/components/app/dashboard";
-import { SurfaceCard } from "@/components/app/brand";
 import { Button } from "@/components/ui/button";
 
 const metrics = [

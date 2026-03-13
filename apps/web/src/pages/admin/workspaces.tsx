@@ -1,5 +1,5 @@
 import { Building2, PencilLine, Shield, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
@@ -7,8 +7,8 @@ import { DashboardPageHeader } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformWorkspaceRecord } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const statusStyles = {
@@ -38,25 +38,28 @@ export function AdminWorkspaces() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	async function loadWorkspaces() {
+	const loadWorkspaces = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const response =
-				await platformRequest<ApiListResponse<PlatformWorkspaceRecord>>(
-					"/platform/workspaces",
-				);
+			const response = await platformRequest<
+				ApiListResponse<PlatformWorkspaceRecord>
+			>("/platform/workspaces");
 			setWorkspaces(response.items);
 		} catch (loadError) {
-			setError(loadError instanceof Error ? loadError.message : "Unable to load workspaces.");
+			setError(
+				loadError instanceof Error
+					? loadError.message
+					: "Unable to load workspaces.",
+			);
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [platformRequest]);
 
 	useEffect(() => {
 		void loadWorkspaces();
-	}, []);
+	}, [loadWorkspaces]);
 
 	async function assumeWorkspace(workspaceId: string) {
 		await platformRequest(`/platform/workspaces/${workspaceId}/assume-access`, {
@@ -142,13 +145,15 @@ export function AdminWorkspaces() {
 					error={error}
 					emptyState={{
 						title: "No workspaces found",
-						description: "Create the first managed workspace to populate the directory.",
+						description:
+							"Create the first managed workspace to populate the directory.",
 					}}
 					rowActions={[
 						{
 							label: "Manage members",
 							icon: Users,
-							onClick: (workspace) => navigate(`/admin/workspaces/${workspace.id}`),
+							onClick: (workspace) =>
+								navigate(`/admin/workspaces/${workspace.id}`),
 						},
 						{
 							label: "Edit workspace",
@@ -172,7 +177,9 @@ export function AdminWorkspaces() {
 							</div>
 							<div>
 								<div className="text-lg font-medium">{workspace.name}</div>
-								<div className="text-sm text-muted-foreground">{workspace.slug}</div>
+								<div className="text-sm text-muted-foreground">
+									{workspace.slug}
+								</div>
 							</div>
 							<div className="grid grid-cols-2 gap-3 text-sm">
 								<div>

@@ -1,130 +1,2317 @@
-import { CalendarRange, CheckCircle2, Clock3, Plus } from "lucide-react";
+import {
+	RiFacebookCircleFill,
+	RiInstagramFill,
+	RiLinkedinFill,
+	RiTiktokFill,
+	RiTwitterXFill,
+	RiYoutubeFill,
+} from "@remixicon/react";
+import {
+	AlertTriangle,
+	ArrowUpRight,
+	CalendarDays,
+	CalendarRange,
+	CheckCircle2,
+	ChevronLeft,
+	ChevronRight,
+	Clock3,
+	FilePlus2,
+	FolderKanban,
+	GripVertical,
+	LoaderCircle,
+	Plus,
+	Search,
+	Send,
+	XCircle,
+} from "lucide-react";
+import {
+	type CSSProperties,
+	type ComponentType,
+	startTransition,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { Link } from "react-router";
+import { toast } from "sonner";
 
+import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
-import { SurfaceCard } from "@/components/app/brand";
+import { DateTimePicker } from "@/components/app/date-time-picker";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import type {
+	CalendarBacklogItem,
+	CalendarEntry,
+	CalendarResponse,
+	PostDetail,
+	PostVariant,
+	ResourceCapabilityMatrix,
+} from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
+import { normalizePostDetail } from "@/lib/post-models";
+import { cn } from "@/lib/utils";
 
-const columns = [
-	{
-		label: "Mon 10",
-		items: [
-			{ title: "Founder memo thread", time: "09:30", state: "Ready" },
-			{ title: "Retail teaser reel", time: "13:00", state: "Review" },
-		],
+type CalendarView = "week" | "month" | "timeline";
+type CalendarStatusFilter = "all" | "ready" | "blocked" | "in_review";
+
+type CalendarPanelState =
+	| { mode: "closed" }
+	| { mode: "entry"; item: CalendarEntry }
+	| { mode: "backlog"; item: CalendarBacklogItem }
+	| { mode: "gap"; platform: string; date: Date }
+	| { mode: "new"; platform?: string; date?: Date };
+
+type PanelDraft = {
+	title: string;
+	excerpt: string;
+	notes: string;
+	requiresApproval: boolean;
+	plannedLocal: string;
+	platform: string;
+	surface: string;
+};
+
+type CalendarCardItem =
+	| { kind: "entry"; item: CalendarEntry }
+	| { kind: "backlog"; item: CalendarBacklogItem };
+
+type DragPayload = {
+	source: "entry" | "backlog";
+	variantId: string;
+	postId: string;
+	platform: string;
+	plannedAt?: string;
+};
+
+type PlatformMeta = {
+	label: string;
+	color: string;
+	icon: ComponentType<{ className?: string; style?: CSSProperties }>;
+};
+
+const PLATFORM_META: Record<string, PlatformMeta> = {
+	facebook: {
+		label: "Facebook",
+		color: "#1877F2",
+		icon: RiFacebookCircleFill,
 	},
-	{
-		label: "Tue 11",
-		items: [
-			{ title: "Benchmark carousel", time: "10:00", state: "Draft" },
-			{ title: "Partner announcement", time: "15:30", state: "Ready" },
-		],
+	instagram: {
+		label: "Instagram",
+		color: "#E1306C",
+		icon: RiInstagramFill,
 	},
-	{
-		label: "Wed 12",
-		items: [
-			{ title: "Regional launch edits", time: "11:15", state: "Blocked" },
-			{ title: "AMA prompt sequence", time: "16:00", state: "Ready" },
-		],
+	linkedin: {
+		label: "LinkedIn",
+		color: "#0A66C2",
+		icon: RiLinkedinFill,
 	},
-];
+	tiktok: {
+		label: "TikTok",
+		color: "#FF0050",
+		icon: RiTiktokFill,
+	},
+	x: {
+		label: "X",
+		color: "#94A3B8",
+		icon: RiTwitterXFill,
+	},
+	youtube: {
+		label: "YouTube",
+		color: "#FF0000",
+		icon: RiYoutubeFill,
+	},
+};
+
+const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
+
+function padNumber(value: number) {
+	return String(value).padStart(2, "0");
+}
+
+function startOfDay(value: Date) {
+	return new Date(
+		value.getFullYear(),
+		value.getMonth(),
+		value.getDate(),
+		0,
+		0,
+		0,
+		0,
+	);
+}
+
+function endOfDay(value: Date) {
+	return new Date(
+		value.getFullYear(),
+		value.getMonth(),
+		value.getDate(),
+		23,
+		59,
+		59,
+		999,
+	);
+}
+
+function startOfWeek(value: Date) {
+	const date = startOfDay(value);
+	const day = date.getDay();
+	const delta = day === 0 ? -6 : 1 - day;
+	date.setDate(date.getDate() + delta);
+	return date;
+}
+
+function startOfMonth(value: Date) {
+	return new Date(value.getFullYear(), value.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function endOfMonth(value: Date) {
+	return new Date(
+		value.getFullYear(),
+		value.getMonth() + 1,
+		0,
+		23,
+		59,
+		59,
+		999,
+	);
+}
+
+function addDays(value: Date, amount: number) {
+	const date = new Date(value);
+	date.setDate(date.getDate() + amount);
+	return date;
+}
+
+function addMonths(value: Date, amount: number) {
+	return new Date(
+		value.getFullYear(),
+		value.getMonth() + amount,
+		value.getDate(),
+	);
+}
+
+function addWeeks(value: Date, amount: number) {
+	return addDays(value, amount * 7);
+}
+
+function isSameDay(left: Date, right: Date) {
+	return (
+		left.getFullYear() === right.getFullYear() &&
+		left.getMonth() === right.getMonth() &&
+		left.getDate() === right.getDate()
+	);
+}
+
+function toLocalDateTimeValue(date: Date) {
+	return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(
+		date.getDate(),
+	)}T${padNumber(date.getHours())}:${padNumber(date.getMinutes())}`;
+}
+
+function parseIso(value?: string) {
+	if (!value) {
+		return null;
+	}
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseLocalDateTime(value: string) {
+	if (!value) {
+		return null;
+	}
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toLocalInputValue(value?: string) {
+	const parsed = parseIso(value);
+	return parsed ? toLocalDateTimeValue(parsed) : "";
+}
+
+function toIsoValue(value: string) {
+	const parsed = parseLocalDateTime(value);
+	return parsed ? parsed.toISOString() : "";
+}
+
+function formatDayHeader(value: Date) {
+	return new Intl.DateTimeFormat(undefined, {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+	}).format(value);
+}
+
+function formatMonthLabel(value: Date) {
+	return new Intl.DateTimeFormat(undefined, {
+		month: "long",
+		year: "numeric",
+	}).format(value);
+}
+
+function formatTimeLabel(value?: string) {
+	const parsed = parseIso(value);
+	return parsed
+		? parsed.toLocaleTimeString(undefined, {
+				hour: "numeric",
+				minute: "2-digit",
+			})
+		: "Set time";
+}
+
+function formatDateTimeLabel(value?: string) {
+	const parsed = parseIso(value);
+	return parsed
+		? parsed.toLocaleString(undefined, {
+				month: "short",
+				day: "numeric",
+				hour: "numeric",
+				minute: "2-digit",
+			})
+		: "Unscheduled";
+}
+
+function platformLabel(platform: string) {
+	const known = PLATFORM_META[platform];
+	if (known) {
+		return known.label;
+	}
+	return platform
+		.split(/[_-]/g)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function surfaceLabel(surface: string) {
+	return surface
+		.split(/[_-]/g)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function itemIsBlocked(item: CalendarEntry | CalendarBacklogItem) {
+	return (
+		item.readiness.scheduleBlockers.length > 0 ||
+		item.readiness.publishBlockers.length > 0
+	);
+}
+
+function itemIsReady(item: CalendarEntry | CalendarBacklogItem) {
+	return (
+		item.approvalState === "approved" &&
+		item.readiness.scheduleBlockers.length === 0 &&
+		item.readiness.publishBlockers.length === 0
+	);
+}
+
+function matchesStatusFilter(
+	item: CalendarEntry | CalendarBacklogItem,
+	filter: CalendarStatusFilter,
+) {
+	switch (filter) {
+		case "ready":
+			return itemIsReady(item);
+		case "blocked":
+			return itemIsBlocked(item);
+		case "in_review":
+			return item.approvalState === "in_review";
+		default:
+			return true;
+	}
+}
+
+function itemSearchText(item: CalendarEntry | CalendarBacklogItem) {
+	return [
+		item.title,
+		item.excerpt,
+		item.platform,
+		item.surface,
+		item.approvalState,
+		item.publicationState,
+		item.notes ?? "",
+	].join(" ");
+}
+
+function statusClassName(value: string) {
+	switch (value) {
+		case "approved":
+		case "published":
+			return "pill pill-success";
+		case "in_review":
+		case "scheduled":
+		case "publishing":
+			return "pill pill-warning";
+		case "changes_requested":
+		case "failed":
+			return "pill pill-error";
+		default:
+			return "pill pill-muted";
+	}
+}
+
+function publicationBadgeTone(item: CalendarEntry | CalendarBacklogItem) {
+	if (itemIsBlocked(item)) {
+		return "pill pill-error";
+	}
+	if (itemIsReady(item)) {
+		return "pill pill-success";
+	}
+	return statusClassName(item.publicationState);
+}
+
+function dragDataFor(
+	source: "entry" | "backlog",
+	item: CalendarEntry | CalendarBacklogItem,
+): DragPayload {
+	return {
+		source,
+		variantId: item.variantId,
+		postId: item.postId,
+		platform: item.platform,
+		plannedAt: "plannedAt" in item ? item.plannedAt : undefined,
+	};
+}
+
+function readDragPayload(event: React.DragEvent) {
+	const raw = event.dataTransfer.getData("application/json");
+	if (!raw) {
+		return null;
+	}
+	try {
+		return JSON.parse(raw) as DragPayload;
+	} catch {
+		return null;
+	}
+}
+
+function contentPayloadText(
+	contentKind: PostDetail["contentKind"],
+	payload: Record<string, unknown>,
+) {
+	if (contentKind === "thread") {
+		const items = Array.isArray(payload.items)
+			? payload.items
+					.map((item) =>
+						typeof item === "object" &&
+						item !== null &&
+						"body" in item &&
+						typeof item.body === "string"
+							? item.body
+							: "",
+					)
+					.filter(Boolean)
+			: [];
+		return items.join("\n\n");
+	}
+	if (contentKind === "article") {
+		return typeof payload.body === "string" ? payload.body : "";
+	}
+	return typeof payload.body === "string" ? payload.body : "";
+}
+
+function applyContentPayloadText(
+	contentKind: PostDetail["contentKind"],
+	payload: Record<string, unknown>,
+	value: string,
+) {
+	if (contentKind === "thread") {
+		return payload;
+	}
+	if (contentKind === "article") {
+		return { ...payload, body: value };
+	}
+	return { ...payload, body: value };
+}
+
+function findVariant(post: PostDetail | null, variantId: string | undefined) {
+	if (!post || !variantId) {
+		return null;
+	}
+	return (
+		[...post.variants, ...post.legacyVariants].find(
+			(item) => item.id === variantId,
+		) ?? null
+	);
+}
+
+function defaultDraft(date?: Date, platform = "", surface = ""): PanelDraft {
+	const nextDate = date
+		? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9, 0, 0, 0)
+		: new Date();
+	return {
+		title: "",
+		excerpt: "",
+		notes: "",
+		requiresApproval: false,
+		plannedLocal: toLocalDateTimeValue(nextDate),
+		platform,
+		surface,
+	};
+}
+
+function monthGridDays(anchor: Date) {
+	const first = startOfMonth(anchor);
+	const gridStart = startOfWeek(first);
+	return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
+}
+
+function selectedRange(view: CalendarView, anchor: Date) {
+	if (view === "month") {
+		return {
+			start: startOfMonth(anchor),
+			end: endOfMonth(anchor),
+		};
+	}
+	if (view === "timeline") {
+		return {
+			start: startOfDay(anchor),
+			end: endOfDay(anchor),
+		};
+	}
+	const weekStart = startOfWeek(anchor);
+	return {
+		start: weekStart,
+		end: endOfDay(addDays(weekStart, 6)),
+	};
+}
+
+function weekDays(anchor: Date) {
+	const weekStart = startOfWeek(anchor);
+	return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
+function CalendarCard({
+	card,
+	onClick,
+}: {
+	card: CalendarCardItem;
+	onClick: () => void;
+}) {
+	const item = card.item;
+	const meta = PLATFORM_META[item.platform];
+	const Icon = meta?.icon;
+
+	return (
+		<button
+			type="button"
+			draggable
+			onDragStart={(event) => {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData(
+					"application/json",
+					JSON.stringify(dragDataFor(card.kind, item)),
+				);
+			}}
+			onClick={onClick}
+			className={cn(
+				"w-full rounded-[20px] border border-[var(--brand-border-soft)] bg-background/85 p-3 text-left shadow-[0_16px_36px_-30px_rgba(15,23,42,0.48)] transition hover:border-primary/30 hover:bg-background",
+				card.kind === "backlog" &&
+					"bg-[color-mix(in_srgb,var(--background)_88%,var(--brand-highlight)_12%)]",
+			)}
+		>
+			<div className="flex items-start justify-between gap-3">
+				<div className="min-w-0 space-y-2">
+					<div className="flex items-center gap-2">
+						{Icon ? (
+							<span
+								className="inline-flex size-7 items-center justify-center rounded-full border"
+								style={{
+									color: meta.color,
+									borderColor: `${meta.color}33`,
+									backgroundColor: `${meta.color}14`,
+								}}
+							>
+								<Icon className="size-4" />
+							</span>
+						) : null}
+						<div className="min-w-0">
+							<div className="truncate text-sm font-medium">{item.title}</div>
+							<div className="text-xs text-muted-foreground">
+								{platformLabel(item.platform)} · {surfaceLabel(item.surface)}
+							</div>
+						</div>
+					</div>
+					{item.excerpt ? (
+						<p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+							{item.excerpt}
+						</p>
+					) : (
+						<p className="text-xs text-muted-foreground">
+							No draft excerpt yet.
+						</p>
+					)}
+				</div>
+				<GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+			</div>
+
+			<div className="mt-3 flex flex-wrap items-center gap-2">
+				<span className={statusClassName(item.approvalState)}>
+					{item.approvalState}
+				</span>
+				<span className={publicationBadgeTone(item)}>
+					{card.kind === "entry"
+						? formatTimeLabel(card.item.plannedAt)
+						: item.publicationState}
+				</span>
+				{itemIsBlocked(item) ? (
+					<span className="pill pill-error">Blocked</span>
+				) : null}
+			</div>
+		</button>
+	);
+}
+
+function CalendarMetric({
+	label,
+	value,
+	detail,
+	icon: Icon,
+}: {
+	label: string;
+	value: string;
+	detail: string;
+	icon: ComponentType<{ className?: string }>;
+}) {
+	return (
+		<SurfaceCard className="p-4">
+			<div className="flex items-start justify-between gap-4">
+				<div>
+					<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+						{label}
+					</div>
+					<div className="mt-2 text-2xl font-semibold tracking-tight">
+						{value}
+					</div>
+					<div className="mt-1 text-sm text-muted-foreground">{detail}</div>
+				</div>
+				<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+					<Icon className="size-4" />
+				</div>
+			</div>
+		</SurfaceCard>
+	);
+}
 
 export function DashboardCalendar() {
+	const { activeWorkspaceId, customerRequest } = useAuth();
+	const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
+	const [capabilities, setCapabilities] =
+		useState<ResourceCapabilityMatrix | null>(null);
+	const [view, setView] = useState<CalendarView>("week");
+	const [anchorDate, setAnchorDate] = useState(() => startOfDay(new Date()));
+	const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+	const [statusFilter, setStatusFilter] = useState<CalendarStatusFilter>("all");
+	const [showGapsOnly, setShowGapsOnly] = useState(false);
+	const [search, setSearch] = useState("");
+	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [panelState, setPanelState] = useState<CalendarPanelState>({
+		mode: "closed",
+	});
+	const [panelDraft, setPanelDraft] = useState<PanelDraft>(defaultDraft());
+	const [panelError, setPanelError] = useState<string | null>(null);
+	const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
+	const [loadingPost, setLoadingPost] = useState(false);
+	const deferredSearch = useDeferredValue(search);
+	const timezone = useMemo(
+		() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+		[],
+	);
+	const currentRange = useMemo(
+		() => selectedRange(view, anchorDate),
+		[anchorDate, view],
+	);
+	const currentWeek = useMemo(() => weekDays(anchorDate), [anchorDate]);
+	const currentMonthDays = useMemo(
+		() => monthGridDays(anchorDate),
+		[anchorDate],
+	);
+
+	useEffect(() => {
+		if (!activeWorkspaceId) {
+			return;
+		}
+		let cancelled = false;
+		async function loadCalendar() {
+			setLoading(true);
+			setError(null);
+			try {
+				const params = new URLSearchParams({
+					start: currentRange.start.toISOString(),
+					end: currentRange.end.toISOString(),
+					timezone,
+				});
+				if (selectedPlatforms.length > 0) {
+					params.set("platform", selectedPlatforms.join(","));
+				}
+				const [calendarResponse, capabilityResponse] = await Promise.all([
+					customerRequest<CalendarResponse>(`/calendar?${params.toString()}`),
+					capabilities
+						? Promise.resolve(capabilities)
+						: customerRequest<ResourceCapabilityMatrix>(
+								"/resources/capabilities",
+							),
+				]);
+				if (cancelled) {
+					return;
+				}
+				setCalendar(calendarResponse);
+				setCapabilities(capabilityResponse);
+			} catch (loadError) {
+				if (!cancelled) {
+					setError(
+						loadError instanceof Error
+							? loadError.message
+							: "Unable to load the content calendar.",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
+		}
+
+		void loadCalendar();
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		activeWorkspaceId,
+		capabilities,
+		currentRange.end,
+		currentRange.start,
+		customerRequest,
+		selectedPlatforms,
+		timezone,
+	]);
+
+	useEffect(() => {
+		if (panelState.mode !== "entry" && panelState.mode !== "backlog") {
+			setSelectedPost(null);
+			setPanelError(null);
+			return;
+		}
+		const selectedItem = panelState.item;
+		let cancelled = false;
+		async function loadPost() {
+			setLoadingPost(true);
+			setPanelError(null);
+			try {
+				const response = await customerRequest<PostDetail>(
+					`/posts/${selectedItem.postId}`,
+				);
+				if (!cancelled) {
+					setSelectedPost(normalizePostDetail(response).value);
+				}
+			} catch (loadError) {
+				if (!cancelled) {
+					setPanelError(
+						loadError instanceof Error
+							? loadError.message
+							: "Unable to load the selected post.",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoadingPost(false);
+				}
+			}
+		}
+
+		void loadPost();
+		return () => {
+			cancelled = true;
+		};
+	}, [customerRequest, panelState]);
+
+	useEffect(() => {
+		if (panelState.mode === "gap") {
+			const nextSurface =
+				surfaceOptionsForPlatform(capabilities, panelState.platform)[0]
+					?.value ?? "";
+			setPanelDraft(
+				defaultDraft(panelState.date, panelState.platform, nextSurface),
+			);
+			setPanelError(null);
+			return;
+		}
+		if (panelState.mode === "new") {
+			const nextPlatform =
+				panelState.platform ??
+				calendar?.platforms[0]?.platform ??
+				capabilities?.rules[0]?.platform ??
+				"";
+			const nextSurface =
+				surfaceOptionsForPlatform(capabilities, nextPlatform)[0]?.value ?? "";
+			setPanelDraft(defaultDraft(panelState.date, nextPlatform, nextSurface));
+			setPanelError(null);
+		}
+	}, [calendar?.platforms, capabilities, panelState]);
+
+	useEffect(() => {
+		if (panelState.mode !== "entry" && panelState.mode !== "backlog") {
+			return;
+		}
+		const variant = findVariant(selectedPost, panelState.item.variantId);
+		if (!selectedPost || !variant) {
+			return;
+		}
+		const editablePayload =
+			variant.contentMode === "custom" && variant.contentPayload
+				? variant.contentPayload
+				: selectedPost.contentPayload;
+		const editableKind =
+			(variant.contentMode === "custom" && variant.contentKind) ||
+			selectedPost.contentKind;
+		setPanelDraft({
+			title: selectedPost.title,
+			excerpt: contentPayloadText(
+				editableKind as PostDetail["contentKind"],
+				editablePayload,
+			),
+			notes: variant.notes ?? "",
+			requiresApproval: selectedPost.requiresApproval,
+			plannedLocal: toLocalInputValue(
+				panelState.mode === "entry" ? panelState.item.plannedAt : undefined,
+			),
+			platform: variant.platform,
+			surface: variant.surface,
+		});
+		setPanelError(null);
+	}, [panelState, selectedPost]);
+
+	const lanes = calendar?.platforms ?? [];
+	const filteredEntries = useMemo(() => {
+		const query = deferredSearch.trim().toLowerCase();
+		return (calendar?.entries ?? []).filter((item) => {
+			if (!matchesStatusFilter(item, statusFilter)) {
+				return false;
+			}
+			if (!query) {
+				return true;
+			}
+			return itemSearchText(item).toLowerCase().includes(query);
+		});
+	}, [calendar?.entries, deferredSearch, statusFilter]);
+	const filteredBacklog = useMemo(() => {
+		const query = deferredSearch.trim().toLowerCase();
+		return (calendar?.backlog ?? []).filter((item) => {
+			if (!matchesStatusFilter(item, statusFilter)) {
+				return false;
+			}
+			if (!query) {
+				return true;
+			}
+			return itemSearchText(item).toLowerCase().includes(query);
+		});
+	}, [calendar?.backlog, deferredSearch, statusFilter]);
+
+	const entriesByLaneDay = useMemo(() => {
+		const index = new Map<string, CalendarEntry[]>();
+		for (const item of filteredEntries) {
+			const planned = parseIso(item.plannedAt);
+			if (!planned) {
+				continue;
+			}
+			const key = `${item.platform}:${startOfDay(planned).toISOString()}`;
+			const list = index.get(key) ?? [];
+			list.push(item);
+			list.sort((left, right) => left.plannedAt.localeCompare(right.plannedAt));
+			index.set(key, list);
+		}
+		return index;
+	}, [filteredEntries]);
+
+	const dayCounts = useMemo(() => {
+		const counts = new Map<string, CalendarEntry[]>();
+		for (const item of filteredEntries) {
+			const planned = parseIso(item.plannedAt);
+			if (!planned) {
+				continue;
+			}
+			const key = startOfDay(planned).toISOString();
+			const list = counts.get(key) ?? [];
+			list.push(item);
+			counts.set(key, list);
+		}
+		return counts;
+	}, [filteredEntries]);
+
+	const gapCount = useMemo(() => {
+		let count = 0;
+		for (const lane of lanes) {
+			for (const day of currentWeek) {
+				const key = `${lane.platform}:${startOfDay(day).toISOString()}`;
+				if ((entriesByLaneDay.get(key) ?? []).length === 0) {
+					count += 1;
+				}
+			}
+		}
+		return count;
+	}, [currentWeek, entriesByLaneDay, lanes]);
+
+	const blockedCount = useMemo(
+		() =>
+			filteredEntries.filter((item) => itemIsBlocked(item)).length +
+			filteredBacklog.filter((item) => itemIsBlocked(item)).length,
+		[filteredBacklog, filteredEntries],
+	);
+
+	function closePanel() {
+		setPanelState({ mode: "closed" });
+		setPanelError(null);
+	}
+
+	function refreshPostSelection(postId: string) {
+		void customerRequest<PostDetail>(`/posts/${postId}`)
+			.then((response) => {
+				setSelectedPost(normalizePostDetail(response).value);
+			})
+			.catch(() => undefined);
+	}
+
+	function optimisticSchedule(variantId: string, plannedAt: string) {
+		setCalendar((current) => {
+			if (!current) {
+				return current;
+			}
+			let moved: CalendarEntry | null = null;
+			const remainingEntries = current.entries
+				.map((entry) => {
+					if (entry.variantId !== variantId) {
+						return entry;
+					}
+					moved = {
+						...entry,
+						plannedAt,
+						publicationState: "scheduled",
+					};
+					return null;
+				})
+				.filter((entry): entry is CalendarEntry => Boolean(entry));
+			const remainingBacklog = current.backlog.filter((item) => {
+				if (item.variantId !== variantId) {
+					return true;
+				}
+				moved = {
+					...item,
+					plannedAt,
+					publicationState: "scheduled",
+				};
+				return false;
+			});
+			if (!moved) {
+				return current;
+			}
+			const movedItem = moved as CalendarEntry;
+			const nextEntries = [...remainingEntries, movedItem].sort((left, right) =>
+				left.plannedAt.localeCompare(right.plannedAt),
+			);
+			return {
+				...current,
+				entries: nextEntries,
+				backlog: remainingBacklog,
+				platforms: current.platforms.map((lane) => ({
+					...lane,
+					scheduledCount:
+						lane.platform === movedItem.platform
+							? lane.scheduledCount +
+								(current.entries.some((entry) => entry.variantId === variantId)
+									? 0
+									: 1)
+							: lane.scheduledCount,
+					backlogCount:
+						lane.platform === movedItem.platform &&
+						current.backlog.some((item) => item.variantId === variantId)
+							? Math.max(0, lane.backlogCount - 1)
+							: lane.backlogCount,
+				})),
+			};
+		});
+	}
+
+	function optimisticUnschedule(variantId: string) {
+		setCalendar((current) => {
+			if (!current) {
+				return current;
+			}
+			let moved: CalendarBacklogItem | null = null;
+			const nextEntries = current.entries.filter((entry) => {
+				if (entry.variantId !== variantId) {
+					return true;
+				}
+				moved = {
+					variantId: entry.variantId,
+					postId: entry.postId,
+					title: entry.title,
+					platform: entry.platform,
+					surface: entry.surface,
+					approvalState: entry.approvalState,
+					publicationState: "unscheduled",
+					requiresApproval: entry.requiresApproval,
+					readiness: entry.readiness,
+					excerpt: entry.excerpt,
+					assetCount: entry.assetCount,
+					notes: entry.notes,
+					contentKind: entry.contentKind,
+					createdAt: entry.createdAt,
+					updatedAt: new Date().toISOString(),
+				};
+				return false;
+			});
+			if (!moved) {
+				return current;
+			}
+			const movedItem = moved as CalendarBacklogItem;
+			return {
+				...current,
+				entries: nextEntries,
+				backlog: [movedItem, ...current.backlog],
+				platforms: current.platforms.map((lane) => ({
+					...lane,
+					scheduledCount:
+						lane.platform === movedItem.platform
+							? Math.max(0, lane.scheduledCount - 1)
+							: lane.scheduledCount,
+					backlogCount:
+						lane.platform === movedItem.platform
+							? lane.backlogCount + 1
+							: lane.backlogCount,
+				})),
+			};
+		});
+	}
+
+	async function reloadCalendar() {
+		const params = new URLSearchParams({
+			start: currentRange.start.toISOString(),
+			end: currentRange.end.toISOString(),
+			timezone,
+		});
+		if (selectedPlatforms.length > 0) {
+			params.set("platform", selectedPlatforms.join(","));
+		}
+		const response = await customerRequest<CalendarResponse>(
+			`/calendar?${params.toString()}`,
+		);
+		setCalendar(response);
+	}
+
+	async function handleScheduleVariant(variantId: string, plannedAt: string) {
+		optimisticSchedule(variantId, plannedAt);
+		try {
+			await customerRequest(
+				`/posts/variants/${variantId}/publication/schedule`,
+				{
+					method: "POST",
+					body: { plannedAt, source: "manual" },
+				},
+			);
+			await reloadCalendar();
+		} catch (scheduleError) {
+			await reloadCalendar();
+			toast.error(
+				scheduleError instanceof Error
+					? scheduleError.message
+					: "Unable to schedule this variant.",
+			);
+		}
+	}
+
+	async function handleUnscheduleVariant(variantId: string) {
+		optimisticUnschedule(variantId);
+		try {
+			await customerRequest(
+				`/posts/variants/${variantId}/publication/unschedule`,
+				{ method: "POST" },
+			);
+			await reloadCalendar();
+		} catch (scheduleError) {
+			await reloadCalendar();
+			toast.error(
+				scheduleError instanceof Error
+					? scheduleError.message
+					: "Unable to unschedule this variant.",
+			);
+		}
+	}
+
+	async function handleWeekDrop(
+		targetPlatform: string,
+		day: Date,
+		event: React.DragEvent,
+	) {
+		event.preventDefault();
+		const payload = readDragPayload(event);
+		if (!payload) {
+			return;
+		}
+		if (payload.platform !== targetPlatform) {
+			toast.error("Move content inside the matching platform lane.");
+			return;
+		}
+		const hourSource = payload.plannedAt ? parseIso(payload.plannedAt) : null;
+		const nextDate = new Date(
+			day.getFullYear(),
+			day.getMonth(),
+			day.getDate(),
+			hourSource?.getHours() ?? 9,
+			hourSource?.getMinutes() ?? 0,
+			0,
+			0,
+		);
+		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+	}
+
+	async function handleTimelineDrop(
+		targetPlatform: string,
+		day: Date,
+		hour: number,
+		event: React.DragEvent,
+	) {
+		event.preventDefault();
+		const payload = readDragPayload(event);
+		if (!payload) {
+			return;
+		}
+		if (payload.platform !== targetPlatform) {
+			toast.error("Move content inside the matching platform lane.");
+			return;
+		}
+		const minuteSource = payload.plannedAt ? parseIso(payload.plannedAt) : null;
+		const nextDate = new Date(
+			day.getFullYear(),
+			day.getMonth(),
+			day.getDate(),
+			hour,
+			minuteSource?.getMinutes() ?? 0,
+			0,
+			0,
+		);
+		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+	}
+
+	async function saveExistingItem() {
+		if (panelState.mode !== "entry" && panelState.mode !== "backlog") {
+			return;
+		}
+		const variant = findVariant(selectedPost, panelState.item.variantId);
+		if (!selectedPost || !variant) {
+			setPanelError("The selected calendar item is no longer available.");
+			return;
+		}
+
+		setSaving(true);
+		setPanelError(null);
+		try {
+			const editableKind =
+				(variant.contentMode === "custom" && variant.contentKind) ||
+				selectedPost.contentKind;
+			if (
+				selectedPost.title !== panelDraft.title ||
+				selectedPost.requiresApproval !== panelDraft.requiresApproval ||
+				(variant.contentMode !== "custom" &&
+					editableKind !== "thread" &&
+					panelDraft.excerpt !==
+						contentPayloadText(
+							selectedPost.contentKind,
+							selectedPost.contentPayload,
+						))
+			) {
+				await customerRequest<PostDetail>(`/posts/${selectedPost.id}`, {
+					method: "PATCH",
+					body: {
+						title: panelDraft.title,
+						contentKind: selectedPost.contentKind,
+						contentPayload:
+							editableKind === "thread"
+								? selectedPost.contentPayload
+								: applyContentPayloadText(
+										selectedPost.contentKind,
+										selectedPost.contentPayload,
+										panelDraft.excerpt,
+									),
+						originPlatform: selectedPost.originPlatform ?? "",
+						originSurface: selectedPost.originSurface ?? "",
+						requiresApproval: panelDraft.requiresApproval,
+						notes: selectedPost.notes ?? "",
+					},
+				});
+			}
+
+			const nextVariantPayload =
+				variant.contentMode === "custom" && editableKind !== "thread"
+					? applyContentPayloadText(
+							(editableKind ?? "text") as PostDetail["contentKind"],
+							(variant.contentPayload ?? {}) as Record<string, unknown>,
+							panelDraft.excerpt,
+						)
+					: (variant.contentPayload ?? {});
+
+			await customerRequest<PostVariant>(`/posts/variants/${variant.id}`, {
+				method: "PATCH",
+				body: {
+					platform: variant.platform,
+					surface: variant.surface,
+					inheritSource: variant.inheritSource,
+					contentMode: variant.contentMode,
+					contentKind: variant.contentKind ?? "",
+					contentPayload: nextVariantPayload,
+					assetMode: variant.assetMode,
+					notes: panelDraft.notes,
+				},
+			});
+
+			const nextPlannedAt = toIsoValue(panelDraft.plannedLocal);
+			if (nextPlannedAt) {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/schedule`,
+					{
+						method: "POST",
+						body: { plannedAt: nextPlannedAt, source: "manual" },
+					},
+				);
+			} else if (panelState.mode === "entry") {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/unschedule`,
+					{
+						method: "POST",
+					},
+				);
+			}
+
+			await reloadCalendar();
+			refreshPostSelection(selectedPost.id);
+			toast.success("Calendar item updated.");
+		} catch (saveError) {
+			setPanelError(
+				saveError instanceof Error
+					? saveError.message
+					: "Unable to save this calendar item.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function createDraftFromPanel() {
+		if (
+			!panelDraft.title.trim() ||
+			!panelDraft.platform ||
+			!panelDraft.surface
+		) {
+			setPanelError(
+				"Add a title, platform, and surface before creating a draft.",
+			);
+			return;
+		}
+
+		setSaving(true);
+		setPanelError(null);
+		try {
+			const createdPost = await customerRequest<PostDetail>("/posts", {
+				method: "POST",
+				body: {
+					title: panelDraft.title,
+					contentKind: "text",
+					contentPayload: { body: panelDraft.excerpt },
+					originPlatform: panelDraft.platform,
+					originSurface: panelDraft.surface,
+					requiresApproval: panelDraft.requiresApproval,
+					notes: "",
+				},
+			});
+			const createdVariant = await customerRequest<PostVariant>(
+				`/posts/${createdPost.id}/variants`,
+				{
+					method: "POST",
+					body: {
+						platform: panelDraft.platform,
+						surface: panelDraft.surface,
+						inheritSource: "shared",
+						contentMode: "inherit",
+						contentKind: "",
+						contentPayload: {},
+						assetMode: "inherit",
+						notes: panelDraft.notes,
+					},
+				},
+			);
+
+			const plannedAt = toIsoValue(panelDraft.plannedLocal);
+			if (plannedAt) {
+				try {
+					await customerRequest(
+						`/posts/variants/${createdVariant.id}/publication/schedule`,
+						{
+							method: "POST",
+							body: {
+								plannedAt,
+								source: "manual",
+							},
+						},
+					);
+				} catch (scheduleError) {
+					toast.error(
+						scheduleError instanceof Error
+							? `${scheduleError.message} The draft stayed in backlog.`
+							: "The draft was created but could not be scheduled.",
+					);
+				}
+			}
+
+			await reloadCalendar();
+			closePanel();
+			toast.success("Draft added to the calendar.");
+		} catch (createError) {
+			setPanelError(
+				createError instanceof Error
+					? createError.message
+					: "Unable to create this draft.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function runReviewAction(
+		action: "submit" | "approved" | "changes_requested",
+	) {
+		if (panelState.mode !== "entry" && panelState.mode !== "backlog") {
+			return;
+		}
+		setSaving(true);
+		setPanelError(null);
+		try {
+			if (action === "submit") {
+				await customerRequest(
+					`/posts/variants/${panelState.item.variantId}/reviews/submit`,
+					{
+						method: "POST",
+						body: { comment: "" },
+					},
+				);
+			} else {
+				await customerRequest(
+					`/posts/variants/${panelState.item.variantId}/reviews/decision`,
+					{
+						method: "POST",
+						body: { approvalState: action, comment: "" },
+					},
+				);
+			}
+			await reloadCalendar();
+			refreshPostSelection(panelState.item.postId);
+		} catch (reviewError) {
+			setPanelError(
+				reviewError instanceof Error
+					? reviewError.message
+					: "Unable to update the review state.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	const currentVariant =
+		panelState.mode === "entry" || panelState.mode === "backlog"
+			? findVariant(selectedPost, panelState.item.variantId)
+			: null;
+	const surfaceOptions = surfaceOptionsForPlatform(
+		capabilities,
+		panelDraft.platform,
+	);
+	const panelOpen = panelState.mode !== "closed";
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Schedule"
+				eyebrow="Publishing control"
 				title="Calendar"
-				description="A launch-oriented calendar view that keeps sequencing, owners, and status visible at a glance."
+				description="See this week’s content coverage by platform, fill open gaps, drag work into better slots, and jump straight into the right draft or detail view."
 				actions={
-					<Button
-						className="rounded-full bg-gradient-brand text-white border-0"
-						asChild
-					>
-						<Link to="/dashboard/posts/new">
-							<Plus className="size-4" />
-							Add launch item
-						</Link>
-					</Button>
+					<>
+						<Button
+							variant="outline"
+							className="rounded-full"
+							onClick={() => {
+								startTransition(() => setAnchorDate(startOfDay(new Date())));
+							}}
+						>
+							<CalendarDays className="size-4" />
+							Today
+						</Button>
+						<Button
+							className="rounded-full border-0 bg-gradient-brand text-white"
+							onClick={() => setPanelState({ mode: "new", date: new Date() })}
+						>
+							<FilePlus2 className="size-4" />
+							New draft
+						</Button>
+					</>
 				}
 			/>
 
+			<div className="grid gap-4 md:grid-cols-4">
+				<CalendarMetric
+					label="Scheduled now"
+					value={String(filteredEntries.length)}
+					detail="Visible items in the current range"
+					icon={CalendarRange}
+				/>
+				<CalendarMetric
+					label="Open gaps"
+					value={String(gapCount)}
+					detail="Empty platform-day cells this week"
+					icon={AlertTriangle}
+				/>
+				<CalendarMetric
+					label="Backlog"
+					value={String(filteredBacklog.length)}
+					detail="Unscheduled variants ready to place"
+					icon={Clock3}
+				/>
+				<CalendarMetric
+					label="Blocked"
+					value={String(blockedCount)}
+					detail="Items with schedule or publish blockers"
+					icon={XCircle}
+				/>
+			</div>
+
 			<DashboardPanel
-				title="This week"
-				description="Marketing and dashboard now share the same panel rhythm, muted contrast, and rust accents."
+				title="Planning surface"
+				description="Week view is the operating system for content planning. Month view helps you scan density, and timeline mode lets you place exact publication times."
 			>
-				<div className="grid gap-4 xl:grid-cols-3">
-					{columns.map((column) => (
-						<SurfaceCard key={column.label} tone="muted" className="p-5">
-							<div className="flex items-center gap-3">
-								<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-									<CalendarRange className="size-4" />
-								</div>
-								<div className="font-medium">{column.label}</div>
+				<div className="space-y-4">
+					<div className="flex flex-col gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4 lg:flex-row lg:items-center lg:justify-between">
+						<div className="flex flex-wrap items-center gap-2">
+							<Button
+								variant="outline"
+								size="icon-sm"
+								onClick={() =>
+									startTransition(() =>
+										setAnchorDate((current) =>
+											view === "month"
+												? addMonths(current, -1)
+												: view === "timeline"
+													? addDays(current, -1)
+													: addWeeks(current, -1),
+										),
+									)
+								}
+							>
+								<ChevronLeft className="size-4" />
+							</Button>
+							<div className="min-w-[11rem] rounded-full border border-[var(--brand-border-soft)] px-4 py-2 text-sm font-medium">
+								{view === "month"
+									? formatMonthLabel(anchorDate)
+									: view === "timeline"
+										? anchorDate.toLocaleDateString(undefined, {
+												weekday: "long",
+												month: "long",
+												day: "numeric",
+												year: "numeric",
+											})
+										: `${formatDayHeader(currentWeek[0])} - ${formatDayHeader(
+												currentWeek.at(-1) ?? currentWeek[0],
+											)}`}
 							</div>
-							<div className="mt-5 space-y-3">
-								{column.items.map((item) => (
-									<div
-										key={item.title}
-										className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
+							<Button
+								variant="outline"
+								size="icon-sm"
+								onClick={() =>
+									startTransition(() =>
+										setAnchorDate((current) =>
+											view === "month"
+												? addMonths(current, 1)
+												: view === "timeline"
+													? addDays(current, 1)
+													: addWeeks(current, 1),
+										),
+									)
+								}
+							>
+								<ChevronRight className="size-4" />
+							</Button>
+						</div>
+
+						<div className="flex flex-col gap-3 lg:items-end">
+							<Tabs
+								value={view}
+								onValueChange={(value) =>
+									startTransition(() => setView(value as CalendarView))
+								}
+							>
+								<TabsList
+									variant="line"
+									className="rounded-full border bg-background/80 p-1"
+								>
+									<TabsTrigger value="week" className="rounded-full px-4">
+										Week board
+									</TabsTrigger>
+									<TabsTrigger value="month" className="rounded-full px-4">
+										Month overview
+									</TabsTrigger>
+									<TabsTrigger value="timeline" className="rounded-full px-4">
+										Timeline
+									</TabsTrigger>
+								</TabsList>
+							</Tabs>
+							<div className="flex flex-wrap items-center gap-2">
+								<div className="relative min-w-[15rem]">
+									<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+									<Input
+										id="calendar-search"
+										name="calendar-search"
+										aria-label="Search calendar content"
+										value={search}
+										onChange={(event) =>
+											startTransition(() => setSearch(event.target.value))
+										}
+										placeholder="Search titles, captions, surfaces..."
+										className="h-10 rounded-full bg-background pl-10"
+									/>
+								</div>
+								<Select
+									value={statusFilter}
+									onValueChange={(value) =>
+										startTransition(() =>
+											setStatusFilter(value as CalendarStatusFilter),
+										)
+									}
+								>
+									<SelectTrigger
+										id="calendar-status-filter"
+										aria-label="Filter calendar by status"
+										className="h-10 rounded-full px-4"
 									>
-										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium">{item.title}</div>
-											<span
-												className={
-													item.state === "Ready"
-														? "pill pill-success"
-														: item.state === "Review"
-															? "pill pill-warning"
-															: item.state === "Draft"
-																? "pill pill-muted"
-																: "pill pill-error"
-												}
-											>
-												{item.state}
-											</span>
-										</div>
-										<div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-											<Clock3 className="size-4" />
-											{item.time}
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All states</SelectItem>
+										<SelectItem value="ready">Ready</SelectItem>
+										<SelectItem value="blocked">Blocked</SelectItem>
+										<SelectItem value="in_review">In review</SelectItem>
+									</SelectContent>
+								</Select>
+								<div className="flex items-center gap-3 rounded-full border border-[var(--brand-border-soft)] bg-background px-4 py-2.5 text-sm">
+									<Switch
+										id="calendar-show-gaps"
+										aria-label="Show gaps only"
+										checked={showGapsOnly}
+										onCheckedChange={setShowGapsOnly}
+										size="sm"
+									/>
+									<Label htmlFor="calendar-show-gaps">Show gaps</Label>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<Button
+							variant={selectedPlatforms.length === 0 ? "default" : "outline"}
+							className="rounded-full"
+							onClick={() => startTransition(() => setSelectedPlatforms([]))}
+						>
+							All platforms
+						</Button>
+						{lanes.map((lane) => {
+							const selected = selectedPlatforms.includes(lane.platform);
+							return (
+								<Button
+									key={lane.platform}
+									variant={selected ? "default" : "outline"}
+									className="rounded-full"
+									onClick={() =>
+										startTransition(() =>
+											setSelectedPlatforms((current) =>
+												current.includes(lane.platform)
+													? current.filter((item) => item !== lane.platform)
+													: [...current, lane.platform],
+											),
+										)
+									}
+								>
+									{lane.label}
+									<span className="text-xs opacity-70">
+										{lane.scheduledCount}/{lane.backlogCount}
+									</span>
+								</Button>
+							);
+						})}
+					</div>
+
+					{loading ? (
+						<div className="flex min-h-[24rem] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] bg-background/45">
+							<div className="flex items-center gap-3 text-sm text-muted-foreground">
+								<LoaderCircle className="size-4 animate-spin" />
+								Loading content calendar...
+							</div>
+						</div>
+					) : error ? (
+						<div className="rounded-[24px] border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-700 dark:text-red-200">
+							{error}
+						</div>
+					) : (
+						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+							<div className="space-y-4">
+								{view === "week" ? (
+									<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
+										<div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] gap-px bg-[var(--brand-border-soft)]">
+											<div className="bg-background/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+												Platforms
+											</div>
+											{currentWeek.map((day) => (
+												<div
+													key={day.toISOString()}
+													className="bg-background/80 px-4 py-3 text-sm"
+												>
+													<div className="font-medium">
+														{formatDayHeader(day)}
+													</div>
+													<div className="text-xs text-muted-foreground">
+														{isSameDay(day, new Date()) ? "Today" : " "}
+													</div>
+												</div>
+											))}
+
+											{lanes.map((lane) => (
+												<div key={lane.platform} className="contents">
+													<div className="bg-background/78 px-4 py-4">
+														<div className="font-medium">{lane.label}</div>
+														<div className="mt-1 text-xs text-muted-foreground">
+															{lane.scheduledCount} scheduled ·{" "}
+															{lane.backlogCount} backlog
+														</div>
+													</div>
+													{currentWeek.map((day) => {
+														const key = `${lane.platform}:${startOfDay(day).toISOString()}`;
+														const cellEntries = entriesByLaneDay.get(key) ?? [];
+														const isGap = cellEntries.length === 0;
+														return (
+															<div
+																key={`${lane.platform}-${day.toISOString()}`}
+																onDragOver={(event) => event.preventDefault()}
+																onDrop={(event) =>
+																	void handleWeekDrop(lane.platform, day, event)
+																}
+																className={cn(
+																	"min-h-40 bg-background/60 p-3 align-top",
+																	isGap &&
+																		"bg-[color-mix(in_srgb,var(--brand-highlight)_14%,transparent)]",
+																)}
+															>
+																<div className="flex min-h-full flex-col gap-2">
+																	{isGap ? (
+																		<button
+																			type="button"
+																			onClick={() =>
+																				setPanelState({
+																					mode: "gap",
+																					platform: lane.platform,
+																					date: day,
+																				})
+																			}
+																			className="flex min-h-28 flex-1 flex-col items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-4 text-center text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+																		>
+																			<Plus className="mb-2 size-4" />
+																			<span className="font-medium text-foreground">
+																				Gap detected
+																			</span>
+																			<span className="mt-1 text-xs">
+																				Add or drag content into this lane.
+																			</span>
+																		</button>
+																	) : showGapsOnly ? (
+																		<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-3 py-2 text-xs text-muted-foreground">
+																			Covered by {cellEntries.length} item
+																			{cellEntries.length === 1 ? "" : "s"}
+																		</div>
+																	) : (
+																		cellEntries.map((item) => (
+																			<CalendarCard
+																				key={item.variantId}
+																				card={{ kind: "entry", item }}
+																				onClick={() =>
+																					setPanelState({ mode: "entry", item })
+																				}
+																			/>
+																		))
+																	)}
+																</div>
+															</div>
+														);
+													})}
+												</div>
+											))}
 										</div>
 									</div>
-								))}
+								) : null}
+								{view === "month" ? (
+									<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
+										<div className="grid grid-cols-7 gap-px bg-[var(--brand-border-soft)]">
+											{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+												(label) => (
+													<div
+														key={label}
+														className="bg-background/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+													>
+														{label}
+													</div>
+												),
+											)}
+											{currentMonthDays.map((day) => {
+												const items =
+													dayCounts.get(startOfDay(day).toISOString()) ?? [];
+												const visiblePlatforms = Array.from(
+													new Set(items.map((item) => item.platform)),
+												).slice(0, 3);
+												return (
+													<button
+														key={day.toISOString()}
+														type="button"
+														className={cn(
+															"min-h-32 bg-background/60 px-3 py-3 text-left transition hover:bg-background/85",
+															day.getMonth() !== anchorDate.getMonth() &&
+																"text-muted-foreground/55",
+															isSameDay(day, new Date()) &&
+																"bg-[color-mix(in_srgb,var(--brand-highlight)_14%,transparent)]",
+														)}
+														onClick={() => {
+															startTransition(() => {
+																setAnchorDate(day);
+																setView("week");
+															});
+														}}
+													>
+														<div className="flex items-center justify-between">
+															<div className="text-sm font-medium">
+																{day.getDate()}
+															</div>
+															<div className="text-xs text-muted-foreground">
+																{items.length} item
+																{items.length === 1 ? "" : "s"}
+															</div>
+														</div>
+														<div className="mt-3 space-y-2">
+															{items.slice(0, 2).map((item) => (
+																<div
+																	key={item.variantId}
+																	className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/80 px-2.5 py-2 text-xs"
+																>
+																	<div className="truncate font-medium">
+																		{item.title}
+																	</div>
+																	<div className="mt-1 text-muted-foreground">
+																		{formatTimeLabel(item.plannedAt)}
+																	</div>
+																</div>
+															))}
+															{items.length === 0 ? (
+																<div className="rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-xs text-muted-foreground">
+																	No scheduled content
+																</div>
+															) : null}
+															{visiblePlatforms.length > 0 ? (
+																<div className="flex flex-wrap gap-1">
+																	{visiblePlatforms.map((platform) => (
+																		<Badge
+																			key={platform}
+																			variant="secondary"
+																			className="rounded-full bg-background/80 text-[10px]"
+																		>
+																			{platformLabel(platform)}
+																		</Badge>
+																	))}
+																</div>
+															) : null}
+														</div>
+													</button>
+												);
+											})}
+										</div>
+									</div>
+								) : null}
+
+								{view === "timeline" ? (
+									<div className="space-y-4">
+										{lanes.map((lane) => (
+											<SurfaceCard
+												key={lane.platform}
+												tone="muted"
+												className="p-4"
+											>
+												<div className="mb-4 flex items-center justify-between gap-3">
+													<div>
+														<div className="font-medium">{lane.label}</div>
+														<div className="text-sm text-muted-foreground">
+															Drop onto an hour to set the precise publish time.
+														</div>
+													</div>
+													<Badge variant="outline" className="rounded-full">
+														{
+															(
+																entriesByLaneDay.get(
+																	`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
+																) ?? []
+															).length
+														}{" "}
+														item(s)
+													</Badge>
+												</div>
+												<div className="grid gap-2">
+													{TIMELINE_HOURS.map((hour) => {
+														const items = (
+															entriesByLaneDay.get(
+																`${lane.platform}:${startOfDay(anchorDate).toISOString()}`,
+															) ?? []
+														).filter(
+															(entry) =>
+																parseIso(entry.plannedAt)?.getHours() === hour,
+														);
+														return (
+															<div
+																key={`${lane.platform}-${hour}`}
+																onDragOver={(event) => event.preventDefault()}
+																onDrop={(event) =>
+																	void handleTimelineDrop(
+																		lane.platform,
+																		anchorDate,
+																		hour,
+																		event,
+																	)
+																}
+																className={cn(
+																	"grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/65 p-3 md:grid-cols-[84px_minmax(0,1fr)]",
+																	items.length === 0 && "border-dashed",
+																)}
+															>
+																<div className="pt-1 text-sm font-medium text-muted-foreground">
+																	{new Date(
+																		anchorDate.getFullYear(),
+																		anchorDate.getMonth(),
+																		anchorDate.getDate(),
+																		hour,
+																	).toLocaleTimeString(undefined, {
+																		hour: "numeric",
+																		minute: "2-digit",
+																	})}
+																</div>
+																<div className="flex min-h-16 flex-col gap-2">
+																	{items.length === 0 ? (
+																		<button
+																			type="button"
+																			className="flex min-h-16 items-center justify-center rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-3 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+																			onClick={() =>
+																				setPanelState({
+																					mode: "gap",
+																					platform: lane.platform,
+																					date: new Date(
+																						anchorDate.getFullYear(),
+																						anchorDate.getMonth(),
+																						anchorDate.getDate(),
+																						hour,
+																						0,
+																						0,
+																						0,
+																					),
+																				})
+																			}
+																		>
+																			<Plus className="mr-2 size-4" />
+																			Plan content here
+																		</button>
+																	) : (
+																		items.map((item) => (
+																			<CalendarCard
+																				key={item.variantId}
+																				card={{ kind: "entry", item }}
+																				onClick={() =>
+																					setPanelState({ mode: "entry", item })
+																				}
+																			/>
+																		))
+																	)}
+																</div>
+															</div>
+														);
+													})}
+												</div>
+											</SurfaceCard>
+										))}
+									</div>
+								) : null}
 							</div>
-						</SurfaceCard>
-					))}
+							<SurfaceCard className="space-y-4 p-4 xl:sticky xl:top-24 xl:self-start">
+								<div className="flex items-start justify-between gap-3">
+									<div>
+										<div className="text-lg font-semibold">
+											Unscheduled backlog
+										</div>
+										<div className="text-sm text-muted-foreground">
+											Drag these variants into any gap or exact-time slot.
+										</div>
+									</div>
+									<Badge variant="outline" className="rounded-full">
+										{filteredBacklog.length}
+									</Badge>
+								</div>
+								<div
+									onDragOver={(event) => event.preventDefault()}
+									onDrop={(event) => {
+										const payload = readDragPayload(event);
+										if (!payload || payload.source !== "entry") {
+											return;
+										}
+										void handleUnscheduleVariant(payload.variantId);
+									}}
+									className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-3 text-xs text-muted-foreground"
+								>
+									Drop scheduled cards here to unschedule them.
+								</div>
+								<div className="space-y-3">
+									{filteredBacklog.length === 0 ? (
+										<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 px-4 py-6 text-sm text-muted-foreground">
+											No unscheduled variants match the current filters.
+										</div>
+									) : (
+										filteredBacklog.map((item) => (
+											<CalendarCard
+												key={item.variantId}
+												card={{ kind: "backlog", item }}
+												onClick={() => setPanelState({ mode: "backlog", item })}
+											/>
+										))
+									)}
+								</div>
+							</SurfaceCard>
+						</div>
+					)}
 				</div>
 			</DashboardPanel>
 
-			<DashboardPanel
-				title="Calendar health"
-				description="Operational detail stays visible even in the broader planning view."
+			<Sheet
+				open={panelOpen}
+				onOpenChange={(open) => (!open ? closePanel() : undefined)}
 			>
-				<div className="grid gap-4 md:grid-cols-3">
-					{[
-						["91%", "Slots have owners assigned"],
-						["4", "Items waiting on review"],
-						["2", "Blocked assets across the week"],
-					].map((item) => (
-						<SurfaceCard key={item[1]} className="p-5">
-							<div className="text-3xl font-semibold tracking-tight">
-								{item[0]}
+				<SheetContent
+					side="right"
+					className="w-full gap-0 border-l border-[var(--brand-border-soft)] bg-[color-mix(in_srgb,var(--background)_94%,white_6%)] p-0 sm:max-w-[560px]"
+				>
+					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
+						<SheetTitle>
+							{panelState.mode === "entry"
+								? "Scheduled item"
+								: panelState.mode === "backlog"
+									? "Backlog item"
+									: panelState.mode === "gap"
+										? "Fill this gap"
+										: "Create draft"}
+						</SheetTitle>
+						<SheetDescription>
+							{panelState.mode === "entry" || panelState.mode === "backlog"
+								? "Adjust the draft, planning time, and review state without leaving the calendar."
+								: "Create a new draft already pointed at the right platform and time slot."}
+						</SheetDescription>
+					</SheetHeader>
+
+					<div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+						{loadingPost ? (
+							<div className="flex items-center gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-4 text-sm text-muted-foreground">
+								<LoaderCircle className="size-4 animate-spin" />
+								Loading draft details...
 							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								{item[1]}
+						) : null}
+						{panelError ? (
+							<div className="rounded-[20px] border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-700 dark:text-red-200">
+								{panelError}
 							</div>
-						</SurfaceCard>
-					))}
-				</div>
-				<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4 text-sm text-muted-foreground">
-					<CheckCircle2 className="mr-2 inline size-4 text-[var(--brand-success)]" />
-					Approval reminders and asset checks run automatically against the same
-					schedule model.
-				</div>
-			</DashboardPanel>
+						) : null}
+
+						<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+							<div className="space-y-2">
+								<Label htmlFor="calendar-title">Title</Label>
+								<Input
+									id="calendar-title"
+									name="title"
+									value={panelDraft.title}
+									onChange={(event) =>
+										setPanelDraft((current) => ({
+											...current,
+											title: event.target.value,
+										}))
+									}
+									placeholder="Platform launch update"
+									className="h-11 rounded-2xl"
+								/>
+							</div>
+
+							<div className="grid gap-4 md:grid-cols-2">
+								<div className="space-y-2">
+									<Label htmlFor="calendar-platform">Platform</Label>
+									<Select
+										value={panelDraft.platform}
+										onValueChange={(value) => {
+											const nextSurface =
+												surfaceOptionsForPlatform(capabilities, value)[0]
+													?.value ?? "";
+											setPanelDraft((current) => ({
+												...current,
+												platform: value,
+												surface: nextSurface,
+											}));
+										}}
+										disabled={
+											panelState.mode === "entry" ||
+											panelState.mode === "backlog"
+										}
+									>
+										<SelectTrigger
+											id="calendar-platform"
+											aria-label="Platform"
+											className="h-11 w-full rounded-2xl px-4"
+										>
+											<SelectValue placeholder="Choose platform" />
+										</SelectTrigger>
+										<SelectContent>
+											{(
+												calendar?.platforms.map((lane) => lane.platform) ?? []
+											).map((platform) => (
+												<SelectItem key={platform} value={platform}>
+													{platformLabel(platform)}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="calendar-surface">Surface</Label>
+									<Select
+										value={panelDraft.surface}
+										onValueChange={(value) =>
+											setPanelDraft((current) => ({
+												...current,
+												surface: value,
+											}))
+										}
+										disabled={
+											(panelState.mode === "entry" ||
+												panelState.mode === "backlog") &&
+											Boolean(currentVariant)
+										}
+									>
+										<SelectTrigger
+											id="calendar-surface"
+											aria-label="Surface"
+											className="h-11 w-full rounded-2xl px-4"
+										>
+											<SelectValue placeholder="Choose surface" />
+										</SelectTrigger>
+										<SelectContent>
+											{surfaceOptions.map((option) => (
+												<SelectItem key={option.value} value={option.value}>
+													{option.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="calendar-excerpt">Caption / excerpt</Label>
+								<Textarea
+									id="calendar-excerpt"
+									name="excerpt"
+									value={panelDraft.excerpt}
+									onChange={(event) =>
+										setPanelDraft((current) => ({
+											...current,
+											excerpt: event.target.value,
+										}))
+									}
+									disabled={currentVariant?.contentKind === "thread"}
+									placeholder="Draft the core message for this slot..."
+									className="min-h-28 rounded-[24px] bg-background/90"
+								/>
+								{currentVariant?.contentKind === "thread" ? (
+									<div className="text-xs text-muted-foreground">
+										Thread content still opens in the full editor to avoid
+										losing structure.
+									</div>
+								) : null}
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="calendar-notes">Notes</Label>
+								<Textarea
+									id="calendar-notes"
+									name="notes"
+									value={panelDraft.notes}
+									onChange={(event) =>
+										setPanelDraft((current) => ({
+											...current,
+											notes: event.target.value,
+										}))
+									}
+									placeholder="Review context, owner note, or next unblock step..."
+									className="min-h-24 rounded-[24px] bg-background/90"
+								/>
+							</div>
+
+							<div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+								<div className="space-y-2">
+									<Label htmlFor="calendar-planned-time">Planned time</Label>
+									<DateTimePicker
+										id="calendar-planned-time"
+										value={panelDraft.plannedLocal}
+										onChange={(value) =>
+											setPanelDraft((current) => ({
+												...current,
+												plannedLocal: value,
+											}))
+										}
+									/>
+								</div>
+								<div className="flex items-center justify-between gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3 md:min-w-[180px]">
+									<div>
+										<div className="text-sm font-medium">Needs approval</div>
+										<div className="text-xs text-muted-foreground">
+											Block scheduling until approved
+										</div>
+									</div>
+									<Switch
+										id="calendar-requires-approval"
+										aria-label="Requires approval"
+										checked={panelDraft.requiresApproval}
+										onCheckedChange={(checked) =>
+											setPanelDraft((current) => ({
+												...current,
+												requiresApproval: checked,
+											}))
+										}
+									/>
+								</div>
+							</div>
+						</div>
+
+						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
+							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
+								<div className="flex flex-wrap items-center gap-2">
+									<span
+										className={statusClassName(panelState.item.approvalState)}
+									>
+										{panelState.item.approvalState}
+									</span>
+									<span className={publicationBadgeTone(panelState.item)}>
+										{panelState.mode === "entry"
+											? formatDateTimeLabel(panelState.item.plannedAt)
+											: panelState.item.publicationState}
+									</span>
+									{panelState.item.requiresApproval ? (
+										<span className="pill pill-warning">Approval required</span>
+									) : null}
+								</div>
+
+								<div className="grid gap-3 md:grid-cols-2">
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 p-3">
+										<div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+											Assets
+										</div>
+										<div className="mt-2 text-sm font-medium">
+											{panelState.item.assetCount} effective asset
+											{panelState.item.assetCount === 1 ? "" : "s"}
+										</div>
+									</div>
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 p-3">
+										<div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+											Inheritance
+										</div>
+										<div className="mt-2 text-sm font-medium">
+											{currentVariant?.contentMode === "inherit"
+												? "Using inherited content"
+												: "Custom variant content"}
+										</div>
+									</div>
+								</div>
+
+								{panelState.item.readiness.scheduleBlockers.length > 0 ? (
+									<div className="rounded-[18px] border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-200">
+										<div className="mb-2 font-medium">Scheduling blockers</div>
+										<div className="space-y-1.5">
+											{panelState.item.readiness.scheduleBlockers.map(
+												(issue) => (
+													<div key={`${issue.code}-${issue.message}`}>
+														{issue.message}
+													</div>
+												),
+											)}
+										</div>
+									</div>
+								) : (
+									<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-700 dark:text-emerald-200">
+										This item is clear to move or schedule from the calendar.
+									</div>
+								)}
+
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										className="rounded-full border-sky-500/20 bg-sky-500/10 text-sky-800 hover:bg-sky-500/15 hover:text-sky-900 dark:text-sky-100"
+										onClick={() => void runReviewAction("submit")}
+										disabled={saving}
+									>
+										<Send className="size-4" />
+										Submit
+									</Button>
+									<Button
+										type="button"
+										variant="outline"
+										className="rounded-full border-emerald-500/20 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100"
+										onClick={() => void runReviewAction("approved")}
+										disabled={saving}
+									>
+										<CheckCircle2 className="size-4" />
+										Approve
+									</Button>
+									<Button
+										type="button"
+										variant="outline"
+										className="rounded-full border-amber-500/20 bg-amber-500/10 text-amber-800 hover:bg-amber-500/15 hover:text-amber-900 dark:text-amber-100"
+										onClick={() => void runReviewAction("changes_requested")}
+										disabled={saving}
+									>
+										<XCircle className="size-4" />
+										Request changes
+									</Button>
+									{panelState.mode === "entry" ? (
+										<Button
+											type="button"
+											variant="outline"
+											className="rounded-full"
+											onClick={() =>
+												void handleUnscheduleVariant(panelState.item.variantId)
+											}
+											disabled={saving}
+										>
+											<Clock3 className="size-4" />
+											Unschedule
+										</Button>
+									) : null}
+								</div>
+							</div>
+						) : null}
+
+						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
+							<div className="flex flex-wrap gap-2">
+								<Button variant="outline" className="rounded-full" asChild>
+									<Link to={`/dashboard/posts/${panelState.item.postId}`}>
+										Open detail
+										<ArrowUpRight className="size-4" />
+									</Link>
+								</Button>
+								<Button variant="outline" className="rounded-full" asChild>
+									<Link
+										to={`/dashboard/posts/${panelState.item.postId}/edit?tab=${panelState.item.platform}`}
+									>
+										Open editor
+										<ArrowUpRight className="size-4" />
+									</Link>
+								</Button>
+								{panelState.item.readiness.scheduleBlockers.some(
+									(issue) => issue.code === "assets_required",
+								) ? (
+									<Button variant="outline" className="rounded-full" asChild>
+										<Link to="/dashboard/library">
+											Open library
+											<FolderKanban className="size-4" />
+										</Link>
+									</Button>
+								) : null}
+							</div>
+						) : null}
+					</div>
+
+					<SheetFooter className="border-t border-[var(--brand-border-soft)] px-5 py-4">
+						<div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-between">
+							<Button
+								variant="outline"
+								className="rounded-full"
+								onClick={closePanel}
+							>
+								Close
+							</Button>
+							<Button
+								className="rounded-full border-0 bg-gradient-brand text-white"
+								onClick={() =>
+									void (panelState.mode === "entry" ||
+									panelState.mode === "backlog"
+										? saveExistingItem()
+										: createDraftFromPanel())
+								}
+								disabled={saving}
+							>
+								{saving ? (
+									<LoaderCircle className="size-4 animate-spin" />
+								) : (
+									<Plus className="size-4" />
+								)}
+								{panelState.mode === "entry" || panelState.mode === "backlog"
+									? "Save changes"
+									: "Create draft"}
+							</Button>
+						</div>
+					</SheetFooter>
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
+}
+
+function surfaceOptionsForPlatform(
+	capabilities: ResourceCapabilityMatrix | null,
+	platform: string,
+) {
+	if (!capabilities || !platform) {
+		return [];
+	}
+	const seen = new Map<string, { value: string; label: string }>();
+	for (const rule of capabilities.rules) {
+		if (rule.platform !== platform || seen.has(rule.surface)) {
+			continue;
+		}
+		seen.set(rule.surface, {
+			value: rule.surface,
+			label: surfaceLabel(rule.surface),
+		});
+	}
+	return Array.from(seen.values());
 }

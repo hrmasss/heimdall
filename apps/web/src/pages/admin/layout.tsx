@@ -1,4 +1,5 @@
 import {
+	Building2,
 	ChevronDown,
 	ChevronLeft,
 	Command,
@@ -15,7 +16,6 @@ import {
 	ShieldCheck,
 	Tag,
 	Users,
-	Building2,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -135,10 +135,11 @@ function AdminSidebar({
 	const { platformRequest, platformSession, logoutPlatform } = useAuth();
 	const currentAdmin = platformSession?.user;
 	const hasCustomerAccess =
-		(platformSession?.workspaceMemberships?.some(
+		platformSession?.workspaceMemberships?.some(
 			(membership) =>
-				membership.status === "active" && membership.workspaceStatus === "active",
-		) ?? false);
+				membership.status === "active" &&
+				membership.workspaceStatus === "active",
+		) ?? false;
 	const currentAdminRoles =
 		platformSession?.platformRoles.map((role) => role.label).join(", ") ??
 		"Platform user";
@@ -271,7 +272,8 @@ function AdminSidebar({
 							}
 							className={cn(
 								"flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[var(--brand-border-soft)] bg-background/50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-								collapsed && "lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+								collapsed &&
+									"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
 							)}
 						>
 							<Shield className="size-5 shrink-0" />
@@ -333,7 +335,9 @@ function AdminSidebar({
 								)}
 							>
 								<div className="mb-1 border-b border-border px-3 py-3">
-									<div className="text-sm font-medium">{currentAdmin.fullName}</div>
+									<div className="text-sm font-medium">
+										{currentAdmin.fullName}
+									</div>
 									<div className="mt-1 text-xs text-muted-foreground">
 										{currentAdmin.email}
 									</div>

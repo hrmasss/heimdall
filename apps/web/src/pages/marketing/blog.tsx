@@ -70,10 +70,7 @@ function useSpotlight() {
    THUMBNAIL COMPONENT
    ================================================================ */
 
-const thumbThemes: Record<
-	string,
-	{ bg: string; accent: string }
-> = {
+const thumbThemes: Record<string, { bg: string; accent: string }> = {
 	Operations: {
 		bg: "linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 18%, var(--brand-panel-strong)) 0%, color-mix(in srgb, var(--brand-accent) 22%, var(--brand-panel)) 100%)",
 		accent: "var(--brand-primary)",
@@ -114,10 +111,7 @@ function BlogThumbnail({
 	const theme = thumbThemes[category] || thumbThemes.Operations;
 	return (
 		<div
-			className={cn(
-				featured ? "blog-featured-thumb" : "blog-thumb",
-				className,
-			)}
+			className={cn(featured ? "blog-featured-thumb" : "blog-thumb", className)}
 			style={{ background: theme.bg } as CSSProperties}
 		>
 			<div
@@ -141,13 +135,7 @@ function BlogThumbnail({
 						fill={theme.accent}
 						opacity="0.07"
 					/>
-					<circle
-						cx="80"
-						cy="60"
-						r="40"
-						fill={theme.accent}
-						opacity="0.1"
-					/>
+					<circle cx="80" cy="60" r="40" fill={theme.accent} opacity="0.1" />
 					<line
 						x1="40"
 						y1="170"
@@ -323,8 +311,8 @@ function HeroSection() {
 					</h1>
 
 					<p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-						Campaign lessons, operator playbooks, and product updates designed to
-						help social teams work with more structure and better judgment.
+						Campaign lessons, operator playbooks, and product updates designed
+						to help social teams work with more structure and better judgment.
 					</p>
 
 					{/* Quick stats band */}

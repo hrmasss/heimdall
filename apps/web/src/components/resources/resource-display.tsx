@@ -25,6 +25,7 @@ const pdfWorkerSrc = new URL(
 	"pdfjs-dist/build/pdf.worker.min.mjs",
 	import.meta.url,
 ).toString();
+const EMPTY_CAPTION_TRACK = "data:text/vtt;charset=utf-8,WEBVTT%0A%0A";
 
 if (
 	typeof window !== "undefined" &&
@@ -84,13 +85,15 @@ function getDocumentLabel(
 		return "PDF";
 	}
 	if (
-		mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+		mimeType ===
+			"application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
 		name?.toLowerCase().endsWith(".docx")
 	) {
 		return "DOCX";
 	}
 	if (
-		mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+		mimeType ===
+			"application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
 		name?.toLowerCase().endsWith(".pptx")
 	) {
 		return "PPTX";
@@ -363,7 +366,10 @@ function LocalDocumentPoster({
 	className?: string;
 	variant?: "default" | "minimal";
 }) {
-	if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+	if (
+		file.type === "application/pdf" ||
+		file.name.toLowerCase().endsWith(".pdf")
+	) {
 		return (
 			<PdfPagePreview
 				file={previewUrl}
@@ -442,7 +448,9 @@ function ViewerSurface({
 					<div className="text-sm font-medium">{title}</div>
 					<div className="text-xs text-muted-foreground">{description}</div>
 				</div>
-				{controls ? <div className="flex flex-wrap items-center gap-2">{controls}</div> : null}
+				{controls ? (
+					<div className="flex flex-wrap items-center gap-2">{controls}</div>
+				) : null}
 			</div>
 			<div className={cn("min-h-0 flex-1", contentClassName)}>{children}</div>
 		</div>
@@ -463,7 +471,9 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 				isFullscreen &&
 					"h-screen w-screen rounded-none border-0 bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]",
 			)}
-			contentClassName={cn(isFullscreen && "bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]")}
+			contentClassName={cn(
+				isFullscreen && "bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]",
+			)}
 			controls={
 				<>
 					<Button
@@ -581,7 +591,9 @@ function VideoResourceViewer({ resource }: { resource: ResourceRecord }) {
 			surfaceRef={targetRef}
 			title="Video viewer"
 			description="Playback controls stay available inline, including sound and scrub."
-			className={cn(isFullscreen && "h-screen w-screen rounded-none border-0 bg-black")}
+			className={cn(
+				isFullscreen && "h-screen w-screen rounded-none border-0 bg-black",
+			)}
 			contentClassName={cn(isFullscreen && "bg-black")}
 			controls={
 				<Button
@@ -612,7 +624,15 @@ function VideoResourceViewer({ resource }: { resource: ResourceRecord }) {
 					preload="metadata"
 					controls
 					playsInline
-				/>
+				>
+					<track
+						default
+						kind="captions"
+						label="Captions unavailable"
+						src={EMPTY_CAPTION_TRACK}
+						srcLang="en"
+					/>
+				</video>
 			</div>
 		</ViewerSurface>
 	);
@@ -742,7 +762,7 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 				}
 			}
 
-			if (nextPage !== pageNumber) {
+			if (nextPage !== pageNumberRef.current) {
 				setPageNumber(nextPage);
 			}
 		}
@@ -765,7 +785,7 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 				window.cancelAnimationFrame(frameId);
 			}
 		};
-	}, [availablePages, renderWidth, viewportRef]);
+	}, [availablePages, viewportRef]);
 
 	const controls = (
 		<>
@@ -1001,7 +1021,15 @@ export function LocalFileThumb({
 				preload="metadata"
 				muted
 				playsInline
-			/>
+			>
+				<track
+					default
+					kind="captions"
+					label="Captions unavailable"
+					src={EMPTY_CAPTION_TRACK}
+					srcLang="en"
+				/>
+			</video>
 		);
 	}
 
@@ -1057,7 +1085,15 @@ export function ResourceThumb({
 				preload="metadata"
 				muted
 				playsInline
-			/>
+			>
+				<track
+					default
+					kind="captions"
+					label="Captions unavailable"
+					src={EMPTY_CAPTION_TRACK}
+					srcLang="en"
+				/>
+			</video>
 		);
 	}
 

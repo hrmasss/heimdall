@@ -10,7 +10,7 @@ import {
 	ToggleRight,
 	UserPlus,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
@@ -26,8 +26,8 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/lib/auth-context";
 import type { ApiListResponse, PlatformUserRecord } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 function getPlatformRoles(record: PlatformUserRecord) {
@@ -68,7 +68,9 @@ function UserIdentity({ user }: { user: PlatformUserRecord["user"] }) {
 			</Avatar>
 			<div className="min-w-0">
 				<div className="font-medium">{user.fullName}</div>
-				<div className="truncate text-sm text-muted-foreground">{user.email}</div>
+				<div className="truncate text-sm text-muted-foreground">
+					{user.email}
+				</div>
 			</div>
 		</div>
 	);
@@ -146,7 +148,7 @@ export function AdminUsers() {
 	const [busyUserId, setBusyUserId] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 
-	async function loadUsers() {
+	const loadUsers = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		setNotice(null);
@@ -157,15 +159,19 @@ export function AdminUsers() {
 				);
 			setUsers(response.items);
 		} catch (loadError) {
-			setError(loadError instanceof Error ? loadError.message : "Unable to load users.");
+			setError(
+				loadError instanceof Error
+					? loadError.message
+					: "Unable to load users.",
+			);
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [platformRequest]);
 
 	useEffect(() => {
 		void loadUsers();
-	}, []);
+	}, [loadUsers]);
 
 	async function updateUserStatus(record: PlatformUserRecord) {
 		setBusyUserId(record.user.id);
@@ -177,12 +183,12 @@ export function AdminUsers() {
 				`/platform/users/${record.user.id}`,
 				{
 					method: "PATCH",
-						body: {
-							fullName: record.user.fullName,
-							status: nextStatus,
-							roleCodes: getPlatformRoles(record).map((role) => role.code),
-						},
+					body: {
+						fullName: record.user.fullName,
+						status: nextStatus,
+						roleCodes: getPlatformRoles(record).map((role) => role.code),
 					},
+				},
 			);
 			setUsers((current) =>
 				current.map((item) =>
@@ -190,9 +196,7 @@ export function AdminUsers() {
 				),
 			);
 			setNotice(
-				nextStatus === "active"
-					? "User activated."
-					: "User suspended.",
+				nextStatus === "active" ? "User activated." : "User suspended.",
 			);
 		} catch (updateError) {
 			setError(
@@ -223,6 +227,10 @@ export function AdminUsers() {
 			: `/platform/users/${record.user.id}/impersonate`;
 		await platformRequest(endpoint, { method: "POST" });
 		window.open("/dashboard", "_blank", "noopener,noreferrer");
+	}
+
+	function stopRowClick(event: React.MouseEvent<HTMLElement>) {
+		event.stopPropagation();
 	}
 
 	const columns: DataTableColumn<PlatformUserRecord>[] = [
@@ -269,15 +277,15 @@ export function AdminUsers() {
 			label: "Manage",
 			width: 280,
 			accessor: (record) => (
-				<div
-					className="flex items-center justify-end gap-2"
-					onClick={(event) => event.stopPropagation()}
-				>
+				<div className="flex items-center justify-end gap-2">
 					<Button
 						variant="outline"
 						size="sm"
 						className="rounded-full"
-						onClick={() => navigate(`/admin/users/${record.user.id}`)}
+						onClick={(event) => {
+							stopRowClick(event);
+							navigate(`/admin/users/${record.user.id}`);
+						}}
 					>
 						<Eye className="size-4" />
 						View
@@ -288,7 +296,10 @@ export function AdminUsers() {
 								variant="outline"
 								size="sm"
 								className="rounded-full"
-								onClick={() => navigate(`/admin/users/${record.user.id}/edit`)}
+								onClick={(event) => {
+									stopRowClick(event);
+									navigate(`/admin/users/${record.user.id}/edit`);
+								}}
 							>
 								<PencilLine className="size-4" />
 								Edit user
@@ -297,7 +308,10 @@ export function AdminUsers() {
 								variant="ghost"
 								size="sm"
 								className="rounded-full"
-								onClick={() => void updateUserStatus(record)}
+								onClick={(event) => {
+									stopRowClick(event);
+									void updateUserStatus(record);
+								}}
 								disabled={
 									busyUserId === record.user.id ||
 									record.user.id === platformSession?.user.id
@@ -319,7 +333,12 @@ export function AdminUsers() {
 					) : null}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-sm" className="rounded-full">
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								className="rounded-full"
+								onClick={stopRowClick}
+							>
 								<Ellipsis className="size-4" />
 							</Button>
 						</DropdownMenuTrigger>
@@ -328,8 +347,8 @@ export function AdminUsers() {
 							className="min-w-[220px] rounded-[20px] p-2"
 						>
 							{record.workspaceCount > 0 &&
-							(isOwnUserRecord(record.user.id, platformSession?.user.id)
-								|| hasPlatformPermission("platform.support.assume_user")) ? (
+							(isOwnUserRecord(record.user.id, platformSession?.user.id) ||
+								hasPlatformPermission("platform.support.assume_user")) ? (
 								<>
 									<DropdownMenuItem
 										className="rounded-[14px] px-3 py-2 whitespace-nowrap"
@@ -362,7 +381,9 @@ export function AdminUsers() {
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								className="rounded-[14px] px-3 py-2 whitespace-nowrap"
-								onClick={() => void copyValue(record.user.id, "Copied user ID.")}
+								onClick={() =>
+									void copyValue(record.user.id, "Copied user ID.")
+								}
 							>
 								<Copy className="size-4" />
 								Copy user ID
@@ -470,15 +491,15 @@ export function AdminUsers() {
 							<div className="text-sm text-muted-foreground">
 								{record.workspaceCount} workspace assignments
 							</div>
-							<div
-								className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4"
-								onClick={(event) => event.stopPropagation()}
-							>
+							<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
 								<Button
 									variant="outline"
 									size="sm"
 									className="rounded-full"
-									onClick={() => navigate(`/admin/users/${record.user.id}`)}
+									onClick={(event) => {
+										stopRowClick(event);
+										navigate(`/admin/users/${record.user.id}`);
+									}}
 								>
 									<Eye className="size-4" />
 									View
@@ -489,7 +510,10 @@ export function AdminUsers() {
 											variant="outline"
 											size="sm"
 											className="rounded-full"
-											onClick={() => navigate(`/admin/users/${record.user.id}/edit`)}
+											onClick={(event) => {
+												stopRowClick(event);
+												navigate(`/admin/users/${record.user.id}/edit`);
+											}}
 										>
 											<PencilLine className="size-4" />
 											Edit user
@@ -498,7 +522,10 @@ export function AdminUsers() {
 											variant="ghost"
 											size="sm"
 											className="rounded-full"
-											onClick={() => void updateUserStatus(record)}
+											onClick={(event) => {
+												stopRowClick(event);
+												void updateUserStatus(record);
+											}}
 											disabled={
 												busyUserId === record.user.id ||
 												record.user.id === platformSession?.user.id

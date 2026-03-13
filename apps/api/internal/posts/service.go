@@ -208,6 +208,70 @@ type PostDetail struct {
 	Notes          string                       `json:"notes,omitempty"`
 }
 
+type CalendarQueryInput struct {
+	Start     time.Time
+	End       time.Time
+	Timezone  string
+	Platforms []string
+}
+
+type CalendarRange struct {
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	Timezone string `json:"timezone"`
+}
+
+type CalendarPlatformLane struct {
+	Platform       string `json:"platform"`
+	Label          string `json:"label"`
+	ScheduledCount int    `json:"scheduledCount"`
+	BacklogCount   int    `json:"backlogCount"`
+}
+
+type CalendarEntry struct {
+	VariantID        string           `json:"variantId"`
+	PostID           string           `json:"postId"`
+	Title            string           `json:"title"`
+	Platform         string           `json:"platform"`
+	Surface          string           `json:"surface"`
+	PlannedAt        string           `json:"plannedAt"`
+	ApprovalState    string           `json:"approvalState"`
+	PublicationState string           `json:"publicationState"`
+	RequiresApproval bool             `json:"requiresApproval"`
+	Readiness        VariantReadiness `json:"readiness"`
+	Excerpt          string           `json:"excerpt"`
+	AssetCount       int              `json:"assetCount"`
+	Notes            string           `json:"notes,omitempty"`
+	ContentKind      string           `json:"contentKind,omitempty"`
+	CreatedAt        string           `json:"createdAt"`
+	UpdatedAt        string           `json:"updatedAt"`
+}
+
+type CalendarBacklogItem struct {
+	VariantID        string           `json:"variantId"`
+	PostID           string           `json:"postId"`
+	Title            string           `json:"title"`
+	Platform         string           `json:"platform"`
+	Surface          string           `json:"surface"`
+	ApprovalState    string           `json:"approvalState"`
+	PublicationState string           `json:"publicationState"`
+	RequiresApproval bool             `json:"requiresApproval"`
+	Readiness        VariantReadiness `json:"readiness"`
+	Excerpt          string           `json:"excerpt"`
+	AssetCount       int              `json:"assetCount"`
+	Notes            string           `json:"notes,omitempty"`
+	ContentKind      string           `json:"contentKind,omitempty"`
+	CreatedAt        string           `json:"createdAt"`
+	UpdatedAt        string           `json:"updatedAt"`
+}
+
+type CalendarResponse struct {
+	Entries   []CalendarEntry        `json:"entries"`
+	Backlog   []CalendarBacklogItem  `json:"backlog"`
+	Platforms []CalendarPlatformLane `json:"platforms"`
+	Range     CalendarRange          `json:"range"`
+}
+
 type metricSnapshotAccumulator struct {
 	code       string
 	label      string
@@ -268,6 +332,51 @@ func (s *Service) ListPosts(ctx context.Context, principal *iam.Principal, works
 		return nil, err
 	}
 	return s.hydratePostSummaries(ctx, principal, workspaceID, records)
+}
+
+func (s *Service) ListCalendar(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, input CalendarQueryInput) (*CalendarResponse, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.view"); err != nil {
+		return nil, err
+	}
+	if input.Start.IsZero() || input.End.IsZero() {
+		return nil, fmt.Errorf("%w: calendar range start and end are required", iam.ErrValidation)
+	}
+	if input.End.Before(input.Start) {
+		return nil, fmt.Errorf("%w: calendar range end must be on or after the start", iam.ErrValidation)
+	}
+	timezone := strings.TrimSpace(input.Timezone)
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return nil, fmt.Errorf("%w: invalid timezone", iam.ErrValidation)
+	}
+
+	var records []database.Post
+	if err := s.db.NewSelect().
+		Model(&records).
+		Where("workspace_id = ?", workspaceID).
+		OrderExpr("updated_at DESC").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	workspaceRequiresApproval, err := s.workspaceRequiresPostApproval(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	details, err := s.hydratePostDetails(ctx, principal, workspaceID, records)
+	if err != nil {
+		return nil, err
+	}
+
+	response := buildCalendarResponse(
+		details,
+		s.resources.Capabilities(),
+		input,
+		workspaceRequiresApproval,
+	)
+	return &response, nil
 }
 
 func (s *Service) GetPost(ctx context.Context, principal *iam.Principal, workspaceID, postID uuid.UUID) (*PostDetail, error) {
@@ -1983,6 +2092,278 @@ func ensureStringSlice(items []string) []string {
 		return []string{}
 	}
 	return items
+}
+
+func buildCalendarResponse(
+	details []PostDetail,
+	capabilities resources.CapabilityMatrix,
+	input CalendarQueryInput,
+	workspaceRequiresApproval bool,
+) CalendarResponse {
+	timezone := strings.TrimSpace(input.Timezone)
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	entries := make([]CalendarEntry, 0)
+	backlog := make([]CalendarBacklogItem, 0)
+	platformFilter := normalizePlatformFilters(input.Platforms)
+	allowedPlatforms := map[string]struct{}{}
+	for _, platform := range platformFilter {
+		allowedPlatforms[platform] = struct{}{}
+	}
+
+	for _, detail := range details {
+		effectiveRequiresApproval := workspaceRequiresApproval || detail.RequiresApproval
+		for _, variant := range mergedCalendarVariants(detail) {
+			if len(allowedPlatforms) > 0 {
+				if _, ok := allowedPlatforms[variant.Platform]; !ok {
+					continue
+				}
+			}
+			contentKind, excerpt := calendarExcerpt(detail.ContentKind, detail.ContentPayload, variant)
+			publicationState := "unscheduled"
+			plannedAt := ""
+			if variant.LatestPublication != nil {
+				publicationState = variant.LatestPublication.PublicationState
+				plannedAt = variant.LatestPublication.PlannedAt
+			}
+
+			if plannedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, plannedAt); err == nil {
+					if !parsed.Before(input.Start) && !parsed.After(input.End) {
+						entries = append(entries, CalendarEntry{
+							VariantID:        variant.ID,
+							PostID:           detail.ID,
+							Title:            detail.Title,
+							Platform:         variant.Platform,
+							Surface:          variant.Surface,
+							PlannedAt:        plannedAt,
+							ApprovalState:    variant.ApprovalState,
+							PublicationState: publicationState,
+							RequiresApproval: effectiveRequiresApproval,
+							Readiness:        ensureVariantReadiness(variant.Readiness),
+							Excerpt:          excerpt,
+							AssetCount:       len(variant.EffectiveAssets),
+							Notes:            variant.Notes,
+							ContentKind:      contentKind,
+							CreatedAt:        variant.CreatedAt,
+							UpdatedAt:        variant.UpdatedAt,
+						})
+						continue
+					}
+				}
+				if publicationState != "unscheduled" &&
+					publicationState != "failed" &&
+					publicationState != "cancelled" {
+					continue
+				}
+			}
+
+			if publicationState == "scheduled" ||
+				publicationState == "publishing" ||
+				publicationState == "published" {
+				continue
+			}
+
+			backlog = append(backlog, CalendarBacklogItem{
+				VariantID:        variant.ID,
+				PostID:           detail.ID,
+				Title:            detail.Title,
+				Platform:         variant.Platform,
+				Surface:          variant.Surface,
+				ApprovalState:    variant.ApprovalState,
+				PublicationState: publicationState,
+				RequiresApproval: effectiveRequiresApproval,
+				Readiness:        ensureVariantReadiness(variant.Readiness),
+				Excerpt:          excerpt,
+				AssetCount:       len(variant.EffectiveAssets),
+				Notes:            variant.Notes,
+				ContentKind:      contentKind,
+				CreatedAt:        variant.CreatedAt,
+				UpdatedAt:        variant.UpdatedAt,
+			})
+		}
+	}
+
+	slices.SortFunc(entries, func(left, right CalendarEntry) int {
+		leftTime, leftErr := time.Parse(time.RFC3339, left.PlannedAt)
+		rightTime, rightErr := time.Parse(time.RFC3339, right.PlannedAt)
+		switch {
+		case leftErr == nil && rightErr == nil:
+			if !leftTime.Equal(rightTime) {
+				if leftTime.Before(rightTime) {
+					return -1
+				}
+				return 1
+			}
+		case leftErr == nil:
+			return -1
+		case rightErr == nil:
+			return 1
+		}
+		if left.Platform != right.Platform {
+			return strings.Compare(left.Platform, right.Platform)
+		}
+		if left.Title != right.Title {
+			return strings.Compare(left.Title, right.Title)
+		}
+		return strings.Compare(left.VariantID, right.VariantID)
+	})
+	slices.SortFunc(backlog, func(left, right CalendarBacklogItem) int {
+		leftTime, leftErr := time.Parse(time.RFC3339, left.UpdatedAt)
+		rightTime, rightErr := time.Parse(time.RFC3339, right.UpdatedAt)
+		switch {
+		case leftErr == nil && rightErr == nil && !leftTime.Equal(rightTime):
+			if leftTime.After(rightTime) {
+				return -1
+			}
+			return 1
+		case left.Platform != right.Platform:
+			return strings.Compare(left.Platform, right.Platform)
+		case left.Title != right.Title:
+			return strings.Compare(left.Title, right.Title)
+		default:
+			return strings.Compare(left.VariantID, right.VariantID)
+		}
+	})
+
+	return CalendarResponse{
+		Entries:   entries,
+		Backlog:   backlog,
+		Platforms: buildCalendarPlatformLanes(entries, backlog, capabilities, platformFilter),
+		Range: CalendarRange{
+			Start:    input.Start.Format(time.RFC3339),
+			End:      input.End.Format(time.RFC3339),
+			Timezone: timezone,
+		},
+	}
+}
+
+func buildCalendarPlatformLanes(
+	entries []CalendarEntry,
+	backlog []CalendarBacklogItem,
+	capabilities resources.CapabilityMatrix,
+	filters []string,
+) []CalendarPlatformLane {
+	filterSet := map[string]struct{}{}
+	for _, platform := range normalizePlatformFilters(filters) {
+		filterSet[platform] = struct{}{}
+	}
+
+	platformOrder := make([]string, 0)
+	seen := map[string]struct{}{}
+	appendPlatform := func(platform string) {
+		normalized := strings.TrimSpace(platform)
+		if normalized == "" {
+			return
+		}
+		if len(filterSet) > 0 {
+			if _, ok := filterSet[normalized]; !ok {
+				return
+			}
+		}
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		platformOrder = append(platformOrder, normalized)
+	}
+
+	for _, rule := range capabilities.Rules {
+		appendPlatform(rule.Platform)
+	}
+	for _, entry := range entries {
+		appendPlatform(entry.Platform)
+	}
+	for _, item := range backlog {
+		appendPlatform(item.Platform)
+	}
+	slices.Sort(platformOrder)
+
+	scheduledCounts := map[string]int{}
+	backlogCounts := map[string]int{}
+	for _, entry := range entries {
+		scheduledCounts[entry.Platform]++
+	}
+	for _, item := range backlog {
+		backlogCounts[item.Platform]++
+	}
+
+	lanes := make([]CalendarPlatformLane, 0, len(platformOrder))
+	for _, platform := range platformOrder {
+		lanes = append(lanes, CalendarPlatformLane{
+			Platform:       platform,
+			Label:          formatCalendarPlatformLabel(platform),
+			ScheduledCount: scheduledCounts[platform],
+			BacklogCount:   backlogCounts[platform],
+		})
+	}
+	return lanes
+}
+
+func mergedCalendarVariants(detail PostDetail) []PostVariant {
+	variants := make([]PostVariant, 0, len(detail.Variants)+len(detail.LegacyVariants))
+	variants = append(variants, detail.Variants...)
+	variants = append(variants, detail.LegacyVariants...)
+	return variants
+}
+
+func calendarExcerpt(
+	postContentKind string,
+	postPayload map[string]any,
+	variant PostVariant,
+) (string, string) {
+	contentKind := variant.ContentKind
+	payload := variant.ContentPayload
+	if contentKind == "" {
+		contentKind = postContentKind
+		payload = postPayload
+	}
+	return contentKind, truncateCalendarExcerpt(extractCaptionText(contentKind, payload))
+}
+
+func truncateCalendarExcerpt(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	runes := []rune(trimmed)
+	if len(runes) <= 140 {
+		return trimmed
+	}
+	return string(runes[:140]) + "..."
+}
+
+func normalizePlatformFilters(values []string) []string {
+	normalized := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			if _, ok := seen[trimmed]; ok {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			normalized = append(normalized, trimmed)
+		}
+	}
+	return normalized
+}
+
+func formatCalendarPlatformLabel(platform string) string {
+	parts := strings.FieldsFunc(platform, func(r rune) bool {
+		return r == '_' || r == '-'
+	})
+	for index, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[index] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+	}
+	return strings.Join(parts, " ")
 }
 
 func mapPublicationPlan(record database.PostVariantPublication) *PublicationPlan {

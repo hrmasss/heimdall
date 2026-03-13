@@ -14,10 +14,7 @@ import {
 } from "lucide-react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	InsightCard,
-} from "@/components/app/dashboard";
+import { DashboardPageHeader, InsightCard } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -184,7 +181,10 @@ function StatusBadge({
 	const config = statusConfig[status];
 
 	return (
-		<Badge variant="outline" className={cn("gap-1 rounded-full", config.className)}>
+		<Badge
+			variant="outline"
+			className={cn("gap-1 rounded-full", config.className)}
+		>
 			<config.icon className="size-3" />
 			{config.label}
 		</Badge>
@@ -212,7 +212,9 @@ const columns: DataTableColumn<SubscriptionRecord>[] = [
 		accessor: (sub) => (
 			<div>
 				<div className="font-medium">{sub.plan}</div>
-				<div className="mt-1 text-sm text-muted-foreground">{sub.billingCycle}</div>
+				<div className="mt-1 text-sm text-muted-foreground">
+					{sub.billingCycle}
+				</div>
 			</div>
 		),
 		getSortValue: (sub) => `${sub.plan}-${sub.billingCycle}`,
@@ -348,7 +350,9 @@ export function AdminSubscriptions() {
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<div className="text-lg font-medium">{sub.customer}</div>
-									<div className="mt-1 text-sm text-muted-foreground">{sub.email}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{sub.email}
+									</div>
 								</div>
 								<StatusBadge status={sub.status} />
 							</div>

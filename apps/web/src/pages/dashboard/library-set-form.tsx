@@ -1,7 +1,7 @@
 import {
 	ArrowLeft,
-	GripVertical,
 	FolderKanban,
+	GripVertical,
 	LoaderCircle,
 	Plus,
 	Save,
@@ -12,6 +12,11 @@ import { Link, useNavigate, useParams } from "react-router";
 import { AdminFormPage, AdminFormSection } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
 import {
+	ResourceCompatibilityBadge,
+	ResourceThumb,
+	formatResourceMeta,
+} from "@/components/resources/resource-display";
+import {
 	ResourceSetCover,
 	ResourceSetIntentBadge,
 	ResourceSetItemList,
@@ -20,11 +25,6 @@ import {
 	getIntentSurfaceOptions,
 	getResourceSetIntentOptions,
 } from "@/components/resources/resource-set-intent";
-import {
-	ResourceCompatibilityBadge,
-	ResourceThumb,
-	formatResourceMeta,
-} from "@/components/resources/resource-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,8 +78,12 @@ function reorderDraftItems(
 	if (draggedResourceId === targetResourceId) {
 		return items;
 	}
-	const fromIndex = items.findIndex((item) => item.resourceId === draggedResourceId);
-	const toIndex = items.findIndex((item) => item.resourceId === targetResourceId);
+	const fromIndex = items.findIndex(
+		(item) => item.resourceId === draggedResourceId,
+	);
+	const toIndex = items.findIndex(
+		(item) => item.resourceId === targetResourceId,
+	);
 	if (fromIndex === -1 || toIndex === -1) {
 		return items;
 	}
@@ -123,7 +127,9 @@ export function DashboardLibrarySetFormPage() {
 	const [resourceReadinessFilter, setResourceReadinessFilter] = useState<
 		"all" | "ready" | "warning" | "blocked"
 	>("all");
-	const [draggingResourceId, setDraggingResourceId] = useState<string | null>(null);
+	const [draggingResourceId, setDraggingResourceId] = useState<string | null>(
+		null,
+	);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -147,13 +153,16 @@ export function DashboardLibrarySetFormPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const [resourceResponse, capabilityResponse, setResponse] = await Promise.all([
-					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-					isEditMode && id
-						? customerRequest<ResourceSetDetail>(`/resource-sets/${id}`)
-						: Promise.resolve(null),
-				]);
+				const [resourceResponse, capabilityResponse, setResponse] =
+					await Promise.all([
+						customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+						customerRequest<ResourceCapabilityMatrix>(
+							"/resources/capabilities",
+						),
+						isEditMode && id
+							? customerRequest<ResourceSetDetail>(`/resource-sets/${id}`)
+							: Promise.resolve(null),
+					]);
 				if (cancelled) {
 					return;
 				}
@@ -199,7 +208,9 @@ export function DashboardLibrarySetFormPage() {
 		if (intentPlatformOptions.length === 0) {
 			return;
 		}
-		if (!intentPlatformOptions.some((option) => option.value === intentPlatform)) {
+		if (
+			!intentPlatformOptions.some((option) => option.value === intentPlatform)
+		) {
 			setIntentPlatform(intentPlatformOptions[0].value);
 		}
 	}, [intentPlatform, intentPlatformOptions]);
@@ -208,7 +219,9 @@ export function DashboardLibrarySetFormPage() {
 		if (intentSurfaceOptions.length === 0) {
 			return;
 		}
-		if (!intentSurfaceOptions.some((option) => option.value === intentSurface)) {
+		if (
+			!intentSurfaceOptions.some((option) => option.value === intentSurface)
+		) {
 			setIntentSurface(intentSurfaceOptions[0].value);
 		}
 	}, [intentSurface, intentSurfaceOptions]);
@@ -237,7 +250,10 @@ export function DashboardLibrarySetFormPage() {
 			if (selectedResourceIds.has(resource.id)) {
 				return false;
 			}
-			if (resourceKindFilter !== "all" && resource.mediaKind !== resourceKindFilter) {
+			if (
+				resourceKindFilter !== "all" &&
+				resource.mediaKind !== resourceKindFilter
+			) {
 				return false;
 			}
 			if (
@@ -301,13 +317,16 @@ export function DashboardLibrarySetFormPage() {
 				return;
 			}
 
-			const created = await customerRequest<ResourceSetDetail>("/resource-sets", {
-				method: "POST",
-				body: {
-					...payload,
-					sourceType: "manual",
+			const created = await customerRequest<ResourceSetDetail>(
+				"/resource-sets",
+				{
+					method: "POST",
+					body: {
+						...payload,
+						sourceType: "manual",
+					},
 				},
-			});
+			);
 			navigate(`/dashboard/library/sets/${created.id}`);
 		} catch (submitError) {
 			setError(
@@ -321,8 +340,8 @@ export function DashboardLibrarySetFormPage() {
 	}
 
 	const coverSetPreview =
-		selectedItems.find((item) => item.resourceId === coverResourceId)?.resource ??
-		selectedItems[0]?.resource;
+		selectedItems.find((item) => item.resourceId === coverResourceId)
+			?.resource ?? selectedItems[0]?.resource;
 
 	return (
 		<AdminFormPage
@@ -331,7 +350,13 @@ export function DashboardLibrarySetFormPage() {
 			description="Define a reusable ordered relationship between resources so grouped surfaces like carousels remain easy to find and reuse later."
 			actions={
 				<Button variant="outline" className="rounded-full" asChild>
-					<Link to={isEditMode && id ? `/dashboard/library/sets/${id}` : "/dashboard/library"}>
+					<Link
+						to={
+							isEditMode && id
+								? `/dashboard/library/sets/${id}`
+								: "/dashboard/library"
+						}
+					>
 						<ArrowLeft className="size-4" />
 						Back
 					</Link>
@@ -462,7 +487,10 @@ export function DashboardLibrarySetFormPage() {
 									</div>
 									<div className="grid gap-2">
 										<Label>Surface</Label>
-										<Select value={intentSurface} onValueChange={setIntentSurface}>
+										<Select
+											value={intentSurface}
+											onValueChange={setIntentSurface}
+										>
 											<SelectTrigger className="h-11 w-full rounded-2xl px-4">
 												<SelectValue placeholder="Choose a surface" />
 											</SelectTrigger>
@@ -486,7 +514,9 @@ export function DashboardLibrarySetFormPage() {
 					description="Add reusable resources to the set, then drag or nudge them into the exact order you want exposed elsewhere."
 				>
 					{loading ? (
-						<div className="text-sm text-muted-foreground">Loading resources...</div>
+						<div className="text-sm text-muted-foreground">
+							Loading resources...
+						</div>
 					) : (
 						<div className="space-y-6">
 							<div className="flex items-center gap-2 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm text-muted-foreground">
@@ -506,7 +536,11 @@ export function DashboardLibrarySetFormPage() {
 										return;
 									}
 									setSelectedItems((current) =>
-										reorderDraftItems(current, draggingResourceId, targetResourceId),
+										reorderDraftItems(
+											current,
+											draggingResourceId,
+											targetResourceId,
+										),
 									);
 									setDraggingResourceId(null);
 								}}
@@ -622,7 +656,10 @@ export function DashboardLibrarySetFormPage() {
 										>
 											<div className="flex gap-3">
 												<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-													<ResourceThumb resource={resource} variant="compact" />
+													<ResourceThumb
+														resource={resource}
+														variant="compact"
+													/>
 												</div>
 												<div className="min-w-0 flex-1">
 													<div className="truncate font-medium">
@@ -638,7 +675,10 @@ export function DashboardLibrarySetFormPage() {
 											</div>
 											<div className="mt-3 flex items-center justify-between">
 												<div className="flex items-center gap-2 text-xs text-muted-foreground">
-													<Badge variant="outline" className="rounded-full capitalize">
+													<Badge
+														variant="outline"
+														className="rounded-full capitalize"
+													>
 														{resource.mediaKind}
 													</Badge>
 												</div>
@@ -685,7 +725,13 @@ export function DashboardLibrarySetFormPage() {
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<Button variant="outline" className="rounded-full" asChild>
-							<Link to={isEditMode && id ? `/dashboard/library/sets/${id}` : "/dashboard/library"}>
+							<Link
+								to={
+									isEditMode && id
+										? `/dashboard/library/sets/${id}`
+										: "/dashboard/library"
+								}
+							>
 								Cancel
 							</Link>
 						</Button>

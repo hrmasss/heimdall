@@ -1,12 +1,15 @@
 import { Bell, CreditCard, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
 import { SurfaceCard } from "@/components/app/brand";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+} from "@/components/app/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/lib/auth-context";
 import type { WorkspaceSummary } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 
 const preferenceCards = [
 	{
@@ -28,22 +31,26 @@ const preferenceCards = [
 ];
 
 export function DashboardSettings() {
-	const { activeWorkspaceId, customerRequest, hasCustomerPermission } = useAuth();
+	const { activeWorkspaceId, customerRequest, hasCustomerPermission } =
+		useAuth();
 	const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
 	const [name, setName] = useState("");
 	const [saving, setSaving] = useState(false);
 
-	useEffect(() => {
+	const loadWorkspace = useCallback(async () => {
 		if (!activeWorkspaceId) {
 			return;
 		}
-		void customerRequest<WorkspaceSummary>(`/workspaces/${activeWorkspaceId}`).then(
-			(response) => {
-				setWorkspace(response);
-				setName(response.name);
-			},
+		const response = await customerRequest<WorkspaceSummary>(
+			`/workspaces/${activeWorkspaceId}`,
 		);
-	}, [activeWorkspaceId]);
+		setWorkspace(response);
+		setName(response.name);
+	}, [activeWorkspaceId, customerRequest]);
+
+	useEffect(() => {
+		void loadWorkspace();
+	}, [loadWorkspace]);
 
 	const canManageSettings = hasCustomerPermission(
 		"workspace.settings.manage",
@@ -88,23 +95,29 @@ export function DashboardSettings() {
 			>
 				<div className="grid gap-4 lg:grid-cols-2">
 					<SurfaceCard tone="muted" className="space-y-4 p-5">
-						<label className="block space-y-2">
-							<span className="text-sm font-medium">Workspace name</span>
+						<div className="space-y-2">
+							<label htmlFor="workspace-name" className="text-sm font-medium">
+								Workspace name
+							</label>
 							<Input
+								id="workspace-name"
 								className="h-10 rounded-2xl"
 								value={name}
 								onChange={(event) => setName(event.target.value)}
 								disabled={!canManageSettings}
 							/>
-						</label>
-						<label className="block space-y-2">
-							<span className="text-sm font-medium">Workspace slug</span>
+						</div>
+						<div className="space-y-2">
+							<label htmlFor="workspace-slug" className="text-sm font-medium">
+								Workspace slug
+							</label>
 							<Input
+								id="workspace-slug"
 								className="h-10 rounded-2xl"
 								value={workspace?.slug ?? ""}
 								readOnly
 							/>
-						</label>
+						</div>
 						<Button
 							className="rounded-full bg-gradient-brand text-white border-0"
 							disabled={!canManageSettings || saving}

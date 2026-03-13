@@ -10,7 +10,7 @@ import {
 	ToggleLeft,
 	ToggleRight,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
@@ -18,8 +18,8 @@ import { DashboardPageHeader } from "@/components/app/dashboard";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-context";
 import type { PlatformUserRecord } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 function getPlatformRoles(record: PlatformUserRecord) {
@@ -66,7 +66,7 @@ export function AdminUserDetailPage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	async function loadRecord() {
+	const loadRecord = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
@@ -83,11 +83,11 @@ export function AdminUserDetailPage() {
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [id, platformRequest]);
 
 	useEffect(() => {
 		void loadRecord();
-	}, [id, platformRequest]);
+	}, [loadRecord]);
 
 	async function toggleStatus() {
 		if (!record) {
@@ -101,12 +101,12 @@ export function AdminUserDetailPage() {
 				`/platform/users/${id}`,
 				{
 					method: "PATCH",
-						body: {
-							fullName: record.user.fullName,
-							status: nextStatus,
-							roleCodes: getPlatformRoles(record).map((role) => role.code),
-						},
+					body: {
+						fullName: record.user.fullName,
+						status: nextStatus,
+						roleCodes: getPlatformRoles(record).map((role) => role.code),
 					},
+				},
 			);
 			setRecord(updated);
 		} catch (toggleError) {
@@ -198,7 +198,9 @@ export function AdminUserDetailPage() {
 								) : (
 									<ToggleRight className="size-4" />
 								)}
-								{record.user.status === "active" ? "Suspend user" : "Activate user"}
+								{record.user.status === "active"
+									? "Suspend user"
+									: "Activate user"}
 							</Button>
 						) : null}
 					</>
@@ -214,7 +216,9 @@ export function AdminUserDetailPage() {
 			<div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
 				<SurfaceCard className="p-6">
 					{loading || !record ? (
-						<div className="text-sm text-muted-foreground">Loading user details...</div>
+						<div className="text-sm text-muted-foreground">
+							Loading user details...
+						</div>
 					) : (
 						<div className="space-y-6">
 							<div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -307,8 +311,8 @@ export function AdminUserDetailPage() {
 										))
 									) : (
 										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-											This person has no platform role yet. They can still exist as a
-											customer user.
+											This person has no platform role yet. They can still exist
+											as a customer user.
 										</div>
 									)}
 								</div>
@@ -320,7 +324,9 @@ export function AdminUserDetailPage() {
 				<SurfaceCard className="p-6">
 					<div className="space-y-4">
 						<div>
-							<div className="text-lg font-semibold">Workspace associations</div>
+							<div className="text-lg font-semibold">
+								Workspace associations
+							</div>
 							<div className="mt-1 text-sm text-muted-foreground">
 								Open the workspace when you need to manage the tenant-side
 								association.

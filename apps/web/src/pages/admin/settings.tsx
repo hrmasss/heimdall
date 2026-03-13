@@ -14,7 +14,10 @@ import {
 import { useState } from "react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+} from "@/components/app/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,8 +104,12 @@ export function AdminSettings() {
 										<Label htmlFor="timezone">Default timezone</Label>
 										<NativeSelect defaultValue="utc" className="rounded-xl">
 											<NativeSelectOption value="utc">UTC</NativeSelectOption>
-											<NativeSelectOption value="est">Eastern Time</NativeSelectOption>
-											<NativeSelectOption value="pst">Pacific Time</NativeSelectOption>
+											<NativeSelectOption value="est">
+												Eastern Time
+											</NativeSelectOption>
+											<NativeSelectOption value="pst">
+												Pacific Time
+											</NativeSelectOption>
 											<NativeSelectOption value="gmt">GMT</NativeSelectOption>
 										</NativeSelect>
 									</div>
@@ -145,7 +152,9 @@ export function AdminSettings() {
 												<Lock className="size-5" />
 											</div>
 											<div>
-												<div className="font-medium">Require 2FA for admins</div>
+												<div className="font-medium">
+													Require 2FA for admins
+												</div>
 												<div className="text-sm text-muted-foreground">
 													All admin accounts must have two-factor authentication
 												</div>
@@ -181,10 +190,19 @@ export function AdminSettings() {
 												</div>
 											</div>
 										</div>
-										<NativeSelect defaultValue="strong" className="w-32 rounded-xl">
-											<NativeSelectOption value="basic">Basic</NativeSelectOption>
-											<NativeSelectOption value="strong">Strong</NativeSelectOption>
-											<NativeSelectOption value="strict">Strict</NativeSelectOption>
+										<NativeSelect
+											defaultValue="strong"
+											className="w-32 rounded-xl"
+										>
+											<NativeSelectOption value="basic">
+												Basic
+											</NativeSelectOption>
+											<NativeSelectOption value="strong">
+												Strong
+											</NativeSelectOption>
+											<NativeSelectOption value="strict">
+												Strict
+											</NativeSelectOption>
 										</NativeSelect>
 									</div>
 								</div>
@@ -196,7 +214,9 @@ export function AdminSettings() {
 							>
 								<div className="grid gap-4 sm:grid-cols-2">
 									<div className="grid gap-2">
-										<Label htmlFor="session-timeout">Session timeout (minutes)</Label>
+										<Label htmlFor="session-timeout">
+											Session timeout (minutes)
+										</Label>
 										<Input
 											id="session-timeout"
 											type="number"
@@ -205,7 +225,9 @@ export function AdminSettings() {
 										/>
 									</div>
 									<div className="grid gap-2">
-										<Label htmlFor="max-sessions">Max concurrent sessions</Label>
+										<Label htmlFor="max-sessions">
+											Max concurrent sessions
+										</Label>
 										<Input
 											id="max-sessions"
 											type="number"
@@ -247,7 +269,7 @@ export function AdminSettings() {
 									},
 								].map((item, index) => (
 									<div
-										key={index}
+										key={item.title}
 										className="flex items-center justify-between rounded-xl border border-[var(--brand-border-soft)] p-4"
 									>
 										<div>

@@ -120,11 +120,13 @@ function SidebarCopy({
 }
 
 function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
-	const { customerSession, activeWorkspaceId, setActiveWorkspaceId } = useAuth();
+	const { customerSession, activeWorkspaceId, setActiveWorkspaceId } =
+		useAuth();
 	const workspaces = customerSession?.workspaceMemberships ?? [];
 	const activeWorkspace =
-		workspaces.find((workspace) => workspace.workspaceId === activeWorkspaceId) ??
-		workspaces[0];
+		workspaces.find(
+			(workspace) => workspace.workspaceId === activeWorkspaceId,
+		) ?? workspaces[0];
 
 	if (!activeWorkspace) {
 		return null;
@@ -202,7 +204,8 @@ function Sidebar({
 }) {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { customerSession, logoutCustomer, activeWorkspaceMembership } = useAuth();
+	const { customerSession, logoutCustomer, activeWorkspaceMembership } =
+		useAuth();
 	const currentUser = customerSession?.user;
 	const currentRoles = activeWorkspaceMembership?.roles;
 
@@ -319,7 +322,8 @@ function Sidebar({
 											{currentUser.fullName}
 										</div>
 										<div className="text-xs text-muted-foreground">
-											{currentRoles?.map((role) => role.label).join(", ") ?? "Member"}
+											{currentRoles?.map((role) => role.label).join(", ") ??
+												"Member"}
 										</div>
 									</SidebarCopy>
 									<ChevronDown
@@ -345,7 +349,9 @@ function Sidebar({
 								)}
 							>
 								<div className="mb-1 border-b border-border px-3 py-3">
-									<div className="text-sm font-medium">{currentUser.fullName}</div>
+									<div className="text-sm font-medium">
+										{currentUser.fullName}
+									</div>
 									<div className="mt-1 text-xs text-muted-foreground">
 										{currentUser.email}
 									</div>

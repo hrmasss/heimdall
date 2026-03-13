@@ -28,8 +28,12 @@ function defaultWorkspaceName(fullName: string) {
 
 export function DashboardOnboardingPage() {
 	const navigate = useNavigate();
-	const { customerSession, customerRequest, reloadCustomerSession, logoutCustomer } =
-		useAuth();
+	const {
+		customerSession,
+		customerRequest,
+		reloadCustomerSession,
+		logoutCustomer,
+	} = useAuth();
 	const [workspaceName, setWorkspaceName] = useState("");
 	const [workspaceNameTouched, setWorkspaceNameTouched] = useState(false);
 	const [saving, setSaving] = useState(false);

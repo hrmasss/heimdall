@@ -77,6 +77,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Patch("/resource-sets/:id", h.requireAuth, h.updateResourceSet)
 	api.Put("/resource-sets/:id/items", h.requireAuth, h.replaceResourceSetItems)
 	api.Delete("/resource-sets/:id", h.requireAuth, h.deleteResourceSet)
+	api.Get("/calendar", h.requireAuth, h.listCalendar)
 	api.Get("/posts", h.requireAuth, h.listPosts)
 	api.Post("/posts", h.requireAuth, h.createPost)
 	api.Get("/posts/metric-definitions", h.requireAuth, h.listPostMetricDefinitions)

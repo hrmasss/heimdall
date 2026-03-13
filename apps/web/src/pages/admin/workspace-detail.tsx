@@ -1,10 +1,4 @@
-import {
-	ArrowRight,
-	Building2,
-	PencilLine,
-	Shield,
-	Users,
-} from "lucide-react";
+import { ArrowRight, Building2, PencilLine, Shield, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
@@ -14,12 +8,12 @@ import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-context";
 import type {
 	ApiListResponse,
 	PlatformWorkspaceRecord,
 	WorkspaceMemberRecord,
 } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const statusStyles = {
@@ -46,7 +40,9 @@ export function AdminWorkspaceDetailPage() {
 	const navigate = useNavigate();
 	const { id = "" } = useParams();
 	const { platformRequest, hasPlatformPermission } = useAuth();
-	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(null);
+	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(
+		null,
+	);
 	const [members, setMembers] = useState<WorkspaceMemberRecord[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -59,7 +55,9 @@ export function AdminWorkspaceDetailPage() {
 			setError(null);
 			try {
 				const [workspaceResponse, membersResponse] = await Promise.all([
-					platformRequest<PlatformWorkspaceRecord>(`/platform/workspaces/${id}`),
+					platformRequest<PlatformWorkspaceRecord>(
+						`/platform/workspaces/${id}`,
+					),
 					platformRequest<ApiListResponse<WorkspaceMemberRecord>>(
 						`/platform/workspaces/${id}/members`,
 					),
@@ -136,7 +134,8 @@ export function AdminWorkspaceDetailPage() {
 					))}
 				</div>
 			),
-			getSortValue: (record) => record.roles.map((role) => role.label).join(", "),
+			getSortValue: (record) =>
+				record.roles.map((role) => role.label).join(", "),
 		},
 		{
 			id: "status",
@@ -219,7 +218,8 @@ export function AdminWorkspaceDetailPage() {
 						<StatusBadge status={workspace?.status ?? "active"} />
 					</div>
 					<div className="mt-3 text-sm text-muted-foreground">
-						Suspend the workspace from its edit page if the tenant should lose access.
+						Suspend the workspace from its edit page if the tenant should lose
+						access.
 					</div>
 				</SurfaceCard>
 			</div>
@@ -274,7 +274,11 @@ export function AdminWorkspaceDetailPage() {
 							</div>
 							<div className="flex flex-wrap gap-2">
 								{record.roles.map((role) => (
-									<Badge key={role.id} variant="outline" className="rounded-full">
+									<Badge
+										key={role.id}
+										variant="outline"
+										className="rounded-full"
+									>
 										{role.label}
 									</Badge>
 								))}

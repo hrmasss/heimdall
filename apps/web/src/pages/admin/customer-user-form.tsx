@@ -26,13 +26,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/lib/auth-context";
 import type {
 	ApiListResponse,
 	PlatformWorkspaceRecord,
 	Role,
 	WorkspaceMemberRecord,
 } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 function toggleRole(current: string[], roleCode: string, checked: boolean) {
@@ -99,10 +99,9 @@ export function AdminCustomerUserFormPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const response =
-					await platformRequest<ApiListResponse<PlatformWorkspaceRecord>>(
-						"/platform/workspaces",
-					);
+				const response = await platformRequest<
+					ApiListResponse<PlatformWorkspaceRecord>
+				>("/platform/workspaces");
 				if (cancelled) {
 					return;
 				}
@@ -138,10 +137,9 @@ export function AdminCustomerUserFormPage() {
 			setRolesLoading(true);
 			setError(null);
 			try {
-				const response =
-					await platformRequest<ApiListResponse<Role>>(
-						"/platform/workspace-roles",
-					);
+				const response = await platformRequest<ApiListResponse<Role>>(
+					"/platform/workspace-roles",
+				);
 				if (cancelled) {
 					return;
 				}
@@ -284,17 +282,21 @@ export function AdminCustomerUserFormPage() {
 					<div className="mt-4 space-y-2">
 						<div className="text-lg font-semibold">Client user guidance</div>
 						<p className="text-sm text-muted-foreground">
-							Client users belong to one or more workspaces. Create the user here,
-							then add more associations later from the workspace detail pages.
+							Client users belong to one or more workspaces. Create the user
+							here, then add more associations later from the workspace detail
+							pages.
 						</p>
 					</div>
 					<div className="mt-4 space-y-3 text-sm text-muted-foreground">
 						<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
-							<div className="font-medium text-foreground">Initial workspace</div>
+							<div className="font-medium text-foreground">
+								Initial workspace
+							</div>
 							<div className="mt-2">
 								{workspaceMode === "create"
 									? workspaceName.trim() || defaultWorkspaceName(fullName)
-									: selectedWorkspace?.name ?? "Choose a workspace to continue."}
+									: (selectedWorkspace?.name ??
+										"Choose a workspace to continue.")}
 							</div>
 						</div>
 						<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
@@ -358,7 +360,9 @@ export function AdminCustomerUserFormPage() {
 										size="icon-sm"
 										className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
 										onClick={() => setShowPassword((value) => !value)}
-										aria-label={showPassword ? "Hide password" : "Show password"}
+										aria-label={
+											showPassword ? "Hide password" : "Show password"
+										}
 									>
 										{showPassword ? (
 											<EyeOff className="size-4" />
@@ -401,11 +405,13 @@ export function AdminCustomerUserFormPage() {
 									</Button>
 								</div>
 								<div className="text-sm text-muted-foreground">
-									Use a temporary password and share it securely. The client user
-									can change it after first sign-in.
+									Use a temporary password and share it securely. The client
+									user can change it after first sign-in.
 								</div>
 								{passwordFeedback ? (
-									<div className="text-sm text-amber-600">{passwordFeedback}</div>
+									<div className="text-sm text-amber-600">
+										{passwordFeedback}
+									</div>
 								) : null}
 							</div>
 						</div>
@@ -478,7 +484,9 @@ export function AdminCustomerUserFormPage() {
 
 							{workspaceMode === "create" ? (
 								<div className="grid gap-2 md:max-w-[420px]">
-									<Label htmlFor="client-user-workspace-name">Workspace name</Label>
+									<Label htmlFor="client-user-workspace-name">
+										Workspace name
+									</Label>
 									<Input
 										id="client-user-workspace-name"
 										value={workspaceName}
@@ -496,7 +504,9 @@ export function AdminCustomerUserFormPage() {
 								</div>
 							) : workspaces.length ? (
 								<div className="grid gap-2 md:max-w-[320px]">
-									<Label htmlFor="client-user-workspace">Existing workspace</Label>
+									<Label htmlFor="client-user-workspace">
+										Existing workspace
+									</Label>
 									<Select value={workspaceId} onValueChange={setWorkspaceId}>
 										<SelectTrigger
 											id="client-user-workspace"
@@ -515,8 +525,8 @@ export function AdminCustomerUserFormPage() {
 								</div>
 							) : (
 								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-									Create new workspace stays selected because no existing workspaces
-									are available yet.
+									Create new workspace stays selected because no existing
+									workspaces are available yet.
 								</div>
 							)}
 						</div>
@@ -554,7 +564,7 @@ export function AdminCustomerUserFormPage() {
 								{roles.map((role) => {
 									const checked = selectedRoleCodes.includes(role.code);
 									return (
-										<label
+										<div
 											key={role.id}
 											className={cn(
 												"flex cursor-pointer gap-4 rounded-[24px] border p-4 transition-colors",
@@ -570,6 +580,7 @@ export function AdminCustomerUserFormPage() {
 														toggleRole(current, role.code, Boolean(value)),
 													)
 												}
+												aria-label={role.label}
 												className="mt-1"
 											/>
 											<div>
@@ -580,7 +591,7 @@ export function AdminCustomerUserFormPage() {
 														.join(", ")}
 												</div>
 											</div>
-										</label>
+										</div>
 									);
 								})}
 							</div>
@@ -601,7 +612,8 @@ export function AdminCustomerUserFormPage() {
 				<SurfaceCard className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<Mail className="size-4" />
-						This creates a customer user and its first workspace association in one step.
+						This creates a customer user and its first workspace association in
+						one step.
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<Button variant="outline" className="rounded-full" asChild>

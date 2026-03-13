@@ -323,3 +323,72 @@ export type PostDetail = PostSummary & {
 	legacyVariants: PostVariant[];
 	notes?: string;
 };
+
+export type CalendarRange = {
+	start: string;
+	end: string;
+	timezone: string;
+};
+
+export type CalendarPlatformLane = {
+	platform: string;
+	label: string;
+	scheduledCount: number;
+	backlogCount: number;
+};
+
+export type CalendarEntry = {
+	variantId: string;
+	postId: string;
+	title: string;
+	platform: string;
+	surface: string;
+	plannedAt: string;
+	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
+	publicationState:
+		| "unscheduled"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
+	requiresApproval: boolean;
+	readiness: VariantReadiness;
+	excerpt: string;
+	assetCount: number;
+	notes?: string;
+	contentKind?: "text" | "article" | "thread";
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type CalendarBacklogItem = {
+	variantId: string;
+	postId: string;
+	title: string;
+	platform: string;
+	surface: string;
+	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
+	publicationState:
+		| "unscheduled"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
+	requiresApproval: boolean;
+	readiness: VariantReadiness;
+	excerpt: string;
+	assetCount: number;
+	notes?: string;
+	contentKind?: "text" | "article" | "thread";
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type CalendarResponse = {
+	entries: CalendarEntry[];
+	backlog: CalendarBacklogItem[];
+	platforms: CalendarPlatformLane[];
+	range: CalendarRange;
+};

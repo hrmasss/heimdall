@@ -2,7 +2,9 @@ import { Navigate, useLocation } from "react-router";
 
 import { useAuth } from "@/lib/auth-context";
 
-export function CustomerRouteGuard({ children }: { children: React.ReactNode }) {
+export function CustomerRouteGuard({
+	children,
+}: { children: React.ReactNode }) {
 	const { bootstrapping, customerSession } = useAuth();
 	const location = useLocation();
 	const hasWorkspaceMembership =
@@ -24,7 +26,9 @@ export function CustomerRouteGuard({ children }: { children: React.ReactNode }) 
 	return <>{children}</>;
 }
 
-export function PlatformRouteGuard({ children }: { children: React.ReactNode }) {
+export function PlatformRouteGuard({
+	children,
+}: { children: React.ReactNode }) {
 	const { bootstrapping, platformSession } = useAuth();
 	const location = useLocation();
 
@@ -32,7 +36,9 @@ export function PlatformRouteGuard({ children }: { children: React.ReactNode }) 
 		return <div className="min-h-screen bg-background" />;
 	}
 	if (!platformSession) {
-		return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
+		return (
+			<Navigate to="/admin/login" replace state={{ from: location.pathname }} />
+		);
 	}
 	return <>{children}</>;
 }

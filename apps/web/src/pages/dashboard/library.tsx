@@ -19,16 +19,6 @@ import {
 } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import {
-	formatAssetSetIntent,
-	ResourceSetCover,
-	ResourceSetIntentBadge,
-	ResourceSetMembersPreview,
-} from "@/components/resources/resource-set-display";
-import {
-	getIntentSurfaceOptions,
-	getResourceSetIntentOptions,
-} from "@/components/resources/resource-set-intent";
-import {
 	LocalFileThumb,
 	ResourceChipList,
 	ResourceCompatibilityBadge,
@@ -37,6 +27,16 @@ import {
 	formatBytes,
 	formatResourceMeta,
 } from "@/components/resources/resource-display";
+import {
+	ResourceSetCover,
+	ResourceSetIntentBadge,
+	ResourceSetMembersPreview,
+	formatAssetSetIntent,
+} from "@/components/resources/resource-set-display";
+import {
+	getIntentSurfaceOptions,
+	getResourceSetIntentOptions,
+} from "@/components/resources/resource-set-intent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,7 +209,11 @@ export function DashboardLibrary() {
 		if (batchPlatformOptions.length === 0) {
 			return;
 		}
-		if (!batchPlatformOptions.some((option) => option.value === batchIntentPlatform)) {
+		if (
+			!batchPlatformOptions.some(
+				(option) => option.value === batchIntentPlatform,
+			)
+		) {
 			setBatchIntentPlatform(batchPlatformOptions[0].value);
 		}
 	}, [batchIntentPlatform, batchPlatformOptions]);
@@ -218,7 +222,9 @@ export function DashboardLibrary() {
 		if (batchSurfaceOptions.length === 0) {
 			return;
 		}
-		if (!batchSurfaceOptions.some((option) => option.value === batchIntentSurface)) {
+		if (
+			!batchSurfaceOptions.some((option) => option.value === batchIntentSurface)
+		) {
 			setBatchIntentSurface(batchSurfaceOptions[0].value);
 		}
 	}, [batchIntentSurface, batchSurfaceOptions]);
@@ -234,7 +240,9 @@ export function DashboardLibrary() {
 				await Promise.all([
 					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
 					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-					customerRequest<ApiListResponse<ResourceSetSummary>>("/resource-sets"),
+					customerRequest<ApiListResponse<ResourceSetSummary>>(
+						"/resource-sets",
+					),
 				]);
 			setResources(resourceResponse.items);
 			setCapabilities(capabilityResponse);
@@ -274,7 +282,9 @@ export function DashboardLibrary() {
 	}
 
 	function reorderQueue(draggedItemId: string, targetItemId: string) {
-		setQueue((current) => reorderQueueItems(current, draggedItemId, targetItemId));
+		setQueue((current) =>
+			reorderQueueItems(current, draggedItemId, targetItemId),
+		);
 	}
 
 	function clearCompletedQueue() {
@@ -318,21 +328,24 @@ export function DashboardLibrary() {
 		}
 
 		try {
-			const createdSet = await customerRequest<ResourceSetDetail>("/resource-sets", {
-				method: "POST",
-				body: {
-					name: batchSetName.trim() || buildBatchSetName(queue),
-					description:
-						"Created from a multi-file upload batch in the workspace library.",
-					intentType: "social_surface",
-					intentPlatform: batchIntentPlatform,
-					intentSurface: batchIntentSurface,
-					sourceType: "upload_batch",
-					items: uploadedResources.map((resource) => ({
-						resourceId: resource.id,
-					})),
+			const createdSet = await customerRequest<ResourceSetDetail>(
+				"/resource-sets",
+				{
+					method: "POST",
+					body: {
+						name: batchSetName.trim() || buildBatchSetName(queue),
+						description:
+							"Created from a multi-file upload batch in the workspace library.",
+						intentType: "social_surface",
+						intentPlatform: batchIntentPlatform,
+						intentSurface: batchIntentSurface,
+						sourceType: "upload_batch",
+						items: uploadedResources.map((resource) => ({
+							resourceId: resource.id,
+						})),
+					},
 				},
-			});
+			);
 			setResourceSets((current) => [
 				createdSet,
 				...current.filter((item) => item.id !== createdSet.id),
@@ -440,7 +453,8 @@ export function DashboardLibrary() {
 								: set.coverPreviewUrl,
 						coverResourceId:
 							set.coverResourceId === resourceId
-								? set.membersPreview.find((member) => member.id !== resourceId)?.id
+								? set.membersPreview.find((member) => member.id !== resourceId)
+										?.id
 								: set.coverResourceId,
 					})),
 				);
@@ -814,7 +828,9 @@ export function DashboardLibrary() {
 					<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<div>
-								<div className="font-medium">Create asset set from this batch</div>
+								<div className="font-medium">
+									Create asset set from this batch
+								</div>
 								<div className="text-sm text-muted-foreground">
 									Group related resources now so carousels, story sequences, and
 									ordered picks stay intact later.
@@ -919,7 +935,8 @@ export function DashboardLibrary() {
 										<GripVertical className="size-4" />
 									</div>
 									<span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background px-2 font-medium">
-										{queue.findIndex((queueItem) => queueItem.id === item.id) + 1}
+										{queue.findIndex((queueItem) => queueItem.id === item.id) +
+											1}
 									</span>
 								</div>
 								<div className="h-24 w-28 overflow-hidden rounded-[18px] bg-muted">
@@ -1098,7 +1115,10 @@ export function DashboardLibrary() {
 										<ResourceCompatibilityBadge resource={resource} />
 									</div>
 									<div className="flex flex-wrap gap-2">
-										<Badge variant="outline" className="rounded-full capitalize">
+										<Badge
+											variant="outline"
+											className="rounded-full capitalize"
+										>
 											{resource.mediaKind}
 										</Badge>
 										<Badge variant="outline" className="rounded-full">
@@ -1221,7 +1241,10 @@ export function DashboardLibrary() {
 										<Badge variant="outline" className="rounded-full">
 											{set.itemCount} ordered items
 										</Badge>
-										<Badge variant="outline" className="rounded-full capitalize">
+										<Badge
+											variant="outline"
+											className="rounded-full capitalize"
+										>
 											{set.sourceType.replaceAll("_", " ")}
 										</Badge>
 									</div>
@@ -1289,7 +1312,9 @@ export function DashboardLibrary() {
 					<ResourceChipList resources={resources.slice(0, 4)} />
 				) : (
 					<ResourceSetMembersPreview
-						resources={resourceSets.flatMap((set) => set.membersPreview).slice(0, 4)}
+						resources={resourceSets
+							.flatMap((set) => set.membersPreview)
+							.slice(0, 4)}
 					/>
 				)}
 			</SurfaceCard>

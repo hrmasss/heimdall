@@ -15,10 +15,7 @@ import {
 import { useState } from "react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	InsightCard,
-} from "@/components/app/dashboard";
+import { DashboardPageHeader, InsightCard } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -223,7 +220,9 @@ export function AdminPricingPlans() {
 							</Badge>
 						) : null}
 					</div>
-					<div className="mt-1 text-sm text-muted-foreground">{plan.description}</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						{plan.description}
+					</div>
 				</div>
 			),
 			getSortValue: (plan) => plan.name,
@@ -232,8 +231,10 @@ export function AdminPricingPlans() {
 			id: "price",
 			label: showYearly ? "Yearly price" : "Monthly price",
 			width: 150,
-			accessor: (plan) => `$${showYearly ? plan.yearlyPrice : plan.monthlyPrice}`,
-			getSortValue: (plan) => (showYearly ? plan.yearlyPrice : plan.monthlyPrice),
+			accessor: (plan) =>
+				`$${showYearly ? plan.yearlyPrice : plan.monthlyPrice}`,
+			getSortValue: (plan) =>
+				showYearly ? plan.yearlyPrice : plan.monthlyPrice,
 		},
 		{
 			id: "subscribers",
@@ -410,7 +411,11 @@ export function AdminPricingPlans() {
 						},
 					]}
 					globalActions={[
-						{ label: showYearly ? "Yearly view" : "Monthly view", icon: DollarSign, variant: "outline" },
+						{
+							label: showYearly ? "Yearly view" : "Monthly view",
+							icon: DollarSign,
+							variant: "outline",
+						},
 						{ label: "Pricing preview", icon: Eye, variant: "ghost" },
 					]}
 					rowActions={[
@@ -490,15 +495,21 @@ export function AdminPricingPlans() {
 								</div>
 								<div>
 									<div className="text-xs text-muted-foreground">Campaigns</div>
-									<div className="text-sm font-medium">{plan.limits.campaigns}</div>
+									<div className="text-sm font-medium">
+										{plan.limits.campaigns}
+									</div>
 								</div>
 								<div>
 									<div className="text-xs text-muted-foreground">Storage</div>
-									<div className="text-sm font-medium">{plan.limits.storage}</div>
+									<div className="text-sm font-medium">
+										{plan.limits.storage}
+									</div>
 								</div>
 								<div>
 									<div className="text-xs text-muted-foreground">API Calls</div>
-									<div className="text-sm font-medium">{plan.limits.apiCalls}</div>
+									<div className="text-sm font-medium">
+										{plan.limits.apiCalls}
+									</div>
 								</div>
 							</div>
 						</div>

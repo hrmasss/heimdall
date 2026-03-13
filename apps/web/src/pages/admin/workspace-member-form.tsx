@@ -22,13 +22,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/lib/auth-context";
 import type {
 	ApiListResponse,
 	PlatformWorkspaceRecord,
 	Role,
 	WorkspaceMemberRecord,
 } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 function toggleRole(current: string[], roleCode: string, checked: boolean) {
@@ -48,9 +48,13 @@ export function AdminWorkspaceMemberFormPage({
 	const { platformRequest } = useAuth();
 	const isCreate = mode === "create";
 
-	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(null);
+	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(
+		null,
+	);
 	const [roles, setRoles] = useState<Role[]>([]);
-	const [membership, setMembership] = useState<WorkspaceMemberRecord | null>(null);
+	const [membership, setMembership] = useState<WorkspaceMemberRecord | null>(
+		null,
+	);
 	const [userMode, setUserMode] = useState<"new" | "existing">("new");
 	const [fullName, setFullName] = useState("");
 	const [email, setEmail] = useState("");
@@ -69,7 +73,9 @@ export function AdminWorkspaceMemberFormPage({
 			setError(null);
 			try {
 				const [workspaceResponse, rolesResponse] = await Promise.all([
-					platformRequest<PlatformWorkspaceRecord>(`/platform/workspaces/${id}`),
+					platformRequest<PlatformWorkspaceRecord>(
+						`/platform/workspaces/${id}`,
+					),
 					platformRequest<ApiListResponse<Role>>(`/workspaces/${id}/roles`),
 				]);
 				if (cancelled) {
@@ -79,10 +85,9 @@ export function AdminWorkspaceMemberFormPage({
 				setRoles(rolesResponse.items);
 
 				if (!isCreate) {
-					const membersResponse =
-						await platformRequest<ApiListResponse<WorkspaceMemberRecord>>(
-							`/platform/workspaces/${id}/members`,
-						);
+					const membersResponse = await platformRequest<
+						ApiListResponse<WorkspaceMemberRecord>
+					>(`/platform/workspaces/${id}/members`);
 					if (cancelled) {
 						return;
 					}
@@ -198,8 +203,8 @@ export function AdminWorkspaceMemberFormPage({
 							{workspace?.name ?? "Workspace"} association
 						</div>
 						<p className="text-sm text-muted-foreground">
-							Use this page for tenant-scoped access. Global platform staff still
-							belong on the platform users flow.
+							Use this page for tenant-scoped access. Global platform staff
+							still belong on the platform users flow.
 						</p>
 					</div>
 					<div className="mt-4 space-y-3 text-sm text-muted-foreground">
@@ -211,7 +216,9 @@ export function AdminWorkspaceMemberFormPage({
 						</div>
 						{membership ? (
 							<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
-								<div className="font-medium text-foreground">Current member</div>
+								<div className="font-medium text-foreground">
+									Current member
+								</div>
 								<div className="mt-2">{membership.user.fullName}</div>
 								<div className="text-xs">{membership.user.email}</div>
 							</div>
@@ -246,8 +253,8 @@ export function AdminWorkspaceMemberFormPage({
 								<div>
 									<div className="font-medium">Create new workspace user</div>
 									<div className="text-sm text-muted-foreground">
-										Provision a fresh customer user account and attach it to this
-										workspace in one step.
+										Provision a fresh customer user account and attach it to
+										this workspace in one step.
 									</div>
 								</div>
 							</label>
@@ -362,7 +369,7 @@ export function AdminWorkspaceMemberFormPage({
 							{roles.map((role) => {
 								const checked = selectedRoleCodes.includes(role.code);
 								return (
-									<label
+									<div
 										key={role.id}
 										className={cn(
 											"flex cursor-pointer gap-4 rounded-[24px] border p-4 transition-colors",
@@ -378,6 +385,7 @@ export function AdminWorkspaceMemberFormPage({
 													toggleRole(current, role.code, Boolean(value)),
 												)
 											}
+											aria-label={role.label}
 											className="mt-1"
 										/>
 										<div>
@@ -388,7 +396,7 @@ export function AdminWorkspaceMemberFormPage({
 													.join(", ")}
 											</div>
 										</div>
-									</label>
+									</div>
 								);
 							})}
 						</div>

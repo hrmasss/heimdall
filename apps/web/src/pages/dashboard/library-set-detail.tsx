@@ -1,9 +1,4 @@
-import {
-	ArrowLeft,
-	FolderKanban,
-	PencilLine,
-	Trash2,
-} from "lucide-react";
+import { ArrowLeft, FolderKanban, PencilLine, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
@@ -28,7 +23,9 @@ export function DashboardLibrarySetDetailPage() {
 	const navigate = useNavigate();
 	const { id = "" } = useParams();
 	const { activeWorkspaceId, customerRequest } = useAuth();
-	const [resourceSet, setResourceSet] = useState<ResourceSetDetail | null>(null);
+	const [resourceSet, setResourceSet] = useState<ResourceSetDetail | null>(
+		null,
+	);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -132,7 +129,9 @@ export function DashboardLibrarySetDetailPage() {
 						</div>
 						<div className="space-y-4 p-5">
 							<div className="flex flex-wrap items-center gap-2">
-								{resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : null}
+								{resourceSet ? (
+									<ResourceSetIntentBadge set={resourceSet} />
+								) : null}
 								<Badge variant="outline" className="rounded-full">
 									{resourceSet?.itemCount ?? 0} items
 								</Badge>

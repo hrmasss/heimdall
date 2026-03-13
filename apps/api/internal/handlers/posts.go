@@ -11,6 +11,26 @@ import (
 	"github.com/heimdall/api/internal/posts"
 )
 
+func (h *AppHandler) listCalendar(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	input, err := bindCalendarQuery(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	response, err := h.postService.ListCalendar(c.Context(), principal, workspaceID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(response)
+}
+
 func (h *AppHandler) listPosts(c fiber.Ctx) error {
 	principal, err := h.principal(c)
 	if err != nil {
@@ -419,13 +439,13 @@ func (h *AppHandler) listPostMetricDefinitions(c fiber.Ctx) error {
 
 func bindPostInput(c fiber.Ctx) (posts.UpsertPostInput, error) {
 	var body struct {
-		Title          string         `json:"title"`
-		ContentKind    string         `json:"contentKind"`
-		ContentPayload map[string]any `json:"contentPayload"`
-		OriginPlatform string         `json:"originPlatform"`
-		OriginSurface  string         `json:"originSurface"`
-		RequiresApproval bool         `json:"requiresApproval"`
-		Notes          string         `json:"notes"`
+		Title            string         `json:"title"`
+		ContentKind      string         `json:"contentKind"`
+		ContentPayload   map[string]any `json:"contentPayload"`
+		OriginPlatform   string         `json:"originPlatform"`
+		OriginSurface    string         `json:"originSurface"`
+		RequiresApproval bool           `json:"requiresApproval"`
+		Notes            string         `json:"notes"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
 		return posts.UpsertPostInput{}, iam.ErrValidation
@@ -514,6 +534,32 @@ func bindSchedulePublicationInput(c fiber.Ctx) (posts.SchedulePublicationInput, 
 	return posts.SchedulePublicationInput{
 		PlannedAt: plannedAt,
 		Source:    body.Source,
+	}, nil
+}
+
+func bindCalendarQuery(c fiber.Ctx) (posts.CalendarQueryInput, error) {
+	startRaw := strings.TrimSpace(c.Query("start"))
+	endRaw := strings.TrimSpace(c.Query("end"))
+	if startRaw == "" || endRaw == "" {
+		return posts.CalendarQueryInput{}, iam.ErrValidation
+	}
+	start, err := time.Parse(time.RFC3339, startRaw)
+	if err != nil {
+		return posts.CalendarQueryInput{}, iam.ErrValidation
+	}
+	end, err := time.Parse(time.RFC3339, endRaw)
+	if err != nil {
+		return posts.CalendarQueryInput{}, iam.ErrValidation
+	}
+	platforms := []string{}
+	if raw := strings.TrimSpace(c.Query("platform")); raw != "" {
+		platforms = append(platforms, strings.Split(raw, ",")...)
+	}
+	return posts.CalendarQueryInput{
+		Start:     start,
+		End:       end,
+		Timezone:  strings.TrimSpace(c.Query("timezone")),
+		Platforms: platforms,
 	}, nil
 }
 

@@ -14,8 +14,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/lib/auth-context";
 import type { PlatformWorkspaceRecord } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 
 export function AdminWorkspaceFormPage({ mode }: { mode: "create" | "edit" }) {
 	const navigate = useNavigate();
@@ -24,7 +24,9 @@ export function AdminWorkspaceFormPage({ mode }: { mode: "create" | "edit" }) {
 	const isCreate = mode === "create";
 	const workspaceId = params.id ?? "";
 
-	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(null);
+	const [workspace, setWorkspace] = useState<PlatformWorkspaceRecord | null>(
+		null,
+	);
 	const [name, setName] = useState("");
 	const [status, setStatus] = useState("active");
 	const [loading, setLoading] = useState(!isCreate);
@@ -113,7 +115,13 @@ export function AdminWorkspaceFormPage({ mode }: { mode: "create" | "edit" }) {
 			}
 			actions={
 				<Button variant="outline" className="rounded-full" asChild>
-					<Link to={isCreate ? "/admin/workspaces" : `/admin/workspaces/${workspaceId}`}>
+					<Link
+						to={
+							isCreate
+								? "/admin/workspaces"
+								: `/admin/workspaces/${workspaceId}`
+						}
+					>
 						<ArrowLeft className="size-4" />
 						Back
 					</Link>
@@ -128,21 +136,25 @@ export function AdminWorkspaceFormPage({ mode }: { mode: "create" | "edit" }) {
 						<div className="text-lg font-semibold">Workspace guidance</div>
 						<p className="text-sm text-muted-foreground">
 							Workspace slugs are generated from the name and kept unique. Use a
-							clear customer-facing name so support, billing, and operations stay
-							aligned.
+							clear customer-facing name so support, billing, and operations
+							stay aligned.
 						</p>
 					</div>
 					{workspace ? (
 						<div className="mt-4 grid gap-3 text-sm text-muted-foreground">
 							<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
 								<div className="font-medium text-foreground">Members</div>
-								<div className="mt-2">{workspace.memberCount} total members</div>
+								<div className="mt-2">
+									{workspace.memberCount} total members
+								</div>
 							</div>
 							<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/55 p-4">
-								<div className="font-medium text-foreground">Support access</div>
+								<div className="font-medium text-foreground">
+									Support access
+								</div>
 								<div className="mt-2">
-									Use the workspace detail page to inspect associations and start
-									an assume-access session.
+									Use the workspace detail page to inspect associations and
+									start an assume-access session.
 								</div>
 							</div>
 						</div>
@@ -208,7 +220,13 @@ export function AdminWorkspaceFormPage({ mode }: { mode: "create" | "edit" }) {
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<Button variant="outline" className="rounded-full" asChild>
-							<Link to={isCreate ? "/admin/workspaces" : `/admin/workspaces/${workspaceId}`}>
+							<Link
+								to={
+									isCreate
+										? "/admin/workspaces"
+										: `/admin/workspaces/${workspaceId}`
+								}
+							>
 								Cancel
 							</Link>
 						</Button>

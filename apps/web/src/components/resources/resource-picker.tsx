@@ -2,15 +2,15 @@ import { Layers3, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
-	ResourceSetIntentBadge,
-	ResourceSetMembersPreview,
-} from "@/components/resources/resource-set-display";
-import {
 	ResourceCompatibilityBadge,
 	ResourceKindIcon,
 	ResourceThumb,
 	formatResourceMeta,
 } from "@/components/resources/resource-display";
+import {
+	ResourceSetIntentBadge,
+	ResourceSetMembersPreview,
+} from "@/components/resources/resource-set-display";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -230,7 +230,9 @@ export function ResourcePicker({
 														</div>
 														<div className="flex items-center justify-between text-xs text-muted-foreground">
 															<span className="inline-flex items-center gap-1.5 capitalize">
-																<ResourceKindIcon mediaKind={resource.mediaKind} />
+																<ResourceKindIcon
+																	mediaKind={resource.mediaKind}
+																/>
 																{resource.mediaKind}
 															</span>
 															<span>{resource.usageCount} uses</span>

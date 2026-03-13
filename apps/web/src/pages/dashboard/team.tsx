@@ -1,8 +1,11 @@
 import { Mail, ShieldCheck, UserCog, UserPlus, Users2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SurfaceCard } from "@/components/app/brand";
-import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+} from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +26,6 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@/components/ui/native-select";
-import { useAuth } from "@/lib/auth-context";
 import type {
 	ApiListResponse,
 	Role,
@@ -31,6 +33,7 @@ import type {
 	WorkspaceMemberRecord,
 	WorkspaceSummary,
 } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const memberStatusStyles: Record<string, string> = {
@@ -52,7 +55,9 @@ function MemberIdentity({ record }: { record: WorkspaceMemberRecord }) {
 			</Avatar>
 			<div className="min-w-0">
 				<div className="font-medium">{record.user.fullName}</div>
-				<div className="truncate text-sm text-muted-foreground">{record.user.email}</div>
+				<div className="truncate text-sm text-muted-foreground">
+					{record.user.email}
+				</div>
 			</div>
 		</div>
 	);
@@ -85,7 +90,8 @@ function RoleList({ roles }: { roles: Role[] }) {
 }
 
 export function DashboardTeam() {
-	const { activeWorkspaceId, customerRequest, hasCustomerPermission } = useAuth();
+	const { activeWorkspaceId, customerRequest, hasCustomerPermission } =
+		useAuth();
 	const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
 	const [members, setMembers] = useState<WorkspaceMemberRecord[]>([]);
 	const [invites, setInvites] = useState<WorkspaceInvite[]>([]);
@@ -94,7 +100,9 @@ export function DashboardTeam() {
 	const [error, setError] = useState<string | null>(null);
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [selectedRoleCodes, setSelectedRoleCodes] = useState<string[]>([]);
-	const [editTarget, setEditTarget] = useState<WorkspaceMemberRecord | null>(null);
+	const [editTarget, setEditTarget] = useState<WorkspaceMemberRecord | null>(
+		null,
+	);
 	const [editStatus, setEditStatus] = useState("active");
 	const [editRoleCodes, setEditRoleCodes] = useState<string[]>([]);
 
@@ -103,7 +111,7 @@ export function DashboardTeam() {
 		workspace?.capabilities,
 	);
 
-	async function loadData() {
+	const loadData = useCallback(async () => {
 		if (!activeWorkspaceId) {
 			return;
 		}
@@ -128,15 +136,19 @@ export function DashboardTeam() {
 			setInvites(inviteResponse.items);
 			setRoles(roleResponse.items);
 		} catch (loadError) {
-			setError(loadError instanceof Error ? loadError.message : "Unable to load team data.");
+			setError(
+				loadError instanceof Error
+					? loadError.message
+					: "Unable to load team data.",
+			);
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [activeWorkspaceId, customerRequest]);
 
 	useEffect(() => {
 		void loadData();
-	}, [activeWorkspaceId]);
+	}, [loadData]);
 
 	const inviteRoleCodes = useMemo(
 		() => (selectedRoleCodes.length ? selectedRoleCodes : ["content_manager"]),
@@ -190,7 +202,8 @@ export function DashboardTeam() {
 			label: "Roles",
 			width: 260,
 			accessor: (record) => <RoleList roles={record.roles} />,
-			getSortValue: (record) => record.roles.map((role) => role.label).join(", "),
+			getSortValue: (record) =>
+				record.roles.map((role) => role.label).join(", "),
 		},
 		{
 			id: "status",
@@ -240,24 +253,30 @@ export function DashboardTeam() {
 											{roles.map((role) => {
 												const checked = selectedRoleCodes.includes(role.code);
 												return (
-													<label key={role.id} className="flex items-start gap-3">
+													<div key={role.id} className="flex items-start gap-3">
 														<Checkbox
 															checked={checked}
 															onCheckedChange={(nextChecked) =>
 																setSelectedRoleCodes((current) =>
 																	nextChecked
 																		? [...current, role.code]
-																		: current.filter((code) => code !== role.code),
+																		: current.filter(
+																				(code) => code !== role.code,
+																			),
 																)
 															}
+															aria-label={role.label}
 														/>
 														<div>
 															<div className="font-medium">{role.label}</div>
 															<div className="text-sm text-muted-foreground">
-																{role.permissions.map((permission) => permission.label).slice(0, 3).join(", ")}
+																{role.permissions
+																	.map((permission) => permission.label)
+																	.slice(0, 3)
+																	.join(", ")}
 															</div>
 														</div>
-													</label>
+													</div>
 												);
 											})}
 										</div>
@@ -361,25 +380,32 @@ export function DashboardTeam() {
 							</div>
 							<div className="mt-4 font-medium">No pending invites</div>
 							<div className="mt-2 text-sm text-muted-foreground">
-								New invitations will appear here with their selected role bundles.
+								New invitations will appear here with their selected role
+								bundles.
 							</div>
 						</SurfaceCard>
 					) : null}
 				</div>
 			</DashboardPanel>
 
-			<Dialog open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
+			<Dialog
+				open={Boolean(editTarget)}
+				onOpenChange={(open) => !open && setEditTarget(null)}
+			>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Edit member access</DialogTitle>
 						<DialogDescription>
-							Update status and preset role assignments for this workspace member.
+							Update status and preset role assignments for this workspace
+							member.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">
 						<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/70 p-4">
 							<div className="font-medium">{editTarget?.user.fullName}</div>
-							<div className="text-sm text-muted-foreground">{editTarget?.user.email}</div>
+							<div className="text-sm text-muted-foreground">
+								{editTarget?.user.email}
+							</div>
 						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="member-status">Status</Label>
@@ -390,7 +416,9 @@ export function DashboardTeam() {
 								className="rounded-xl"
 							>
 								<NativeSelectOption value="active">Active</NativeSelectOption>
-								<NativeSelectOption value="suspended">Suspended</NativeSelectOption>
+								<NativeSelectOption value="suspended">
+									Suspended
+								</NativeSelectOption>
 							</NativeSelect>
 						</div>
 						<div className="space-y-3">
@@ -399,7 +427,7 @@ export function DashboardTeam() {
 								{roles.map((role) => {
 									const checked = editRoleCodes.includes(role.code);
 									return (
-										<label key={role.id} className="flex items-start gap-3">
+										<div key={role.id} className="flex items-start gap-3">
 											<Checkbox
 												checked={checked}
 												onCheckedChange={(nextChecked) =>
@@ -409,14 +437,18 @@ export function DashboardTeam() {
 															: current.filter((code) => code !== role.code),
 													)
 												}
+												aria-label={role.label}
 											/>
 											<div>
 												<div className="font-medium">{role.label}</div>
 												<div className="text-sm text-muted-foreground">
-													{role.permissions.map((permission) => permission.label).slice(0, 3).join(", ")}
+													{role.permissions
+														.map((permission) => permission.label)
+														.slice(0, 3)
+														.join(", ")}
 												</div>
 											</div>
-										</label>
+										</div>
 									);
 								})}
 							</div>
@@ -426,7 +458,10 @@ export function DashboardTeam() {
 						<Button variant="outline" className="rounded-full">
 							Cancel
 						</Button>
-						<Button className="rounded-full bg-gradient-brand text-white border-0" onClick={() => void updateMember()}>
+						<Button
+							className="rounded-full bg-gradient-brand text-white border-0"
+							onClick={() => void updateMember()}
+						>
 							<ShieldCheck className="size-4" />
 							Save access
 						</Button>

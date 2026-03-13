@@ -50,7 +50,9 @@ function Navbar() {
 	}, [scrollViewportRef]);
 
 	useEffect(() => {
-		setMenuOpen(false);
+		if (location.pathname) {
+			setMenuOpen(false);
+		}
 	}, [location.pathname]);
 
 	return (
@@ -246,6 +248,7 @@ function Footer() {
 										strokeLinecap="round"
 										strokeLinejoin="round"
 									>
+										<title>X</title>
 										<path d="M4 4l11.733 16h4.267l-11.733 -16h-4.267z" />
 										<path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
 									</svg>
@@ -264,6 +267,7 @@ function Footer() {
 										strokeLinecap="round"
 										strokeLinejoin="round"
 									>
+										<title>LinkedIn</title>
 										<path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
 										<path d="M8 11l0 5" />
 										<path d="M8 8l0 .01" />
@@ -285,6 +289,7 @@ function Footer() {
 										strokeLinecap="round"
 										strokeLinejoin="round"
 									>
+										<title>GitHub</title>
 										<path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
 									</svg>
 								</a>
@@ -343,7 +348,7 @@ function Footer() {
 									Contact
 								</a>
 								<a
-									href="#"
+									href="/careers"
 									className="block transition-colors hover:text-foreground"
 								>
 									Careers
@@ -355,25 +360,25 @@ function Footer() {
 							<div className="text-sm font-medium">Resources</div>
 							<div className="space-y-2 text-sm text-muted-foreground">
 								<a
-									href="#"
+									href="/docs"
 									className="block transition-colors hover:text-foreground"
 								>
 									Documentation
 								</a>
 								<a
-									href="#"
+									href="/api"
 									className="block transition-colors hover:text-foreground"
 								>
 									API Reference
 								</a>
 								<a
-									href="#"
+									href="/changelog"
 									className="block transition-colors hover:text-foreground"
 								>
 									Changelog
 								</a>
 								<a
-									href="#"
+									href="/status"
 									className="block transition-colors hover:text-foreground"
 								>
 									Status Page
@@ -385,25 +390,25 @@ function Footer() {
 							<div className="text-sm font-medium">Legal</div>
 							<div className="space-y-2 text-sm text-muted-foreground">
 								<a
-									href="#"
+									href="/privacy"
 									className="block transition-colors hover:text-foreground"
 								>
 									Privacy Policy
 								</a>
 								<a
-									href="#"
+									href="/terms"
 									className="block transition-colors hover:text-foreground"
 								>
 									Terms of Service
 								</a>
 								<a
-									href="#"
+									href="/cookies"
 									className="block transition-colors hover:text-foreground"
 								>
 									Cookie Policy
 								</a>
 								<a
-									href="#"
+									href="/security"
 									className="block transition-colors hover:text-foreground"
 								>
 									Security

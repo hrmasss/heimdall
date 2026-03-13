@@ -355,3 +355,135 @@ func TestNormalizeContentPayloadPreservesTags(t *testing.T) {
 		t.Fatalf("expected normalized tags to be preserved, got %#v", tags)
 	}
 }
+
+func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, time.March, 9, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, time.March, 15, 23, 59, 59, 0, time.UTC)
+
+	response := buildCalendarResponse(
+		[]PostDetail{
+			{
+				PostSummary: PostSummary{
+					ID:                        "post-1",
+					WorkspaceID:               "workspace-1",
+					Title:                     "Launch memo",
+					ContentKind:               "text",
+					RequiresApproval:          false,
+					AggregateApprovalState:    "draft",
+					AggregatePublicationState: "scheduled",
+					CreatedAt:                 start.Format(time.RFC3339),
+					UpdatedAt:                 start.Format(time.RFC3339),
+				},
+				ContentPayload: map[string]any{"body": "Shared launch update"},
+				Variants: []PostVariant{
+					{
+						ID:            "variant-scheduled",
+						PostID:        "post-1",
+						Platform:      "linkedin",
+						Surface:       "feed_post",
+						ApprovalState: "approved",
+						ContentMode:   "inherit",
+						AssetMode:     "inherit",
+						Readiness:     ensureVariantReadiness(VariantReadiness{}),
+						LatestPublication: &PublicationPlan{
+							PublicationState: "scheduled",
+							PlannedAt:        start.Add(10 * time.Hour).Format(time.RFC3339),
+						},
+						CreatedAt: start.Format(time.RFC3339),
+						UpdatedAt: start.Format(time.RFC3339),
+					},
+					{
+						ID:            "variant-backlog",
+						PostID:        "post-1",
+						Platform:      "instagram",
+						Surface:       "feed_photo",
+						ApprovalState: "draft",
+						ContentMode:   "inherit",
+						AssetMode:     "inherit",
+						Readiness: ensureVariantReadiness(VariantReadiness{
+							ScheduleBlockers: []ReadinessIssue{{
+								Code:    "approval_required",
+								Message: "Needs approval",
+							}},
+						}),
+						CreatedAt: start.Format(time.RFC3339),
+						UpdatedAt: start.Add(2 * time.Hour).Format(time.RFC3339),
+					},
+					{
+						ID:            "variant-published",
+						PostID:        "post-1",
+						Platform:      "x",
+						Surface:       "thread",
+						ApprovalState: "approved",
+						ContentMode:   "inherit",
+						AssetMode:     "inherit",
+						Readiness:     ensureVariantReadiness(VariantReadiness{}),
+						LatestPublication: &PublicationPlan{
+							PublicationState: "published",
+							PlannedAt:        start.Add(30 * time.Hour).Format(time.RFC3339),
+						},
+						CreatedAt: start.Format(time.RFC3339),
+						UpdatedAt: start.Add(30 * time.Hour).Format(time.RFC3339),
+					},
+					{
+						ID:            "variant-outside",
+						PostID:        "post-1",
+						Platform:      "youtube",
+						Surface:       "short",
+						ApprovalState: "approved",
+						ContentMode:   "inherit",
+						AssetMode:     "inherit",
+						Readiness:     ensureVariantReadiness(VariantReadiness{}),
+						LatestPublication: &PublicationPlan{
+							PublicationState: "published",
+							PlannedAt:        end.Add(48 * time.Hour).Format(time.RFC3339),
+						},
+						CreatedAt: start.Format(time.RFC3339),
+						UpdatedAt: end.Add(48 * time.Hour).Format(time.RFC3339),
+					},
+				},
+			},
+		},
+		resources.CapabilityMatrix{
+			Rules: []resources.CapabilityRule{
+				{Platform: "linkedin", Surface: "feed_post"},
+				{Platform: "instagram", Surface: "feed_photo"},
+				{Platform: "x", Surface: "thread"},
+				{Platform: "youtube", Surface: "short"},
+			},
+		},
+		CalendarQueryInput{
+			Start:    start,
+			End:      end,
+			Timezone: "",
+		},
+		true,
+	)
+
+	if response.Range.Timezone != "UTC" {
+		t.Fatalf("expected blank timezone to fall back to UTC, got %q", response.Range.Timezone)
+	}
+	if len(response.Entries) != 2 {
+		t.Fatalf("expected 2 scheduled entries, got %d", len(response.Entries))
+	}
+	if len(response.Backlog) != 1 {
+		t.Fatalf("expected 1 backlog item, got %d", len(response.Backlog))
+	}
+	if response.Entries[0].VariantID != "variant-scheduled" {
+		t.Fatalf("expected scheduled variant first, got %#v", response.Entries[0])
+	}
+	if response.Entries[1].PublicationState != "published" {
+		t.Fatalf("expected published item to remain visible in range, got %#v", response.Entries[1])
+	}
+	if response.Backlog[0].VariantID != "variant-backlog" {
+		t.Fatalf("expected unscheduled variant in backlog, got %#v", response.Backlog[0])
+	}
+	if !response.Backlog[0].RequiresApproval {
+		t.Fatalf("expected workspace approval requirement to flow into backlog item")
+	}
+	if len(response.Platforms) != 4 {
+		t.Fatalf("expected capability-driven lane list, got %d", len(response.Platforms))
+	}
+}

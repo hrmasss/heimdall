@@ -114,7 +114,9 @@ export function getResourceSetIntentOptions(
 		left.label.localeCompare(right.label),
 	);
 	for (const option of options) {
-		option.surfaces.sort((left, right) => left.label.localeCompare(right.label));
+		option.surfaces.sort((left, right) =>
+			left.label.localeCompare(right.label),
+		);
 	}
 	return options.length > 0 ? options : fallbackPlatformOptions;
 }

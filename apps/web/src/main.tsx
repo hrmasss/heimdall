@@ -1,8 +1,9 @@
 import { StrictMode } from "react";
-import { hydrateRoot, createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 
 import { AppRoutes } from "@/app-routes";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-context";
 
 import "./index.css";
@@ -18,6 +19,7 @@ const app = (
 		<AuthProvider>
 			<BrowserRouter>
 				<AppRoutes />
+				<Toaster />
 			</BrowserRouter>
 		</AuthProvider>
 	</StrictMode>

@@ -146,11 +146,17 @@ export function ResourceSetIntentBadge({
 	set,
 	className,
 }: {
-	set: Pick<ResourceSetSummary, "intentType" | "intentPlatform" | "intentSurface">;
+	set: Pick<
+		ResourceSetSummary,
+		"intentType" | "intentPlatform" | "intentSurface"
+	>;
 	className?: string;
 }) {
 	return (
-		<Badge variant="outline" className={cn("rounded-full capitalize", className)}>
+		<Badge
+			variant="outline"
+			className={cn("rounded-full capitalize", className)}
+		>
 			<Sparkles className="size-3.5" />
 			{formatAssetSetIntent(set)}
 		</Badge>
@@ -241,7 +247,9 @@ export function ResourceSetItemList({
 					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex flex-wrap items-center gap-2">
-							<div className="truncate font-medium">{item.resource.displayName}</div>
+							<div className="truncate font-medium">
+								{item.resource.displayName}
+							</div>
 							<span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
 								<ResourceKindIcon mediaKind={item.resource.mediaKind} />
 								{item.resource.mediaKind}
