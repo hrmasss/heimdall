@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties, ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import {
 	AdminFormField,
@@ -878,8 +878,10 @@ function resolveVariantSnapshot(
 export function DashboardNewPost() {
 	const navigate = useNavigate();
 	const { id } = useParams();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const isEditMode = Boolean(id);
 	const { activeWorkspaceId, customerRequest } = useAuth();
+	const requestedTab = searchParams.get("tab");
 
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
@@ -1069,11 +1071,19 @@ export function DashboardNewPost() {
 				setLegacyVariants(post.legacyVariants);
 				setDeletedVariantIds([]);
 				setPlannedTimeDrafts({});
-				setActiveTab(
+				const defaultTab =
 					nextState.startsFromPlatform ||
-						nextState.variants[0]?.platform ||
-						"shared",
-				);
+					nextState.variants[0]?.platform ||
+					"shared";
+				const nextActiveTab =
+					(requestedTab === "shared" ||
+						nextState.variants.some(
+							(variant) => variant.platform === requestedTab,
+						)) &&
+					requestedTab
+						? requestedTab
+						: defaultTab;
+				setActiveTab(nextActiveTab);
 				setBaseline(JSON.stringify(nextState));
 				setDataWarning(
 					normalized.coerced
@@ -1090,8 +1100,28 @@ export function DashboardNewPost() {
 				setLoading(false);
 			}
 		},
-		[activeWorkspaceId, customerRequest],
+		[activeWorkspaceId, customerRequest, requestedTab],
 	);
+
+	useEffect(() => {
+		if (loading) {
+			return;
+		}
+		if (!activeTab) {
+			return;
+		}
+		const currentTab = searchParams.get("tab") ?? "shared";
+		if (currentTab === activeTab) {
+			return;
+		}
+		const nextParams = new URLSearchParams(searchParams);
+		if (activeTab === "shared") {
+			nextParams.delete("tab");
+		} else {
+			nextParams.set("tab", activeTab);
+		}
+		setSearchParams(nextParams, { replace: true });
+	}, [activeTab, loading, searchParams, setSearchParams]);
 
 	useEffect(() => {
 		void loadEditor(id ?? null);
@@ -1301,7 +1331,11 @@ export function DashboardNewPost() {
 				});
 			}
 			if (!postId) {
-				navigate(`/dashboard/posts/${post.id}/edit`);
+				navigate(
+					activeTab === "shared"
+						? `/dashboard/posts/${post.id}/edit`
+						: `/dashboard/posts/${post.id}/edit?tab=${activeTab}`,
+				);
 				return;
 			}
 			await loadEditor(post.id);
@@ -2160,15 +2194,16 @@ export function DashboardNewPost() {
 													</Popover>
 												</div>
 												<div className="space-y-2">
-													<Label htmlFor={`planned-time-${platform}`}>
+													<div className="text-sm font-medium">
 														Planned time
-													</Label>
+													</div>
 													<div
 														id={`planned-time-${platform}`}
 														className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
 													>
 														<Input
 															aria-label="Planned hour"
+															name={`planned-hour-${platform}`}
 															inputMode="numeric"
 															value={plannedTimeDraft.hour}
 															onChange={(event) =>
@@ -2187,6 +2222,7 @@ export function DashboardNewPost() {
 														</span>
 														<Input
 															aria-label="Planned minute"
+															name={`planned-minute-${platform}`}
 															inputMode="numeric"
 															value={plannedTimeDraft.minute}
 															onChange={(event) =>
