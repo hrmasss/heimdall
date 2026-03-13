@@ -1,7 +1,16 @@
 import {
+	RiFacebookCircleFill,
+	RiInstagramFill,
+	RiLinkedinFill,
+	RiTiktokFill,
+	RiTwitterXFill,
+	RiYoutubeFill,
+} from "@remixicon/react";
+import {
 	AlertTriangle,
 	ArrowLeft,
 	CalendarClock,
+	CalendarDays,
 	CheckCircle2,
 	ChevronDown,
 	ChevronUp,
@@ -15,6 +24,7 @@ import {
 	Video,
 	XCircle,
 } from "lucide-react";
+import type { CSSProperties, ComponentType } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
@@ -27,13 +37,18 @@ import {
 	adminTextareaClassName,
 } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
-import { DateTimePicker } from "@/components/app/date-time-picker";
 import { ResourceChipList } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -97,9 +112,56 @@ type VariantSnapshot = {
 	readiness: VariantReadiness;
 };
 
+type PlannedTimeDraft = {
+	hour: string;
+	minute: string;
+	meridiem: "AM" | "PM";
+};
+
 const longTextareaClassName = `${adminTextareaClassName} min-h-40`;
 const mediumTextareaClassName = `${adminTextareaClassName} min-h-28`;
 const compactTextareaClassName = `${adminTextareaClassName} min-h-24`;
+const DEFAULT_HOUR = 9;
+const DEFAULT_MINUTE = 0;
+const PLATFORM_META: Record<
+	string,
+	{
+		label: string;
+		color: string;
+		icon: ComponentType<{ className?: string; style?: CSSProperties }>;
+	}
+> = {
+	facebook: {
+		label: "Facebook",
+		color: "#1877F2",
+		icon: RiFacebookCircleFill,
+	},
+	instagram: {
+		label: "Instagram",
+		color: "#E1306C",
+		icon: RiInstagramFill,
+	},
+	linkedin: {
+		label: "LinkedIn",
+		color: "#0A66C2",
+		icon: RiLinkedinFill,
+	},
+	tiktok: {
+		label: "TikTok",
+		color: "#FF0050",
+		icon: RiTiktokFill,
+	},
+	x: {
+		label: "X",
+		color: "#94A3B8",
+		icon: RiTwitterXFill,
+	},
+	youtube: {
+		label: "YouTube",
+		color: "#FF0000",
+		icon: RiYoutubeFill,
+	},
+};
 
 function createDraftContent(kind: ContentKind = "text"): DraftContent {
 	return {
@@ -174,6 +236,10 @@ function extractDraftContent(
 }
 
 function formatPlatformLabel(platform: string) {
+	const knownPlatform = PLATFORM_META[platform];
+	if (knownPlatform) {
+		return knownPlatform.label;
+	}
 	return platform
 		.split(/[_-]/g)
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -267,27 +333,71 @@ function normalizeCapabilities(
 	};
 }
 
-function toDateTimeLocal(value?: string) {
+function parseDateTimeValue(value?: string) {
 	if (!value) {
-		return "";
+		return null;
 	}
 	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return "";
-	}
-	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-		date.getDate(),
-	).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(
-		date.getMinutes(),
-	).padStart(2, "0")}`;
+	return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function fromDateTimeLocal(value: string) {
-	if (!value) {
-		return "";
+function padNumber(value: number) {
+	return String(value).padStart(2, "0");
+}
+
+function formatPlannedDateLabel(value?: string) {
+	const date = parseDateTimeValue(value);
+	if (!date) {
+		return "Choose date";
 	}
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+	return new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+	}).format(date);
+}
+
+function toMeridiem(hours24: number) {
+	if (hours24 === 0) {
+		return { hour12: 12, meridiem: "AM" as const };
+	}
+	if (hours24 === 12) {
+		return { hour12: 12, meridiem: "PM" as const };
+	}
+	if (hours24 > 12) {
+		return { hour12: hours24 - 12, meridiem: "PM" as const };
+	}
+	return { hour12: hours24, meridiem: "AM" as const };
+}
+
+function to24Hour(hour12: number, meridiem: "AM" | "PM") {
+	if (meridiem === "AM") {
+		return hour12 === 12 ? 0 : hour12;
+	}
+	return hour12 === 12 ? 12 : hour12 + 12;
+}
+
+function getPlannedTimeParts(value?: string) {
+	const date = parseDateTimeValue(value);
+	const hours = date?.getHours() ?? DEFAULT_HOUR;
+	return {
+		hour12: toMeridiem(hours).hour12,
+		minute: date?.getMinutes() ?? DEFAULT_MINUTE,
+		meridiem: toMeridiem(hours).meridiem,
+	};
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+	return Math.min(Math.max(value, minimum), maximum);
+}
+
+function getPlannedTimeDraft(value?: string): PlannedTimeDraft {
+	const { hour12, minute, meridiem } = getPlannedTimeParts(value);
+	return {
+		hour: padNumber(hour12),
+		minute: padNumber(minute),
+		meridiem,
+	};
 }
 
 function resourceMap(resources: ResourceRecord[]) {
@@ -335,6 +445,22 @@ function renderContentPreview(
 }
 
 function platformIcon(platform: string) {
+	const knownPlatform = PLATFORM_META[platform];
+	if (knownPlatform) {
+		const Icon = knownPlatform.icon;
+		return (
+			<span
+				className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border"
+				style={{
+					color: knownPlatform.color,
+					borderColor: `${knownPlatform.color}33`,
+					backgroundColor: `${knownPlatform.color}14`,
+				}}
+			>
+				<Icon className="size-4" />
+			</span>
+		);
+	}
 	if (platform === "youtube" || platform === "tiktok") {
 		return <Video className="size-4" />;
 	}
@@ -585,6 +711,9 @@ export function DashboardNewPost() {
 	const [postId, setPostId] = useState<string | null>(id ?? null);
 	const [baseline, setBaseline] = useState("");
 	const [activeTab, setActiveTab] = useState("shared");
+	const [plannedTimeDrafts, setPlannedTimeDrafts] = useState<
+		Record<string, PlannedTimeDraft>
+	>({});
 
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
@@ -634,13 +763,6 @@ export function DashboardNewPost() {
 			capabilities,
 		],
 	);
-	const activeVariant =
-		activeTab === "shared"
-			? null
-			: (variants.find((variant) => variant.platform === activeTab) ?? null);
-	const activeSnapshot = activeVariant
-		? snapshots.get(activeVariant.platform)
-		: undefined;
 	const signature = JSON.stringify({
 		title,
 		notes,
@@ -705,6 +827,7 @@ export function DashboardNewPost() {
 					setVariants([]);
 					setLegacyVariants([]);
 					setDeletedVariantIds([]);
+					setPlannedTimeDrafts({});
 					setActiveTab("shared");
 					setBaseline(JSON.stringify(emptyState));
 					setDataWarning(null);
@@ -756,6 +879,7 @@ export function DashboardNewPost() {
 				setVariants(nextState.variants);
 				setLegacyVariants(post.legacyVariants);
 				setDeletedVariantIds([]);
+				setPlannedTimeDrafts({});
 				setActiveTab(
 					nextState.startsFromPlatform ||
 						nextState.variants[0]?.platform ||
@@ -857,12 +981,13 @@ export function DashboardNewPost() {
 		setSaving(true);
 		setError(null);
 		try {
+			const primaryVariant = variants[0];
 			const body = {
 				title,
 				contentKind: sharedDraft.kind,
 				contentPayload: buildContentPayload(sharedDraft),
-				originPlatform: startsFromPlatform,
-				originSurface: startsFromSurface,
+				originPlatform: primaryVariant?.platform ?? "",
+				originSurface: primaryVariant?.surface ?? "",
 				requiresApproval,
 				notes,
 			};
@@ -1022,18 +1147,55 @@ export function DashboardNewPost() {
 		}
 	}
 
-	function setPlannedAt(platform: string, value: string) {
+	function setPlannedAt(
+		platform: string,
+		nextDate: Date | null,
+		nextTime?: { hour12: number; minute: number; meridiem: "AM" | "PM" },
+	) {
 		const variant = variants.find((entry) => entry.platform === platform);
 		if (!variant) {
 			return;
 		}
+		if (!nextDate) {
+			updateVariant(platform, {
+				latestPublication: {
+					id: variant.latestPublication?.id ?? "",
+					variantId: variant.id ?? "",
+					publicationState:
+						variant.latestPublication?.publicationState ?? "unscheduled",
+					plannedAt: undefined,
+					publishedAt: variant.latestPublication?.publishedAt,
+					externalPostId: variant.latestPublication?.externalPostId,
+					externalAccountId: variant.latestPublication?.externalAccountId,
+					source: variant.latestPublication?.source ?? "manual",
+					lastError: variant.latestPublication?.lastError,
+					metadata: variant.latestPublication?.metadata,
+					createdAt: variant.latestPublication?.createdAt ?? "",
+					updatedAt: variant.latestPublication?.updatedAt ?? "",
+				},
+			});
+			return;
+		}
+		const currentTime = getPlannedTimeParts(
+			variant.latestPublication?.plannedAt,
+		);
+		const resolvedTime = nextTime ?? currentTime;
+		const plannedAt = new Date(
+			nextDate.getFullYear(),
+			nextDate.getMonth(),
+			nextDate.getDate(),
+			to24Hour(resolvedTime.hour12, resolvedTime.meridiem),
+			resolvedTime.minute,
+			0,
+			0,
+		).toISOString();
 		updateVariant(platform, {
 			latestPublication: {
 				id: variant.latestPublication?.id ?? "",
 				variantId: variant.id ?? "",
 				publicationState:
 					variant.latestPublication?.publicationState ?? "unscheduled",
-				plannedAt: fromDateTimeLocal(value) || undefined,
+				plannedAt,
 				publishedAt: variant.latestPublication?.publishedAt,
 				externalPostId: variant.latestPublication?.externalPostId,
 				externalAccountId: variant.latestPublication?.externalAccountId,
@@ -1044,6 +1206,100 @@ export function DashboardNewPost() {
 				updatedAt: variant.latestPublication?.updatedAt ?? "",
 			},
 		});
+	}
+
+	function setPlannedDate(platform: string, value?: Date) {
+		setPlannedAt(platform, value ?? null);
+		const variant = variants.find((entry) => entry.platform === platform);
+		setPlannedTimeDrafts((current) => ({
+			...current,
+			[platform]: getPlannedTimeDraft(variant?.latestPublication?.plannedAt),
+		}));
+	}
+
+	function setPlannedTime(
+		platform: string,
+		patch: Partial<{ hour12: number; minute: number; meridiem: "AM" | "PM" }>,
+	) {
+		const variant = variants.find((entry) => entry.platform === platform);
+		if (!variant) {
+			return;
+		}
+		const existingDate = parseDateTimeValue(
+			variant.latestPublication?.plannedAt,
+		);
+		const baseDate =
+			existingDate ??
+			new Date(
+				new Date().getFullYear(),
+				new Date().getMonth(),
+				new Date().getDate(),
+				DEFAULT_HOUR,
+				DEFAULT_MINUTE,
+				0,
+				0,
+			);
+		const currentTime = getPlannedTimeParts(
+			variant.latestPublication?.plannedAt,
+		);
+		setPlannedAt(platform, baseDate, {
+			hour12: patch.hour12 ?? currentTime.hour12,
+			minute: patch.minute ?? currentTime.minute,
+			meridiem: patch.meridiem ?? currentTime.meridiem,
+		});
+		const nextTime = {
+			hour12: patch.hour12 ?? currentTime.hour12,
+			minute: patch.minute ?? currentTime.minute,
+			meridiem: patch.meridiem ?? currentTime.meridiem,
+		};
+		setPlannedTimeDrafts((current) => ({
+			...current,
+			[platform]: {
+				hour: padNumber(nextTime.hour12),
+				minute: padNumber(nextTime.minute),
+				meridiem: nextTime.meridiem,
+			},
+		}));
+	}
+
+	function updatePlannedTimeDraft(
+		platform: string,
+		patch: Partial<PlannedTimeDraft>,
+	) {
+		const variant = variants.find((entry) => entry.platform === platform);
+		const fallback = getPlannedTimeDraft(variant?.latestPublication?.plannedAt);
+		setPlannedTimeDrafts((current) => ({
+			...current,
+			[platform]: {
+				...(current[platform] ?? fallback),
+				...patch,
+			},
+		}));
+	}
+
+	function commitPlannedTime(platform: string) {
+		const variant = variants.find((entry) => entry.platform === platform);
+		if (!variant) {
+			return;
+		}
+		const draft =
+			plannedTimeDrafts[platform] ??
+			getPlannedTimeDraft(variant.latestPublication?.plannedAt);
+		const hourValue = draft.hour === "" ? DEFAULT_HOUR : Number(draft.hour);
+		const minuteValue =
+			draft.minute === "" ? DEFAULT_MINUTE : Number(draft.minute);
+		const hour12 = clamp(
+			Number.isFinite(hourValue) ? hourValue : DEFAULT_HOUR,
+			1,
+			12,
+		);
+		const minute = clamp(
+			Number.isFinite(minuteValue) ? minuteValue : DEFAULT_MINUTE,
+			0,
+			59,
+		);
+		setError(null);
+		setPlannedTime(platform, { hour12, minute, meridiem: draft.meridiem });
 	}
 
 	function updateThreadItem(platform: string, index: number, value: string) {
@@ -1087,13 +1343,6 @@ export function DashboardNewPost() {
 								? "Unsaved changes are present. Save first to refresh readiness before scheduling."
 								: `${variants.length} platform tab(s) active • ${rootAssetIds.length} shared asset(s) attached`}
 						</div>
-						{activeSnapshot ? (
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-								{activeSnapshot.readiness.scheduleBlockers.length === 0
-									? "This tab is locally ready to schedule."
-									: `${activeSnapshot.readiness.scheduleBlockers.length} schedule blocker(s) still need attention.`}
-							</div>
-						) : null}
 					</SurfaceCard>
 				</div>
 			}
@@ -1146,72 +1395,8 @@ export function DashboardNewPost() {
 								placeholder="Q2 product launch story"
 							/>
 						</AdminFormField>
-						<AdminFormField>
-							<Label>Starts from</Label>
-							<Select
-								value={startsFromPlatform || "shared"}
-								onValueChange={(value) => {
-									if (value === "shared") {
-										setStartsFromPlatform("");
-										setStartsFromSurface("");
-										setActiveTab("shared");
-										return;
-									}
-									const surface =
-										surfaceOptions(capabilities, value)[0]?.surface ??
-										"feed_post";
-									setStartsFromPlatform(value);
-									setStartsFromSurface(surface);
-									ensurePlatformTab(value, surface);
-								}}
-							>
-								<SelectTrigger className={adminSelectTriggerClassName}>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="shared">Shared draft</SelectItem>
-									{platformOptions.map((platform) => (
-										<SelectItem key={platform} value={platform}>
-											{formatPlatformLabel(platform)}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</AdminFormField>
-						<AdminFormField>
-							<Label>Post format</Label>
-							<Select
-								value={startsFromSurface || "none"}
-								onValueChange={(value) => {
-									setStartsFromSurface(value);
-									if (startsFromPlatform) {
-										ensurePlatformTab(startsFromPlatform, value);
-									}
-								}}
-								disabled={!startsFromPlatform}
-							>
-								<SelectTrigger className={adminSelectTriggerClassName}>
-									<SelectValue
-										placeholder={
-											startsFromPlatform
-												? "Choose the primary format"
-												: "Pick a platform first"
-										}
-									/>
-								</SelectTrigger>
-								<SelectContent>
-									{surfaceOptions(capabilities, startsFromPlatform).map(
-										(rule) => (
-											<SelectItem key={rule.surface} value={rule.surface}>
-												{rule.label}
-											</SelectItem>
-										),
-									)}
-								</SelectContent>
-							</Select>
-						</AdminFormField>
 					</AdminFormGrid>
-					<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+					<div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
 						<AdminFormField>
 							<Label htmlFor="post-notes">Internal notes</Label>
 							<Textarea
@@ -1222,21 +1407,25 @@ export function DashboardNewPost() {
 								placeholder="Editorial context, approvals, or reminders"
 							/>
 						</AdminFormField>
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
-							<div className="flex items-start justify-between gap-4">
-								<div>
-									<div className="font-medium">Require approval</div>
-									<div className="text-sm text-muted-foreground">
-										Block schedule and publish actions until a reviewer
-										approves.
+						<AdminFormField>
+							<Label htmlFor="requires-approval">Require approval</Label>
+							<div className="flex min-h-28 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="flex w-full items-start justify-between gap-4">
+									<div className="pr-3">
+										<div className="font-medium">Approval gate</div>
+										<div className="text-sm text-muted-foreground">
+											Block schedule and publish actions until a reviewer
+											approves.
+										</div>
 									</div>
+									<Switch
+										id="requires-approval"
+										checked={requiresApproval}
+										onCheckedChange={setRequiresApproval}
+									/>
 								</div>
-								<Switch
-									checked={requiresApproval}
-									onCheckedChange={setRequiresApproval}
-								/>
 							</div>
-						</div>
+						</AdminFormField>
 					</div>
 				</SurfaceCard>
 
@@ -1260,12 +1449,12 @@ export function DashboardNewPost() {
 						}}
 					>
 						<TabsList
-							variant="line"
-							className="flex w-full flex-wrap justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2"
+							variant="default"
+							className="!h-auto min-h-[4.5rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
 						>
 							<TabsTrigger
 								value="shared"
-								className="rounded-[18px] px-3 py-2 data-active:bg-background"
+								className="h-auto min-h-11 flex-none self-stretch rounded-[18px] border border-transparent px-3 py-2.5 data-active:border-[var(--brand-border-soft)] data-active:bg-background/85"
 							>
 								<Globe2 className="size-4" />
 								Shared draft
@@ -1279,7 +1468,7 @@ export function DashboardNewPost() {
 										key={platform}
 										value={platform}
 										className={cn(
-											"rounded-[18px] px-3 py-2 data-active:bg-background",
+											"h-auto min-h-11 flex-none self-stretch rounded-[18px] border border-transparent px-3 py-2.5 data-active:border-[var(--brand-border-soft)] data-active:bg-background/85",
 											!exists && "opacity-65",
 										)}
 									>
@@ -1456,10 +1645,18 @@ export function DashboardNewPost() {
 							const publishBlockers = summarizeIssues(
 								snapshot.readiness.publishBlockers,
 							);
+							const actionBlockers = summarizeIssues([
+								...scheduleBlockers,
+								...publishBlockers,
+							]);
 							const threadItems =
 								variant.content.threadItems.length > 0
 									? variant.content.threadItems
 									: [""];
+							const plannedAt = variant.latestPublication?.plannedAt;
+							const plannedDate = parseDateTimeValue(plannedAt);
+							const plannedTimeDraft =
+								plannedTimeDrafts[platform] ?? getPlannedTimeDraft(plannedAt);
 
 							return (
 								<TabsContent key={platform} value={platform} className="mt-5">
@@ -1607,26 +1804,144 @@ export function DashboardNewPost() {
 												<CalendarClock className="size-4 text-primary" />
 												Review and publish actions
 											</div>
-											<div className="grid gap-4 md:grid-cols-2">
-												<DateTimePicker
-													value={toDateTimeLocal(
-														variant.latestPublication?.plannedAt,
-													)}
-													onChange={(value) => setPlannedAt(platform, value)}
-													placeholder="Choose a planned slot"
-												/>
-												<div className="text-sm text-muted-foreground">
-													{variant.latestPublication?.plannedAt
-														? `Planned for ${new Date(variant.latestPublication.plannedAt).toLocaleString()}`
-														: "No planned time yet"}
+											<div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_220px]">
+												<div className="space-y-2">
+													<Label>Planned date</Label>
+													<Popover>
+														<PopoverTrigger asChild>
+															<Button
+																type="button"
+																variant="outline"
+																className="h-11 w-full justify-between rounded-2xl px-4 text-left font-normal"
+															>
+																<span className="flex items-center gap-3">
+																	<CalendarDays className="size-4 text-muted-foreground" />
+																	<span
+																		className={cn(
+																			plannedDate
+																				? "text-foreground"
+																				: "text-muted-foreground",
+																		)}
+																	>
+																		{formatPlannedDateLabel(plannedAt)}
+																	</span>
+																</span>
+																<ChevronDown className="size-4 text-muted-foreground" />
+															</Button>
+														</PopoverTrigger>
+														<PopoverContent
+															align="start"
+															className="w-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-3 shadow-xl backdrop-blur"
+														>
+															<Calendar
+																mode="single"
+																selected={plannedDate ?? undefined}
+																onSelect={(value) =>
+																	setPlannedDate(platform, value)
+																}
+																className="p-0"
+															/>
+															<div className="flex justify-end pt-2">
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="sm"
+																	className="rounded-full"
+																	onClick={() => setPlannedDate(platform)}
+																>
+																	Clear
+																</Button>
+															</div>
+														</PopoverContent>
+													</Popover>
+												</div>
+												<div className="space-y-2">
+													<Label htmlFor={`planned-time-${platform}`}>
+														Planned time
+													</Label>
+													<div
+														id={`planned-time-${platform}`}
+														className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
+													>
+														<Input
+															aria-label="Planned hour"
+															inputMode="numeric"
+															value={plannedTimeDraft.hour}
+															onChange={(event) =>
+																updatePlannedTimeDraft(platform, {
+																	hour: event.target.value
+																		.replace(/\D/g, "")
+																		.slice(0, 2),
+																})
+															}
+															onBlur={() => commitPlannedTime(platform)}
+															className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
+															placeholder="09"
+														/>
+														<span className="px-1 text-sm text-muted-foreground">
+															:
+														</span>
+														<Input
+															aria-label="Planned minute"
+															inputMode="numeric"
+															value={plannedTimeDraft.minute}
+															onChange={(event) =>
+																updatePlannedTimeDraft(platform, {
+																	minute: event.target.value
+																		.replace(/\D/g, "")
+																		.slice(0, 2),
+																})
+															}
+															onBlur={() => commitPlannedTime(platform)}
+															className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
+															placeholder="00"
+														/>
+														<div className="ml-auto flex items-center gap-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 p-1">
+															<Button
+																type="button"
+																variant="ghost"
+																size="sm"
+																className={cn(
+																	"h-7 rounded-full px-2 text-xs",
+																	plannedTimeDraft.meridiem === "AM" &&
+																		"bg-background text-foreground shadow-sm",
+																)}
+																onClick={() => {
+																	updatePlannedTimeDraft(platform, {
+																		meridiem: "AM",
+																	});
+																	setPlannedTime(platform, { meridiem: "AM" });
+																}}
+															>
+																AM
+															</Button>
+															<Button
+																type="button"
+																variant="ghost"
+																size="sm"
+																className={cn(
+																	"h-7 rounded-full px-2 text-xs",
+																	plannedTimeDraft.meridiem === "PM" &&
+																		"bg-background text-foreground shadow-sm",
+																)}
+																onClick={() => {
+																	updatePlannedTimeDraft(platform, {
+																		meridiem: "PM",
+																	});
+																	setPlannedTime(platform, { meridiem: "PM" });
+																}}
+															>
+																PM
+															</Button>
+														</div>
+													</div>
 												</div>
 											</div>
 											<div className="mt-4 flex flex-wrap gap-2">
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-sky-500/20 bg-sky-500/10 px-4 text-sky-800 hover:bg-sky-500/15 hover:text-sky-900 dark:text-sky-100 dark:hover:text-sky-50"
 													onClick={() =>
 														void runVariantAction(variant, "submit")
 													}
@@ -1638,8 +1953,7 @@ export function DashboardNewPost() {
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100 dark:hover:text-emerald-50"
 													onClick={() =>
 														void runVariantAction(variant, "approve")
 													}
@@ -1651,8 +1965,7 @@ export function DashboardNewPost() {
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-amber-500/20 bg-amber-500/10 px-4 text-amber-800 hover:bg-amber-500/15 hover:text-amber-900 dark:text-amber-100 dark:hover:text-amber-50"
 													onClick={() =>
 														void runVariantAction(variant, "changes")
 													}
@@ -1664,8 +1977,7 @@ export function DashboardNewPost() {
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-indigo-500/20 bg-indigo-500/10 px-4 text-indigo-800 hover:bg-indigo-500/15 hover:text-indigo-900 dark:text-indigo-100 dark:hover:text-indigo-50"
 													onClick={() =>
 														void runVariantAction(variant, "schedule")
 													}
@@ -1677,8 +1989,7 @@ export function DashboardNewPost() {
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-white/10 bg-white/5 px-4 text-foreground hover:bg-white/10"
 													onClick={() =>
 														void runVariantAction(variant, "unschedule")
 													}
@@ -1689,8 +2000,7 @@ export function DashboardNewPost() {
 												<Button
 													type="button"
 													variant="outline"
-													size="sm"
-													className="rounded-full"
+													className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
 													onClick={() =>
 														void runVariantAction(variant, "record")
 													}
@@ -1699,28 +2009,38 @@ export function DashboardNewPost() {
 													Record as published
 												</Button>
 											</div>
-											{scheduleBlockers.length > 0 ? (
+											{actionBlockers.length > 0 ? (
 												<div className="rounded-[20px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-700">
-													<div className="mb-2 font-medium">
-														Needs attention
+													<div className="mb-3 flex flex-wrap items-center gap-2">
+														<div className="font-medium">Action blockers</div>
+														{scheduleBlockers.length > 0 ? (
+															<Badge
+																variant="outline"
+																className="rounded-full border-red-500/25 text-red-700"
+															>
+																Blocks scheduling
+															</Badge>
+														) : null}
+														{publishBlockers.length > 0 ? (
+															<Badge
+																variant="outline"
+																className="rounded-full border-red-500/25 text-red-700"
+															>
+																Blocks publish
+															</Badge>
+														) : null}
 													</div>
 													<div className="space-y-2">
-														{scheduleBlockers.map((issue) => (
+														{actionBlockers.map((issue) => (
 															<div key={issue.code}>{issue.message}</div>
 														))}
 													</div>
 												</div>
 											) : null}
-											{publishBlockers.length > 0 ? (
-												<div className="rounded-[20px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-700">
-													<div className="mb-2 font-medium">
-														Publish blockers
-													</div>
-													<div className="space-y-2">
-														{publishBlockers.map((issue) => (
-															<div key={issue.code}>{issue.message}</div>
-														))}
-													</div>
+											{actionBlockers.length === 0 ? (
+												<div className="rounded-[20px] border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700">
+													This variant is ready for review and scheduling
+													actions.
 												</div>
 											) : null}
 										</SurfaceCard>
