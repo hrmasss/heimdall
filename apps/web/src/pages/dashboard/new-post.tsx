@@ -217,6 +217,24 @@ function extractCaptionFromDraftContent(content: DraftContent): string {
 	return content.textBody;
 }
 
+function hasMeaningfulDraftContent(content: DraftContent) {
+	return extractCaptionFromDraftContent(content).trim().length > 0;
+}
+
+function preferredVariantModes(
+	sourceContent: DraftContent,
+	sourceAssets: ResourceRecord[],
+) {
+	return {
+		contentMode: (hasMeaningfulDraftContent(sourceContent)
+			? "inherit"
+			: "custom") as DraftVariant["contentMode"],
+		assetMode: (sourceAssets.length > 0
+			? "inherit"
+			: "replace") as DraftVariant["assetMode"],
+	};
+}
+
 function extractDraftContent(
 	kind: ContentKind,
 	payload: Record<string, unknown>,
@@ -1056,6 +1074,7 @@ export function DashboardNewPost() {
 				surfaceOptions(capabilities, platform)[0]?.surface ??
 				"feed_post";
 			const nextRule = findRule(capabilities, platform, nextSurface);
+			const defaultModes = preferredVariantModes(sharedDraft, rootAssets);
 			if (existing) {
 				return current.map((variant) =>
 					variant.platform === platform
@@ -1074,12 +1093,12 @@ export function DashboardNewPost() {
 					platform,
 					surface: nextSurface,
 					inheritSource: "shared",
-					contentMode: "inherit",
+					contentMode: defaultModes.contentMode,
 					content: coerceDraftContentForRule(
 						createDraftContent(sharedDraft.kind),
 						nextRule,
 					),
-					assetMode: "inherit",
+					assetMode: defaultModes.assetMode,
 					assetIds: [],
 					removedInheritedResourceIds: [],
 					approvalState: "draft",
@@ -1194,6 +1213,21 @@ export function DashboardNewPost() {
 				body: { resourceIds: rootAssetIds },
 			});
 			for (const variant of variants) {
+				const snapshot = snapshots.get(variant.platform);
+				const normalizedModes = preferredVariantModes(
+					snapshot ? contentFromSnapshot(snapshot) : sharedDraft,
+					snapshot?.sourceAssets ?? rootAssets,
+				);
+				const effectiveContentMode =
+					variant.contentMode === "inherit" &&
+					normalizedModes.contentMode === "custom"
+						? "custom"
+						: variant.contentMode;
+				const effectiveAssetMode =
+					variant.assetMode === "inherit" &&
+					normalizedModes.assetMode === "replace"
+						? "replace"
+						: variant.assetMode;
 				const savedVariant = variant.id
 					? await customerRequest<PostVariant>(
 							`/posts/variants/${variant.id}`,
@@ -1203,13 +1237,13 @@ export function DashboardNewPost() {
 									platform: variant.platform,
 									surface: variant.surface,
 									inheritSource: variant.inheritSource,
-									contentMode: variant.contentMode,
+									contentMode: effectiveContentMode,
 									contentKind: variant.content.kind,
 									contentPayload:
-										variant.contentMode === "custom"
+										effectiveContentMode === "custom"
 											? buildContentPayload(variant.content)
 											: {},
-									assetMode: variant.assetMode,
+									assetMode: effectiveAssetMode,
 									notes: variant.notes,
 								},
 							},
@@ -1220,13 +1254,13 @@ export function DashboardNewPost() {
 								platform: variant.platform,
 								surface: variant.surface,
 								inheritSource: variant.inheritSource,
-								contentMode: variant.contentMode,
+								contentMode: effectiveContentMode,
 								contentKind: variant.content.kind,
 								contentPayload:
-									variant.contentMode === "custom"
+									effectiveContentMode === "custom"
 										? buildContentPayload(variant.content)
 										: {},
-								assetMode: variant.assetMode,
+								assetMode: effectiveAssetMode,
 								notes: variant.notes,
 							},
 						});
@@ -1234,7 +1268,7 @@ export function DashboardNewPost() {
 					method: "PUT",
 					body: {
 						resourceIds: variant.assetIds,
-						assetMode: variant.assetMode,
+						assetMode: effectiveAssetMode,
 						removedInheritedResourceIds: variant.removedInheritedResourceIds,
 					},
 				});
@@ -1975,9 +2009,68 @@ export function DashboardNewPost() {
 													<Label>Inherit from</Label>
 													<Select
 														value={variant.inheritSource}
-														onValueChange={(value) =>
-															updateVariant(platform, { inheritSource: value })
-														}
+														onValueChange={(value) => {
+															const sourceSnapshot =
+																value === "shared"
+																	? {
+																			content: sharedDraft,
+																			sourceAssets: rootAssets,
+																		}
+																	: (() => {
+																			const sourcePlatform = value.replace(
+																				/^platform:/,
+																				"",
+																			);
+																			const sourceVariant =
+																				variants.find(
+																					(entry) =>
+																						entry.platform === sourcePlatform,
+																				) ?? null;
+																			if (!sourceVariant) {
+																				return {
+																					content: createDraftContent(
+																						sharedDraft.kind,
+																					),
+																					sourceAssets: [],
+																				};
+																			}
+																			const snapshot = resolveVariantSnapshot(
+																				sourceVariant,
+																				variants,
+																				sharedDraft,
+																				rootAssets,
+																				resourcesById,
+																				requiresApproval,
+																				capabilities,
+																			);
+																			return {
+																				content: contentFromSnapshot(snapshot),
+																				sourceAssets: snapshot.sourceAssets,
+																			};
+																		})();
+															const defaultModes = preferredVariantModes(
+																sourceSnapshot.content,
+																sourceSnapshot.sourceAssets,
+															);
+															updateVariant(platform, {
+																inheritSource: value,
+																contentMode:
+																	variant.contentMode === "inherit" &&
+																	defaultModes.contentMode === "custom"
+																		? "custom"
+																		: variant.contentMode,
+																content:
+																	variant.contentMode === "inherit" &&
+																	defaultModes.contentMode === "custom"
+																		? sourceSnapshot.content
+																		: variant.content,
+																assetMode:
+																	variant.assetMode === "inherit" &&
+																	defaultModes.assetMode === "replace"
+																		? "replace"
+																		: variant.assetMode,
+															});
+														}}
 													>
 														<SelectTrigger
 															className={adminSelectTriggerClassName}

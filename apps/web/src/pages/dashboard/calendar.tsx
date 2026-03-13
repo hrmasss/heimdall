@@ -34,6 +34,11 @@ import { ResourceChipList } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -102,6 +107,10 @@ type PanelDraft = {
 	plannedLocal: string;
 	platform: string;
 	surface: string;
+	contentMode: "inherit" | "custom";
+	assetMode: "inherit" | "replace";
+	assetIds: string[];
+	reviewIntent: "draft" | "submit" | "approved";
 };
 
 type CalendarCardItem =
@@ -137,6 +146,9 @@ type ActiveDropTarget =
 	  };
 
 const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
+const WEEK_PLATFORM_COLUMN_WIDTH = 220;
+const WEEK_DAY_COLUMN_MIN_WIDTH = 172;
+const WEEK_VISIBLE_STACK_COUNT = 2;
 
 function padNumber(value: number) {
 	return String(value).padStart(2, "0");
@@ -483,7 +495,18 @@ function defaultDraft(date?: Date, platform = "", surface = ""): PanelDraft {
 		plannedLocal: toLocalDateTimeValue(nextDate),
 		platform,
 		surface,
+		contentMode: "custom",
+		assetMode: "replace",
+		assetIds: [],
+		reviewIntent: "draft",
 	};
+}
+
+function resourceRecordsForIds(resources: ResourceRecord[], ids: string[]) {
+	const byId = new Map(resources.map((resource) => [resource.id, resource]));
+	return ids
+		.map((id) => byId.get(id))
+		.filter((resource): resource is ResourceRecord => Boolean(resource));
 }
 
 function monthGridDays(anchor: Date) {
@@ -633,92 +656,303 @@ function PlanningStatChip({
 	);
 }
 
+function coverageMeta(coveredDays: number, totalDays: number) {
+	const ratio = totalDays > 0 ? coveredDays / totalDays : 0;
+	if (ratio >= 0.85) {
+		return {
+			label: `${coveredDays}/${totalDays} days covered`,
+			className:
+				"border-emerald-500/25 bg-emerald-500/12 text-emerald-800 dark:text-emerald-100",
+		};
+	}
+	if (ratio >= 0.4) {
+		return {
+			label: `${coveredDays}/${totalDays} days covered`,
+			className:
+				"border-amber-500/25 bg-amber-500/12 text-amber-800 dark:text-amber-100",
+		};
+	}
+	return {
+		label: `${coveredDays}/${totalDays} days covered`,
+		className:
+			"border-rose-500/25 bg-rose-500/12 text-rose-800 dark:text-rose-100",
+	};
+}
+
 function CalendarCard({
 	card,
 	onClick,
 	onDragStart,
 	onDragEnd,
+	displayMode = "default",
+	stretch = false,
 }: {
 	card: CalendarCardItem;
 	onClick: () => void;
 	onDragStart?: (payload: DragPayload) => void;
 	onDragEnd?: () => void;
+	displayMode?: "default" | "week";
+	stretch?: boolean;
 }) {
 	const item = card.item;
 	const meta = getPlatformMeta(item.platform);
 	const payload = dragDataFor(card.kind, item);
+	const isWeekSlot = displayMode === "week" && card.kind === "entry";
+	const summaryLabel =
+		card.kind === "entry"
+			? item.planningState === "tentative"
+				? `Tentative ${formatTimeLabel(card.item.plannedAt)}`
+				: formatTimeLabel(card.item.plannedAt)
+			: "Backlog";
+	const blockerSummary = [
+		...item.readiness.scheduleBlockers,
+		...item.readiness.publishBlockers,
+	]
+		.slice(0, 2)
+		.map((issue) => issue.message);
+	const compactIndicators = [
+		item.planningState === "tentative"
+			? {
+					key: "tentative",
+					label: "Tentative placement",
+					className: "bg-amber-500",
+				}
+			: null,
+		{
+			key: "approval",
+			label: `Approval status: ${item.approvalState}`,
+			className:
+				item.approvalState === "approved"
+					? "bg-emerald-500"
+					: item.approvalState === "in_review"
+						? "bg-sky-500"
+						: item.approvalState === "changes_requested"
+							? "bg-amber-500"
+							: "bg-slate-400",
+		},
+		item.assetCount > 0
+			? {
+					key: "assets",
+					label: `${item.assetCount} asset${item.assetCount === 1 ? "" : "s"} attached`,
+					className: "bg-slate-500",
+				}
+			: null,
+		itemIsBlocked(item)
+			? {
+					key: "blocked",
+					label: "Blocked from scheduling or publishing",
+					className: "bg-red-500",
+				}
+			: null,
+	].filter(
+		(
+			indicator,
+		): indicator is { key: string; label: string; className: string } =>
+			Boolean(indicator),
+	);
+	const weekLegends = [
+		item.planningState === "tentative"
+			? {
+					key: "tentative",
+					label: "Tentative",
+					className:
+						"border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-100",
+				}
+			: null,
+		{
+			key: "approval",
+			label:
+				item.approvalState === "approved"
+					? "Approved"
+					: item.approvalState === "in_review"
+						? "Review"
+						: item.approvalState === "changes_requested"
+							? "Changes"
+							: "Draft",
+			className:
+				item.approvalState === "approved"
+					? "border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
+					: item.approvalState === "in_review"
+						? "border-sky-500/20 bg-sky-500/10 text-sky-800 dark:text-sky-100"
+						: item.approvalState === "changes_requested"
+							? "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-100"
+							: "border-slate-500/20 bg-slate-500/10 text-slate-700 dark:text-slate-200",
+		},
+		itemIsBlocked(item)
+			? {
+					key: "blocked",
+					label: "Blocked",
+					className:
+						"border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-200",
+				}
+			: null,
+	].filter(
+		(legend): legend is { key: string; label: string; className: string } =>
+			Boolean(legend),
+	);
 
 	return (
-		<button
-			type="button"
-			draggable
-			onDragStart={(event) => {
-				event.dataTransfer.effectAllowed = "move";
-				event.dataTransfer.setData("application/json", JSON.stringify(payload));
-				onDragStart?.(payload);
-			}}
-			onDragEnd={onDragEnd}
-			onClick={onClick}
-			className={cn(
-				"w-full rounded-[20px] border border-[var(--brand-border-soft)] bg-background/88 p-3 text-left shadow-[0_16px_36px_-30px_rgba(15,23,42,0.48)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background",
-				card.kind === "backlog" &&
-					"bg-[color-mix(in_srgb,var(--background)_88%,var(--brand-highlight)_12%)]",
-			)}
-			style={
-				meta
-					? {
-							boxShadow: `inset 0 1px 0 ${withAlpha(meta.color, 0.14)}, 0 16px 36px -30px rgba(15,23,42,0.48)`,
-						}
-					: undefined
-			}
-		>
-			<div className="flex items-start justify-between gap-3">
-				<div className="min-w-0 space-y-2">
-					<div className="flex items-center gap-2">
+		<HoverCard openDelay={120} closeDelay={60}>
+			<HoverCardTrigger asChild>
+				<button
+					type="button"
+					draggable
+					onDragStart={(event) => {
+						event.dataTransfer.effectAllowed = "move";
+						event.dataTransfer.setData(
+							"application/json",
+							JSON.stringify(payload),
+						);
+						onDragStart?.(payload);
+					}}
+					onDragEnd={onDragEnd}
+					onClick={onClick}
+					className={cn(
+						"w-full rounded-[18px] border border-[var(--brand-border-soft)] bg-background/90 text-left shadow-[0_14px_28px_-28px_rgba(15,23,42,0.5)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background",
+						isWeekSlot
+							? cn(
+									"flex min-h-[84px] flex-col justify-between p-3",
+									stretch && "min-h-[112px] flex-1",
+								)
+							: "p-2.5",
+						card.kind === "backlog" &&
+							"bg-[color-mix(in_srgb,var(--background)_90%,var(--brand-highlight)_10%)]",
+					)}
+					style={
+						meta
+							? {
+									boxShadow: `inset 0 1px 0 ${withAlpha(
+										meta.color,
+										0.14,
+									)}, 0 14px 28px -28px rgba(15,23,42,0.5)`,
+								}
+							: undefined
+					}
+				>
+					{isWeekSlot ? (
+						<>
+							<div className="flex items-start gap-2">
+								<div className="min-w-0 flex-1">
+									<div className="truncate text-[0.8rem] font-semibold leading-5">
+										{item.title}
+									</div>
+									<div className="mt-1 flex items-center gap-1.5 overflow-hidden text-[10.5px] text-muted-foreground">
+										<span className="truncate">
+											{surfaceLabel(item.surface)}
+										</span>
+										<span className="text-[9px] leading-none text-muted-foreground/70">
+											•
+										</span>
+										<span className="shrink-0 font-medium">{summaryLabel}</span>
+									</div>
+								</div>
+								<GripVertical className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
+							</div>
+							<div className="mt-3 flex flex-wrap items-center gap-1.5">
+								{weekLegends.map((legend) => (
+									<span
+										key={legend.key}
+										className={cn(
+											"rounded-full border px-2 py-1 text-[10px] font-medium leading-none",
+											legend.className,
+										)}
+									>
+										{legend.label}
+									</span>
+								))}
+							</div>
+						</>
+					) : (
+						<div className="flex items-start gap-2">
+							<div className="min-w-0 flex-1">
+								<div className="flex items-start gap-2">
+									<div className="min-w-0 flex-1">
+										<div className="truncate text-[0.78rem] font-semibold leading-5">
+											{item.title}
+										</div>
+										<div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-[10.5px] text-muted-foreground">
+											<span className="truncate">
+												{surfaceLabel(item.surface)}
+											</span>
+											<span className="text-[9px] leading-none text-muted-foreground/70">
+												•
+											</span>
+											<span className="shrink-0 font-medium">
+												{summaryLabel}
+											</span>
+										</div>
+									</div>
+									{card.kind === "entry" ? (
+										<GripVertical className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
+									) : null}
+								</div>
+							</div>
+							<div className="flex shrink-0 items-center gap-1.5 pt-1">
+								{compactIndicators.map((indicator) => (
+									<span
+										key={indicator.key}
+										className="inline-flex size-2 rounded-full ring-1 ring-black/5 dark:ring-white/10"
+										title={indicator.label}
+									>
+										<span
+											className={cn("size-2 rounded-full", indicator.className)}
+										/>
+										<span className="sr-only">{indicator.label}</span>
+									</span>
+								))}
+								{card.kind === "backlog" ? (
+									<span className="rounded-full bg-slate-900/6 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+										B
+									</span>
+								) : null}
+							</div>
+						</div>
+					)}
+				</button>
+			</HoverCardTrigger>
+			<HoverCardContent
+				align="start"
+				className="w-[20rem] rounded-[20px] border border-[var(--brand-border-soft)] bg-background/96 p-4 shadow-[0_24px_48px_-32px_rgba(15,23,42,0.58)]"
+			>
+				<div className="space-y-3">
+					<div className="flex items-start gap-3">
 						{platformIcon(item.platform)}
 						<div className="min-w-0">
-							<div className="truncate text-sm font-medium">{item.title}</div>
+							<div className="text-sm font-semibold">{item.title}</div>
 							<div className="text-xs text-muted-foreground">
 								{formatPlatformLabel(item.platform)} ·{" "}
 								{surfaceLabel(item.surface)}
 							</div>
 						</div>
 					</div>
-					{item.excerpt ? (
-						<p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-							{item.excerpt}
-						</p>
-					) : (
-						<p className="text-xs text-muted-foreground">
-							No draft excerpt yet.
-						</p>
-					)}
+					<div className="flex flex-wrap items-center gap-2">
+						<span className={statusClassName(item.approvalState)}>
+							{item.approvalState}
+						</span>
+						<span className={publicationBadgeTone(item)}>{summaryLabel}</span>
+						{item.finalizable ? (
+							<span className="pill pill-success">Ready to finalize</span>
+						) : null}
+						{itemIsBlocked(item) ? (
+							<span className="pill pill-error">Blocked</span>
+						) : null}
+					</div>
+					<p className="text-xs leading-5 text-muted-foreground">
+						{item.excerpt || "No draft excerpt yet."}
+					</p>
+					{blockerSummary.length > 0 ? (
+						<div className="space-y-1 rounded-[16px] border border-red-500/20 bg-red-500/8 p-3 text-xs text-red-700 dark:text-red-200">
+							{blockerSummary.map((message) => (
+								<div key={message}>{message}</div>
+							))}
+						</div>
+					) : null}
+					<div className="text-[11px] text-muted-foreground">
+						Click to open the planner drawer.
+					</div>
 				</div>
-				<GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-			</div>
-
-			<div className="mt-3 flex flex-wrap items-center gap-2">
-				{item.planningState === "tentative" ? (
-					<span className="pill pill-warning">Tentative</span>
-				) : null}
-				<span className={statusClassName(item.approvalState)}>
-					{item.approvalState}
-				</span>
-				<span className={publicationBadgeTone(item)}>
-					{card.kind === "entry"
-						? item.planningState === "tentative"
-							? `Planned ${formatTimeLabel(card.item.plannedAt)}`
-							: formatTimeLabel(card.item.plannedAt)
-						: item.publicationState}
-				</span>
-				{item.finalizable ? (
-					<span className="pill pill-success">Ready to finalize</span>
-				) : null}
-				{itemIsBlocked(item) ? (
-					<span className="pill pill-error">Blocked</span>
-				) : null}
-			</div>
-		</button>
+			</HoverCardContent>
+		</HoverCard>
 	);
 }
 
@@ -960,6 +1194,10 @@ export function DashboardCalendar() {
 			),
 			platform: variant.platform,
 			surface: variant.surface,
+			contentMode: variant.contentMode,
+			assetMode: variant.assetMode,
+			assetIds: variant.assets.map((asset) => asset.id),
+			reviewIntent: "draft",
 		});
 		setPanelError(null);
 	}, [panelState, selectedPost]);
@@ -1610,14 +1848,58 @@ export function DashboardCalendar() {
 						platform: panelDraft.platform,
 						surface: panelDraft.surface,
 						inheritSource: "shared",
-						contentMode: "inherit",
-						contentKind: "",
-						contentPayload: {},
-						assetMode: "inherit",
+						contentMode: panelDraft.contentMode,
+						contentKind: panelDraft.contentMode === "custom" ? "text" : "",
+						contentPayload:
+							panelDraft.contentMode === "custom"
+								? { body: panelDraft.excerpt }
+								: {},
+						assetMode: panelDraft.assetMode,
 						notes: panelDraft.notes,
 					},
 				},
 			);
+			await customerRequest(`/posts/variants/${createdVariant.id}/assets`, {
+				method: "PUT",
+				body: {
+					resourceIds: panelDraft.assetIds,
+					assetMode: panelDraft.assetMode,
+					removedInheritedResourceIds: [],
+				},
+			});
+			if (panelDraft.reviewIntent === "submit") {
+				try {
+					await customerRequest(
+						`/posts/variants/${createdVariant.id}/reviews/submit`,
+						{
+							method: "POST",
+							body: { comment: "" },
+						},
+					);
+				} catch (reviewError) {
+					toast.error(
+						reviewError instanceof Error
+							? `${reviewError.message} The draft was created but stayed in draft review state.`
+							: "The draft was created, but it could not be submitted for review.",
+					);
+				}
+			} else if (panelDraft.reviewIntent === "approved") {
+				try {
+					await customerRequest(
+						`/posts/variants/${createdVariant.id}/reviews/decision`,
+						{
+							method: "POST",
+							body: { approvalState: "approved", comment: "" },
+						},
+					);
+				} catch (reviewError) {
+					toast.error(
+						reviewError instanceof Error
+							? `${reviewError.message} The draft was created but stayed in draft review state.`
+							: "The draft was created, but it could not be approved yet.",
+					);
+				}
+			}
 
 			const plannedAt = toIsoValue(panelDraft.plannedLocal);
 			if (plannedAt) {
@@ -1774,11 +2056,22 @@ export function DashboardCalendar() {
 		() => currentVariant?.assets ?? [],
 		[currentVariant],
 	);
+	const panelDraftAssets = useMemo(
+		() => resourceRecordsForIds(resources, panelDraft.assetIds),
+		[panelDraft.assetIds, resources],
+	);
 	const surfaceOptions = surfaceOptionsForPlatform(
 		capabilities,
 		panelDraft.platform,
 	);
 	const panelOpen = panelState.mode !== "closed";
+	const weekGridStyle = useMemo(
+		() => ({
+			gridTemplateColumns: `${WEEK_PLATFORM_COLUMN_WIDTH}px repeat(${currentWeek.length}, minmax(${WEEK_DAY_COLUMN_MIN_WIDTH}px, 1fr))`,
+			minWidth: `${WEEK_PLATFORM_COLUMN_WIDTH + currentWeek.length * WEEK_DAY_COLUMN_MIN_WIDTH}px`,
+		}),
+		[currentWeek.length],
+	);
 	const rangeLabel =
 		view === "month"
 			? formatMonthLabel(anchorDate)
@@ -2129,8 +2422,11 @@ export function DashboardCalendar() {
 							<div className="space-y-4">
 								{view === "week" ? (
 									<div className="overflow-x-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
-										<div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] gap-px bg-[var(--brand-border-soft)]">
-											<div className="bg-background/80 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+										<div
+											className="grid gap-px bg-[var(--brand-border-soft)]"
+											style={weekGridStyle}
+										>
+											<div className="sticky left-0 z-30 bg-background/90 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-sm">
 												Platforms
 											</div>
 											{currentWeek.map((day) => (
@@ -2155,6 +2451,20 @@ export function DashboardCalendar() {
 												const laneEmphasized =
 													highlightedLane === lane.platform ||
 													dragPlatform === lane.platform;
+												const coveredDays = currentWeek.reduce(
+													(count, day) =>
+														count +
+														((entriesByLaneDay.get(
+															`${lane.platform}:${startOfDay(day).toISOString()}`,
+														)?.length ?? 0) > 0
+															? 1
+															: 0),
+													0,
+												);
+												const coverage = coverageMeta(
+													coveredDays,
+													currentWeek.length,
+												);
 												return (
 													<div key={lane.platform} className="contents">
 														<div
@@ -2162,12 +2472,15 @@ export function DashboardCalendar() {
 																weekLaneRefs.current[lane.platform] = element;
 															}}
 															className={cn(
-																"px-4 py-4 transition duration-200",
+																"sticky left-0 z-20 px-4 py-4 transition duration-200",
 																laneEmphasized &&
 																	"shadow-[inset_0_0_0_1px_rgba(255,255,255,0.58)]",
 															)}
 															style={{
 																background: chrome.headerBackground,
+																boxShadow: laneEmphasized
+																	? `inset -1px 0 0 ${withAlpha(chrome.textColor === "inherit" ? "#64748B" : chrome.textColor, 0.18)}`
+																	: "inset -1px 0 0 rgba(148,163,184,0.16)",
 																opacity: laneDimmed ? 0.52 : 1,
 																transform:
 																	laneEmphasized && !prefersReducedMotion
@@ -2184,9 +2497,18 @@ export function DashboardCalendar() {
 																	>
 																		{lane.label}
 																	</div>
-																	<div className="mt-1 text-xs text-muted-foreground">
-																		{lane.scheduledCount} on calendar ·{" "}
-																		{lane.backlogCount} backlog
+																	<div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+																		<span
+																			className={cn(
+																				"rounded-full border px-2 py-1 font-medium",
+																				coverage.className,
+																			)}
+																		>
+																			{coverage.label}
+																		</span>
+																		<span className="text-muted-foreground">
+																			{lane.backlogCount} backlog
+																		</span>
 																	</div>
 																</div>
 															</div>
@@ -2256,6 +2578,7 @@ export function DashboardCalendar() {
 																		{isGap ? (
 																			<button
 																				type="button"
+																				aria-label={`Add or place ${lane.label} content on ${formatDayHeader(day)}`}
 																				onClick={() =>
 																					setPanelState({
 																						mode: "gap",
@@ -2263,7 +2586,7 @@ export function DashboardCalendar() {
 																						date: day,
 																					})
 																				}
-																				className="flex min-h-28 flex-1 flex-col items-center justify-center rounded-[20px] border border-dashed px-3 py-4 text-center text-sm text-muted-foreground transition duration-200 hover:text-foreground"
+																				className="flex min-h-28 flex-1 items-center justify-center rounded-[20px] border border-dashed px-3 py-4 text-center text-sm text-muted-foreground transition duration-200 hover:border-foreground/20 hover:text-foreground"
 																				style={{
 																					borderColor: activeWeekTarget?.valid
 																						? chrome.borderColor
@@ -2282,17 +2605,26 @@ export function DashboardCalendar() {
 																								),
 																				}}
 																			>
-																				<Plus className="mb-2 size-4" />
-																				<span className="font-medium text-foreground">
-																					{activeWeekTarget?.valid
-																						? "Drop to schedule here"
-																						: "Gap detected"}
+																				<span
+																					className={cn(
+																						"inline-flex size-9 items-center justify-center rounded-full border border-dashed transition duration-200",
+																						activeWeekTarget?.valid
+																							? "scale-105 bg-background/85"
+																							: activeWeekTarget &&
+																									!activeWeekTarget.valid
+																								? "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-200"
+																								: "bg-background/72",
+																					)}
+																				>
+																					<Plus className="size-4" />
 																				</span>
-																				<span className="mt-1 text-xs">
-																					{activeWeekTarget &&
-																					!activeWeekTarget.valid
-																						? "This slot only accepts the matching platform."
-																						: "Add or drag content into this lane."}
+																				<span className="sr-only">
+																					{activeWeekTarget?.valid
+																						? "Drop to place content here"
+																						: activeWeekTarget &&
+																								!activeWeekTarget.valid
+																							? "This slot only accepts the matching platform"
+																							: "Add or drag content into this lane"}
 																				</span>
 																			</button>
 																		) : showGapsOnly ? (
@@ -2301,20 +2633,46 @@ export function DashboardCalendar() {
 																				{cellEntries.length === 1 ? "" : "s"}
 																			</div>
 																		) : (
-																			cellEntries.map((item) => (
-																				<CalendarCard
-																					key={item.variantId}
-																					card={{ kind: "entry", item }}
-																					onDragStart={beginDrag}
-																					onDragEnd={clearDragState}
-																					onClick={() =>
-																						setPanelState({
-																							mode: "entry",
-																							item,
-																						})
-																					}
-																				/>
-																			))
+																			<>
+																				{cellEntries
+																					.slice(0, WEEK_VISIBLE_STACK_COUNT)
+																					.map((item) => (
+																						<CalendarCard
+																							key={item.variantId}
+																							card={{ kind: "entry", item }}
+																							displayMode="week"
+																							stretch={cellEntries.length === 1}
+																							onDragStart={beginDrag}
+																							onDragEnd={clearDragState}
+																							onClick={() =>
+																								setPanelState({
+																									mode: "entry",
+																									item,
+																								})
+																							}
+																						/>
+																					))}
+																				{cellEntries.length >
+																				WEEK_VISIBLE_STACK_COUNT ? (
+																					<button
+																						type="button"
+																						className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/86 px-3 py-2 text-left text-xs font-medium text-muted-foreground transition duration-200 hover:text-foreground"
+																						onClick={() =>
+																							setPanelState({
+																								mode: "entry",
+																								item: cellEntries[
+																									WEEK_VISIBLE_STACK_COUNT
+																								],
+																							})
+																						}
+																					>
+																						+
+																						{cellEntries.length -
+																							WEEK_VISIBLE_STACK_COUNT}{" "}
+																						more
+																					</button>
+																				) : null}
+																			</>
 																		)}
 																	</div>
 																</div>
@@ -2888,6 +3246,73 @@ export function DashboardCalendar() {
 								</div>
 							</div>
 
+							{panelState.mode === "gap" || panelState.mode === "new" ? (
+								<div className="grid gap-4 md:grid-cols-2">
+									<div className="space-y-2">
+										<Label htmlFor="calendar-content-mode">
+											Content behavior
+										</Label>
+										<Select
+											value={panelDraft.contentMode}
+											onValueChange={(value) =>
+												setPanelDraft((current) => ({
+													...current,
+													contentMode: value as "inherit" | "custom",
+												}))
+											}
+										>
+											<SelectTrigger
+												id="calendar-content-mode"
+												className="h-11 w-full rounded-2xl px-4"
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="custom">
+													Override on variant
+												</SelectItem>
+												<SelectItem value="inherit">
+													Use shared draft
+												</SelectItem>
+											</SelectContent>
+										</Select>
+										<div className="text-xs text-muted-foreground">
+											Blank drafts default to override so there is no empty
+											inheritance chain to untangle later.
+										</div>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="calendar-asset-mode">Asset behavior</Label>
+										<Select
+											value={panelDraft.assetMode}
+											onValueChange={(value) =>
+												setPanelDraft((current) => ({
+													...current,
+													assetMode: value as "inherit" | "replace",
+												}))
+											}
+										>
+											<SelectTrigger
+												id="calendar-asset-mode"
+												className="h-11 w-full rounded-2xl px-4"
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="replace">
+													Replace / attach now
+												</SelectItem>
+												<SelectItem value="inherit">Inherit later</SelectItem>
+											</SelectContent>
+										</Select>
+										<div className="text-xs text-muted-foreground">
+											New calendar drafts start in replace mode because there
+											are no shared assets to inherit yet.
+										</div>
+									</div>
+								</div>
+							) : null}
+
 							<div className="space-y-2">
 								<Label htmlFor="calendar-excerpt">Caption / excerpt</Label>
 								<Textarea
@@ -2963,6 +3388,81 @@ export function DashboardCalendar() {
 								</div>
 							</div>
 						</div>
+
+						{panelState.mode === "gap" || panelState.mode === "new" ? (
+							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
+								<div className="space-y-1">
+									<div className="text-sm font-medium">Approval flow</div>
+									<div className="text-sm text-muted-foreground">
+										Set the initial review state now so the draft does not need
+										an extra reopen just to enter review.
+									</div>
+								</div>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										variant={
+											panelDraft.reviewIntent === "draft"
+												? "default"
+												: "outline"
+										}
+										className="rounded-full"
+										onClick={() =>
+											setPanelDraft((current) => ({
+												...current,
+												reviewIntent: "draft",
+											}))
+										}
+									>
+										<Clock3 className="size-4" />
+										Keep as draft
+									</Button>
+									<Button
+										type="button"
+										variant={
+											panelDraft.reviewIntent === "submit"
+												? "default"
+												: "outline"
+										}
+										className="rounded-full border-sky-500/20 bg-sky-500/10 text-sky-800 hover:bg-sky-500/15 hover:text-sky-900 dark:text-sky-100"
+										onClick={() =>
+											setPanelDraft((current) => ({
+												...current,
+												reviewIntent: "submit",
+											}))
+										}
+									>
+										<Send className="size-4" />
+										Create and submit
+									</Button>
+									<Button
+										type="button"
+										variant={
+											panelDraft.reviewIntent === "approved"
+												? "default"
+												: "outline"
+										}
+										className="rounded-full border-emerald-500/20 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100"
+										onClick={() =>
+											setPanelDraft((current) => ({
+												...current,
+												reviewIntent: "approved",
+											}))
+										}
+									>
+										<CheckCircle2 className="size-4" />
+										Create approved
+									</Button>
+								</div>
+								<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-3 py-3 text-sm text-muted-foreground">
+									{panelDraft.reviewIntent === "draft"
+										? "The draft will be created with its default review state."
+										: panelDraft.reviewIntent === "submit"
+											? "After creation, the variant will immediately move into review."
+											: "After creation, the variant will be marked approved so it can move toward final scheduling faster."}
+								</div>
+							</div>
+						) : null}
 
 						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
 							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
@@ -3247,6 +3747,92 @@ export function DashboardCalendar() {
 										/>
 									</div>
 								) : null}
+							</div>
+						) : null}
+
+						{panelState.mode === "gap" || panelState.mode === "new" ? (
+							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<div className="text-sm font-medium">Assets</div>
+										<div className="text-sm text-muted-foreground">
+											Attach the first assets here so the draft does not get
+											stuck waiting on the editor later.
+										</div>
+									</div>
+									<ResourcePicker
+										resources={resources}
+										resourceSets={resourceSets}
+										resolveResourceSetIds={resolveResourceSetIds}
+										value={panelDraft.assetIds}
+										onChange={(nextValue) =>
+											setPanelDraft((current) => ({
+												...current,
+												assetIds: nextValue,
+											}))
+										}
+										triggerLabel={
+											panelDraft.assetMode === "replace"
+												? "Choose assets"
+												: "Append assets"
+										}
+									/>
+								</div>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										variant={
+											panelDraft.assetMode === "replace" ? "default" : "outline"
+										}
+										className="rounded-full"
+										onClick={() =>
+											setPanelDraft((current) => ({
+												...current,
+												assetMode: "replace",
+											}))
+										}
+									>
+										Replace / attach now
+									</Button>
+									<Button
+										type="button"
+										variant={
+											panelDraft.assetMode === "inherit" ? "default" : "outline"
+										}
+										className="rounded-full"
+										onClick={() =>
+											setPanelDraft((current) => ({
+												...current,
+												assetMode: "inherit",
+											}))
+										}
+									>
+										Inherit later
+									</Button>
+								</div>
+								<ResourceChipList
+									resources={panelDraftAssets}
+									onRemove={(resourceId) =>
+										setPanelDraft((current) => ({
+											...current,
+											assetIds: current.assetIds.filter(
+												(item) => item !== resourceId,
+											),
+										}))
+									}
+								/>
+								<div
+									className={cn(
+										"rounded-[18px] border px-3 py-3 text-sm",
+										panelDraft.assetMode === "inherit"
+											? "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-100"
+											: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+									)}
+								>
+									{panelDraft.assetMode === "inherit"
+										? "This draft will inherit assets later in the full editor. Replace mode is the clearer default when nothing exists yet."
+										: "Attached assets will be saved directly onto the first variant created from this calendar draft."}
+								</div>
 							</div>
 						) : null}
 
