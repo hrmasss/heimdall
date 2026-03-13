@@ -135,6 +135,15 @@ type PublicationPlan struct {
 	UpdatedAt         string         `json:"updatedAt"`
 }
 
+type TentativePlan struct {
+	ID        string `json:"id"`
+	VariantID string `json:"variantId"`
+	PlannedAt string `json:"plannedAt"`
+	Source    string `json:"source"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type MetricDefinitionRecord struct {
 	ID       string `json:"id"`
 	Code     string `json:"code"`
@@ -175,6 +184,7 @@ type PostVariant struct {
 	LatestReview                *ReviewRecord                `json:"latestReview,omitempty"`
 	ReviewHistory               []ReviewRecord               `json:"reviewHistory"`
 	LatestPublication           *PublicationPlan             `json:"latestPublication,omitempty"`
+	LatestTentativePlan         *TentativePlan               `json:"latestTentativePlan,omitempty"`
 	Readiness                   VariantReadiness             `json:"readiness"`
 	MetricSnapshot              []MetricSnapshotItem         `json:"metricSnapshot"`
 	Notes                       string                       `json:"notes,omitempty"`
@@ -235,9 +245,11 @@ type CalendarEntry struct {
 	Platform         string           `json:"platform"`
 	Surface          string           `json:"surface"`
 	PlannedAt        string           `json:"plannedAt"`
+	PlanningState    string           `json:"planningState"`
 	ApprovalState    string           `json:"approvalState"`
 	PublicationState string           `json:"publicationState"`
 	RequiresApproval bool             `json:"requiresApproval"`
+	Finalizable      bool             `json:"finalizable"`
 	Readiness        VariantReadiness `json:"readiness"`
 	Excerpt          string           `json:"excerpt"`
 	AssetCount       int              `json:"assetCount"`
@@ -253,9 +265,11 @@ type CalendarBacklogItem struct {
 	Title            string           `json:"title"`
 	Platform         string           `json:"platform"`
 	Surface          string           `json:"surface"`
+	PlanningState    string           `json:"planningState"`
 	ApprovalState    string           `json:"approvalState"`
 	PublicationState string           `json:"publicationState"`
 	RequiresApproval bool             `json:"requiresApproval"`
+	Finalizable      bool             `json:"finalizable"`
 	Readiness        VariantReadiness `json:"readiness"`
 	Excerpt          string           `json:"excerpt"`
 	AssetCount       int              `json:"assetCount"`
@@ -671,7 +685,14 @@ func (s *Service) SchedulePublication(ctx context.Context, principal *iam.Princi
 	if source == "" {
 		source = "manual"
 	}
-	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", input.PlannedAt, nil, source)
+	plan, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", input.PlannedAt, nil, source)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.deleteTentativePlan(ctx, workspaceID, variantID); err != nil {
+		return nil, err
+	}
+	return plan, nil
 }
 
 func (s *Service) UnschedulePublication(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) (*PublicationPlan, error) {
@@ -682,6 +703,67 @@ func (s *Service) UnschedulePublication(ctx context.Context, principal *iam.Prin
 		return nil, err
 	}
 	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "unscheduled", nil, nil, "manual")
+}
+
+func (s *Service) UpsertTentativePlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID, input SchedulePublicationInput) (*TentativePlan, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.manage"); err != nil {
+		return nil, err
+	}
+	if input.PlannedAt == nil {
+		return nil, fmt.Errorf("%w: planned at is required", iam.ErrValidation)
+	}
+	if _, err := s.findPostVariant(ctx, workspaceID, variantID); err != nil {
+		return nil, err
+	}
+	if publication, err := s.findPublicationByVariant(ctx, workspaceID, variantID); err == nil {
+		if publication.PublicationState == "scheduled" ||
+			publication.PublicationState == "publishing" ||
+			publication.PublicationState == "published" {
+			return nil, fmt.Errorf("%w: clear the real schedule before placing a tentative slot", iam.ErrConflict)
+		}
+	} else if !errors.Is(err, iam.ErrNotFound) {
+		return nil, err
+	}
+	source := strings.TrimSpace(input.Source)
+	if source == "" {
+		source = "manual"
+	}
+	return s.upsertTentativePlan(ctx, principal, workspaceID, variantID, input.PlannedAt.UTC(), source)
+}
+
+func (s *Service) ClearTentativePlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) error {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.manage"); err != nil {
+		return err
+	}
+	if _, err := s.findPostVariant(ctx, workspaceID, variantID); err != nil {
+		return err
+	}
+	return s.deleteTentativePlan(ctx, workspaceID, variantID)
+}
+
+func (s *Service) FinalizeTentativePlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) (*PublicationPlan, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
+		return nil, err
+	}
+	plan, err := s.findTentativePlanByVariant(ctx, workspaceID, variantID)
+	if err != nil {
+		return nil, err
+	}
+	variant, err := s.GetVariant(ctx, principal, workspaceID, variantID)
+	if err != nil {
+		return nil, err
+	}
+	if len(variant.Readiness.ScheduleBlockers) > 0 {
+		return nil, fmt.Errorf("%w: variant is not ready to finalize scheduling", iam.ErrConflict)
+	}
+	record, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", &plan.PlannedAt, nil, plan.Source)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.deleteTentativePlan(ctx, workspaceID, variantID); err != nil {
+		return nil, err
+	}
+	return record, nil
 }
 
 func (s *Service) RecordPublication(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID) (*PublicationPlan, error) {
@@ -755,6 +837,67 @@ func (s *Service) upsertPublicationState(
 		return nil, err
 	}
 	return mapPublicationPlan(*record), nil
+}
+
+func (s *Service) upsertTentativePlan(
+	ctx context.Context,
+	principal *iam.Principal,
+	workspaceID, variantID uuid.UUID,
+	plannedAt time.Time,
+	source string,
+) (*TentativePlan, error) {
+	record := new(database.PostVariantTentativePlan)
+	err := s.db.NewSelect().
+		Model(record).
+		Where("workspace_id = ?", workspaceID).
+		Where("variant_id = ?", variantID).
+		Limit(1).
+		Scan(ctx)
+	now := time.Now().UTC()
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		record = &database.PostVariantTentativePlan{
+			ID:              uuid.New(),
+			WorkspaceID:     workspaceID,
+			VariantID:       variantID,
+			PlannedAt:       plannedAt.UTC(),
+			Source:          source,
+			CreatedByUserID: &principal.UserID,
+			UpdatedByUserID: &principal.UserID,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if _, err := s.db.NewInsert().Model(record).Exec(ctx); err != nil {
+			return nil, err
+		}
+		return mapTentativePlan(*record), nil
+	}
+
+	record.PlannedAt = plannedAt.UTC()
+	record.Source = source
+	record.UpdatedAt = now
+	record.UpdatedByUserID = &principal.UserID
+	if _, err := s.db.NewUpdate().
+		Model(record).
+		Column("planned_at", "source", "updated_at", "updated_by_user_id").
+		WherePK().
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+	return mapTentativePlan(*record), nil
+}
+
+func (s *Service) deleteTentativePlan(ctx context.Context, workspaceID, variantID uuid.UUID) error {
+	if _, err := s.db.NewDelete().
+		Model((*database.PostVariantTentativePlan)(nil)).
+		Where("workspace_id = ?", workspaceID).
+		Where("variant_id = ?", variantID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) ListMetricDefinitions(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, platform, surface string) ([]MetricDefinitionRecord, error) {
@@ -900,6 +1043,7 @@ func (s *Service) buildHydratedVariant(
 	reviewsByVariant map[string][]database.PostVariantReview,
 	latestReviewByVariant map[string]*database.PostVariantReview,
 	publicationsByVariant map[string]*database.PostVariantPublication,
+	tentativePlansByVariant map[string]*database.PostVariantTentativePlan,
 	metricSnapshotsByPublication map[string][]MetricSnapshotItem,
 	requiresApproval bool,
 ) PostVariant {
@@ -912,6 +1056,10 @@ func (s *Service) buildHydratedVariant(
 	var latestPublication *PublicationPlan
 	if publication := publicationsByVariant[variantRecord.ID.String()]; publication != nil {
 		latestPublication = mapPublicationPlan(*publication)
+	}
+	var latestTentativePlan *TentativePlan
+	if plan := tentativePlansByVariant[variantRecord.ID.String()]; plan != nil {
+		latestTentativePlan = mapTentativePlan(*plan)
 	}
 	return PostVariant{
 		ID:                          variantRecord.ID.String(),
@@ -930,6 +1078,7 @@ func (s *Service) buildHydratedVariant(
 		LatestReview:                latestReview,
 		ReviewHistory:               ensureReviewRecords(mapReviewRecords(reviewsByVariant[variantRecord.ID.String()])),
 		LatestPublication:           latestPublication,
+		LatestTentativePlan:         latestTentativePlan,
 		Readiness:                   ensureVariantReadiness(evaluateVariantReadiness(variantRecord, resolved, latestPublication, requiresApproval, s.resources.Capabilities())),
 		MetricSnapshot:              ensureMetricSnapshotItems(metricSnapshotsByPublication[publicationIDString(publicationsByVariant[variantRecord.ID.String()])]),
 		Notes:                       variantRecord.Notes,
@@ -1062,6 +1211,10 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	if err != nil {
 		return nil, err
 	}
+	tentativePlansByVariant, err := s.loadTentativePlans(ctx, workspaceID, variantIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	publicationIDs := make([]uuid.UUID, 0, len(publicationsByVariant))
 	for _, publication := range publicationsByVariant {
@@ -1128,6 +1281,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 				reviewsByVariant,
 				latestReviewByVariant,
 				publicationsByVariant,
+				tentativePlansByVariant,
 				metricSnapshotsByPublication,
 				workspaceRequiresApproval || record.RequiresApproval,
 			)
@@ -1276,6 +1430,27 @@ func (s *Service) loadPublications(ctx context.Context, workspaceID uuid.UUID, v
 	return result, nil
 }
 
+func (s *Service) loadTentativePlans(ctx context.Context, workspaceID uuid.UUID, variantIDs []uuid.UUID) (map[string]*database.PostVariantTentativePlan, error) {
+	result := map[string]*database.PostVariantTentativePlan{}
+	if len(variantIDs) == 0 {
+		return result, nil
+	}
+	var records []database.PostVariantTentativePlan
+	if err := s.db.NewSelect().
+		Model(&records).
+		Where("workspace_id = ?", workspaceID).
+		Where("variant_id IN (?)", bun.In(variantIDs)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for index := range records {
+		record := records[index]
+		copy := record
+		result[record.VariantID.String()] = &copy
+	}
+	return result, nil
+}
+
 func (s *Service) loadMetricSnapshots(ctx context.Context, publicationIDs []uuid.UUID) (map[string][]MetricSnapshotItem, error) {
 	result := map[string][]MetricSnapshotItem{}
 	if len(publicationIDs) == 0 {
@@ -1407,6 +1582,22 @@ func (s *Service) findPostVariant(ctx context.Context, workspaceID, variantID uu
 
 func (s *Service) findPublicationByVariant(ctx context.Context, workspaceID, variantID uuid.UUID) (*database.PostVariantPublication, error) {
 	record := new(database.PostVariantPublication)
+	if err := s.db.NewSelect().
+		Model(record).
+		Where("workspace_id = ?", workspaceID).
+		Where("variant_id = ?", variantID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, iam.ErrNotFound
+		}
+		return nil, err
+	}
+	return record, nil
+}
+
+func (s *Service) findTentativePlanByVariant(ctx context.Context, workspaceID, variantID uuid.UUID) (*database.PostVariantTentativePlan, error) {
+	record := new(database.PostVariantTentativePlan)
 	if err := s.db.NewSelect().
 		Model(record).
 		Where("workspace_id = ?", workspaceID).
@@ -2094,6 +2285,12 @@ func ensureStringSlice(items []string) []string {
 	return items
 }
 
+func isCalendarPublicationEntry(publicationState string) bool {
+	return publicationState == "scheduled" ||
+		publicationState == "publishing" ||
+		publicationState == "published"
+}
+
 func buildCalendarResponse(
 	details []PostDetail,
 	capabilities resources.CapabilityMatrix,
@@ -2122,11 +2319,20 @@ func buildCalendarResponse(
 			}
 			contentKind, excerpt := calendarExcerpt(detail.ContentKind, detail.ContentPayload, variant)
 			publicationState := "unscheduled"
+			planningState := "unscheduled"
 			plannedAt := ""
 			if variant.LatestPublication != nil {
 				publicationState = variant.LatestPublication.PublicationState
 				plannedAt = variant.LatestPublication.PlannedAt
+				planningState = publicationState
 			}
+			if variant.LatestTentativePlan != nil &&
+				!isCalendarPublicationEntry(publicationState) {
+				plannedAt = variant.LatestTentativePlan.PlannedAt
+				planningState = "tentative"
+			}
+			finalizable := planningState == "tentative" &&
+				len(variant.Readiness.ScheduleBlockers) == 0
 
 			if plannedAt != "" {
 				if parsed, err := time.Parse(time.RFC3339, plannedAt); err == nil {
@@ -2138,9 +2344,11 @@ func buildCalendarResponse(
 							Platform:         variant.Platform,
 							Surface:          variant.Surface,
 							PlannedAt:        plannedAt,
+							PlanningState:    planningState,
 							ApprovalState:    variant.ApprovalState,
 							PublicationState: publicationState,
 							RequiresApproval: effectiveRequiresApproval,
+							Finalizable:      finalizable,
 							Readiness:        ensureVariantReadiness(variant.Readiness),
 							Excerpt:          excerpt,
 							AssetCount:       len(variant.EffectiveAssets),
@@ -2152,16 +2360,12 @@ func buildCalendarResponse(
 						continue
 					}
 				}
-				if publicationState != "unscheduled" &&
-					publicationState != "failed" &&
-					publicationState != "cancelled" {
+				if planningState == "tentative" || isCalendarPublicationEntry(publicationState) {
 					continue
 				}
 			}
 
-			if publicationState == "scheduled" ||
-				publicationState == "publishing" ||
-				publicationState == "published" {
+			if isCalendarPublicationEntry(publicationState) {
 				continue
 			}
 
@@ -2171,9 +2375,11 @@ func buildCalendarResponse(
 				Title:            detail.Title,
 				Platform:         variant.Platform,
 				Surface:          variant.Surface,
+				PlanningState:    planningState,
 				ApprovalState:    variant.ApprovalState,
 				PublicationState: publicationState,
 				RequiresApproval: effectiveRequiresApproval,
+				Finalizable:      finalizable,
 				Readiness:        ensureVariantReadiness(variant.Readiness),
 				Excerpt:          excerpt,
 				AssetCount:       len(variant.EffectiveAssets),
@@ -2392,6 +2598,17 @@ func mapPublicationPlan(record database.PostVariantPublication) *PublicationPlan
 		item.LastError = *record.LastError
 	}
 	return item
+}
+
+func mapTentativePlan(record database.PostVariantTentativePlan) *TentativePlan {
+	return &TentativePlan{
+		ID:        record.ID.String(),
+		VariantID: record.VariantID.String(),
+		PlannedAt: record.PlannedAt.Format(time.RFC3339),
+		Source:    record.Source,
+		CreatedAt: record.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: record.UpdatedAt.Format(time.RFC3339),
+	}
 }
 
 func mapMetricDefinition(record database.MetricDefinition) MetricDefinitionRecord {

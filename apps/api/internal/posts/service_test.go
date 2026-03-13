@@ -412,6 +412,27 @@ func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
 						UpdatedAt: start.Add(2 * time.Hour).Format(time.RFC3339),
 					},
 					{
+						ID:            "variant-tentative",
+						PostID:        "post-1",
+						Platform:      "facebook",
+						Surface:       "feed_photo",
+						ApprovalState: "draft",
+						ContentMode:   "inherit",
+						AssetMode:     "inherit",
+						Readiness: ensureVariantReadiness(VariantReadiness{
+							ScheduleBlockers: []ReadinessIssue{{
+								Code:    "approval_required",
+								Message: "Needs approval",
+							}},
+						}),
+						LatestTentativePlan: &TentativePlan{
+							PlannedAt: start.Add(12 * time.Hour).Format(time.RFC3339),
+							Source:    "manual",
+						},
+						CreatedAt: start.Format(time.RFC3339),
+						UpdatedAt: start.Add(3 * time.Hour).Format(time.RFC3339),
+					},
+					{
 						ID:            "variant-published",
 						PostID:        "post-1",
 						Platform:      "x",
@@ -449,6 +470,7 @@ func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
 		resources.CapabilityMatrix{
 			Rules: []resources.CapabilityRule{
 				{Platform: "linkedin", Surface: "feed_post"},
+				{Platform: "facebook", Surface: "feed_photo"},
 				{Platform: "instagram", Surface: "feed_photo"},
 				{Platform: "x", Surface: "thread"},
 				{Platform: "youtube", Surface: "short"},
@@ -465,8 +487,8 @@ func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
 	if response.Range.Timezone != "UTC" {
 		t.Fatalf("expected blank timezone to fall back to UTC, got %q", response.Range.Timezone)
 	}
-	if len(response.Entries) != 2 {
-		t.Fatalf("expected 2 scheduled entries, got %d", len(response.Entries))
+	if len(response.Entries) != 3 {
+		t.Fatalf("expected 3 visible calendar entries, got %d", len(response.Entries))
 	}
 	if len(response.Backlog) != 1 {
 		t.Fatalf("expected 1 backlog item, got %d", len(response.Backlog))
@@ -474,16 +496,25 @@ func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
 	if response.Entries[0].VariantID != "variant-scheduled" {
 		t.Fatalf("expected scheduled variant first, got %#v", response.Entries[0])
 	}
-	if response.Entries[1].PublicationState != "published" {
-		t.Fatalf("expected published item to remain visible in range, got %#v", response.Entries[1])
+	if response.Entries[1].PlanningState != "tentative" || response.Entries[1].VariantID != "variant-tentative" {
+		t.Fatalf("expected tentative entry second, got %#v", response.Entries[1])
+	}
+	if response.Entries[1].Finalizable {
+		t.Fatalf("expected blocked tentative entry to not be finalizable")
+	}
+	if response.Entries[2].PublicationState != "published" {
+		t.Fatalf("expected published item to remain visible in range, got %#v", response.Entries[2])
 	}
 	if response.Backlog[0].VariantID != "variant-backlog" {
 		t.Fatalf("expected unscheduled variant in backlog, got %#v", response.Backlog[0])
 	}
+	if response.Backlog[0].PlanningState != "unscheduled" {
+		t.Fatalf("expected backlog planning state to remain unscheduled, got %#v", response.Backlog[0])
+	}
 	if !response.Backlog[0].RequiresApproval {
 		t.Fatalf("expected workspace approval requirement to flow into backlog item")
 	}
-	if len(response.Platforms) != 4 {
+	if len(response.Platforms) != 5 {
 		t.Fatalf("expected capability-driven lane list, got %d", len(response.Platforms))
 	}
 }

@@ -313,6 +313,69 @@ func (h *AppHandler) decidePostVariantReview(c fiber.Ctx) error {
 	return c.JSON(record)
 }
 
+func (h *AppHandler) upsertPostVariantTentativePlan(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	variantID, err := uuid.Parse(c.Params("variantId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	input, err := bindSchedulePublicationInput(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.postService.UpsertTentativePlan(c.Context(), principal, workspaceID, variantID, input)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) clearPostVariantTentativePlan(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	variantID, err := uuid.Parse(c.Params("variantId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.postService.ClearTentativePlan(c.Context(), principal, workspaceID, variantID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) finalizePostVariantTentativePlan(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workspaceID, err := h.resolveWorkspaceID(c, principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	variantID, err := uuid.Parse(c.Params("variantId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.postService.FinalizeTentativePlan(c.Context(), principal, workspaceID, variantID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
 func (h *AppHandler) schedulePostVariantPublication(c fiber.Ctx) error {
 	principal, err := h.principal(c)
 	if err != nil {

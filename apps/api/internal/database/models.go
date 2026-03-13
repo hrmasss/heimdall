@@ -22,13 +22,13 @@ type User struct {
 type Workspace struct {
 	bun.BaseModel `bun:"table:workspaces"`
 
-	ID                 uuid.UUID `bun:"id,pk,type:uuid"`
-	Name               string    `bun:"name,notnull"`
-	Slug               string    `bun:"slug,notnull"`
-	Status             string    `bun:"status,notnull"`
-	RequirePostApproval bool     `bun:"require_post_approval,notnull"`
-	CreatedAt          time.Time `bun:"created_at,notnull"`
-	UpdatedAt          time.Time `bun:"updated_at,notnull"`
+	ID                  uuid.UUID `bun:"id,pk,type:uuid"`
+	Name                string    `bun:"name,notnull"`
+	Slug                string    `bun:"slug,notnull"`
+	Status              string    `bun:"status,notnull"`
+	RequirePostApproval bool      `bun:"require_post_approval,notnull"`
+	CreatedAt           time.Time `bun:"created_at,notnull"`
+	UpdatedAt           time.Time `bun:"updated_at,notnull"`
 }
 
 type WorkspaceMembership struct {
@@ -233,19 +233,19 @@ type ResourceCleanupJob struct {
 type Post struct {
 	bun.BaseModel `bun:"table:posts"`
 
-	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
-	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
-	Title           string     `bun:"title,notnull"`
-	ContentKind     string     `bun:"content_kind,notnull"`
-	ContentPayload  string     `bun:"content_payload,notnull"`
-	OriginPlatform  *string    `bun:"origin_platform"`
-	OriginSurface   *string    `bun:"origin_surface"`
-	RequiresApproval bool      `bun:"requires_approval,notnull"`
-	Notes           string     `bun:"notes,notnull"`
-	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
-	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
-	CreatedAt       time.Time  `bun:"created_at,notnull"`
-	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Title            string     `bun:"title,notnull"`
+	ContentKind      string     `bun:"content_kind,notnull"`
+	ContentPayload   string     `bun:"content_payload,notnull"`
+	OriginPlatform   *string    `bun:"origin_platform"`
+	OriginSurface    *string    `bun:"origin_surface"`
+	RequiresApproval bool       `bun:"requires_approval,notnull"`
+	Notes            string     `bun:"notes,notnull"`
+	CreatedByUserID  *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID  *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
 }
 
 type PostVariant struct {
@@ -309,6 +309,20 @@ type PostVariantPublication struct {
 	UpdatedByUserID   *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
 	CreatedAt         time.Time  `bun:"created_at,notnull"`
 	UpdatedAt         time.Time  `bun:"updated_at,notnull"`
+}
+
+type PostVariantTentativePlan struct {
+	bun.BaseModel `bun:"table:post_variant_tentative_plans"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	VariantID       uuid.UUID  `bun:"variant_id,notnull,type:uuid"`
+	PlannedAt       time.Time  `bun:"planned_at,notnull"`
+	Source          string     `bun:"source,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
 }
 
 type MetricDefinition struct {

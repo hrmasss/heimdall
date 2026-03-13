@@ -30,6 +30,8 @@ import { toast } from "sonner";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DateTimePicker } from "@/components/app/date-time-picker";
+import { ResourceChipList } from "@/components/resources/resource-display";
+import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,12 +55,16 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type {
+	ApiListResponse,
 	CalendarBacklogItem,
 	CalendarEntry,
 	CalendarResponse,
 	PostDetail,
 	PostVariant,
 	ResourceCapabilityMatrix,
+	ResourceRecord,
+	ResourceSetDetail,
+	ResourceSetSummary,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -71,7 +77,15 @@ import { normalizePostDetail } from "@/lib/post-models";
 import { cn } from "@/lib/utils";
 
 type CalendarView = "week" | "month" | "timeline";
-type CalendarStatusFilter = "all" | "ready" | "blocked" | "in_review";
+type CalendarStatusFilter =
+	| "all"
+	| "ready"
+	| "blocked"
+	| "in_review"
+	| "tentative"
+	| "approval_blocked"
+	| "asset_blocked"
+	| "ready_to_finalize";
 
 type CalendarPanelState =
 	| { mode: "closed" }
@@ -100,6 +114,7 @@ type DragPayload = {
 	postId: string;
 	platform: string;
 	plannedAt?: string;
+	planningState?: CalendarEntry["planningState"];
 };
 
 type ActiveDropTarget =
@@ -284,9 +299,30 @@ function itemIsBlocked(item: CalendarEntry | CalendarBacklogItem) {
 	);
 }
 
+function itemIsTentative(item: CalendarEntry | CalendarBacklogItem) {
+	return item.planningState === "tentative";
+}
+
+function itemHasIssueCode(
+	item: CalendarEntry | CalendarBacklogItem,
+	code: string,
+) {
+	return [
+		...item.readiness.scheduleBlockers,
+		...item.readiness.publishBlockers,
+	].some((issue) => issue.code === code);
+}
+
+function itemHasAssetBlocker(item: CalendarEntry | CalendarBacklogItem) {
+	return itemHasIssueCode(item, "assets_required");
+}
+
+function itemHasApprovalBlocker(item: CalendarEntry | CalendarBacklogItem) {
+	return itemHasIssueCode(item, "approval_required");
+}
+
 function itemIsReady(item: CalendarEntry | CalendarBacklogItem) {
 	return (
-		item.approvalState === "approved" &&
 		item.readiness.scheduleBlockers.length === 0 &&
 		item.readiness.publishBlockers.length === 0
 	);
@@ -303,6 +339,14 @@ function matchesStatusFilter(
 			return itemIsBlocked(item);
 		case "in_review":
 			return item.approvalState === "in_review";
+		case "tentative":
+			return itemIsTentative(item);
+		case "approval_blocked":
+			return itemHasApprovalBlocker(item);
+		case "asset_blocked":
+			return itemHasAssetBlocker(item);
+		case "ready_to_finalize":
+			return item.planningState === "tentative" && item.finalizable;
 		default:
 			return true;
 	}
@@ -314,6 +358,7 @@ function itemSearchText(item: CalendarEntry | CalendarBacklogItem) {
 		item.excerpt,
 		item.platform,
 		item.surface,
+		item.planningState,
 		item.approvalState,
 		item.publicationState,
 		item.notes ?? "",
@@ -338,6 +383,9 @@ function statusClassName(value: string) {
 }
 
 function publicationBadgeTone(item: CalendarEntry | CalendarBacklogItem) {
+	if (item.planningState === "tentative") {
+		return "pill pill-warning";
+	}
 	if (itemIsBlocked(item)) {
 		return "pill pill-error";
 	}
@@ -357,6 +405,7 @@ function dragDataFor(
 		postId: item.postId,
 		platform: item.platform,
 		plannedAt: "plannedAt" in item ? item.plannedAt : undefined,
+		planningState: item.planningState,
 	};
 }
 
@@ -514,6 +563,47 @@ function laneChrome(platform: string) {
 	};
 }
 
+function rebuildPlatformCounts(
+	platforms: CalendarResponse["platforms"],
+	entries: CalendarEntry[],
+	backlog: CalendarBacklogItem[],
+) {
+	return platforms.map((lane) => ({
+		...lane,
+		scheduledCount: entries.filter((item) => item.platform === lane.platform)
+			.length,
+		backlogCount: backlog.filter((item) => item.platform === lane.platform)
+			.length,
+	}));
+}
+
+function resolveInheritedAssets(
+	post: PostDetail | null,
+	variant: PostVariant | null,
+) {
+	if (!post || !variant || variant.assetMode !== "inherit") {
+		return [];
+	}
+	if (variant.inheritSource === "shared") {
+		return post.assets.filter(
+			(asset) => !variant.removedInheritedResourceIds.includes(asset.id),
+		);
+	}
+	if (variant.inheritSource.startsWith("platform:")) {
+		const sourcePlatform = variant.inheritSource.slice("platform:".length);
+		const sourceVariant =
+			[...post.variants, ...post.legacyVariants].find(
+				(item) => item.platform === sourcePlatform,
+			) ?? null;
+		return (
+			sourceVariant?.effectiveAssets.filter(
+				(asset) => !variant.removedInheritedResourceIds.includes(asset.id),
+			) ?? []
+		);
+	}
+	return [];
+}
+
 function PlanningStatChip({
 	label,
 	value,
@@ -608,14 +698,22 @@ function CalendarCard({
 			</div>
 
 			<div className="mt-3 flex flex-wrap items-center gap-2">
+				{item.planningState === "tentative" ? (
+					<span className="pill pill-warning">Tentative</span>
+				) : null}
 				<span className={statusClassName(item.approvalState)}>
 					{item.approvalState}
 				</span>
 				<span className={publicationBadgeTone(item)}>
 					{card.kind === "entry"
-						? formatTimeLabel(card.item.plannedAt)
+						? item.planningState === "tentative"
+							? `Planned ${formatTimeLabel(card.item.plannedAt)}`
+							: formatTimeLabel(card.item.plannedAt)
 						: item.publicationState}
 				</span>
+				{item.finalizable ? (
+					<span className="pill pill-success">Ready to finalize</span>
+				) : null}
 				{itemIsBlocked(item) ? (
 					<span className="pill pill-error">Blocked</span>
 				) : null}
@@ -629,6 +727,8 @@ export function DashboardCalendar() {
 	const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
 	const [capabilities, setCapabilities] =
 		useState<ResourceCapabilityMatrix | null>(null);
+	const [resources, setResources] = useState<ResourceRecord[]>([]);
+	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [view, setView] = useState<CalendarView>("week");
 	const [anchorDate, setAnchorDate] = useState(() => startOfDay(new Date()));
 	const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -692,6 +792,13 @@ export function DashboardCalendar() {
 		}
 	}
 
+	async function resolveResourceSetIds(resourceSetId: string) {
+		const response = await customerRequest<ResourceSetDetail>(
+			`/resource-sets/${resourceSetId}`,
+		);
+		return response.items.map((item) => item.resourceId);
+	}
+
 	useEffect(() => {
 		if (!activeWorkspaceId) {
 			return;
@@ -709,19 +816,30 @@ export function DashboardCalendar() {
 				if (selectedPlatforms.length > 0) {
 					params.set("platform", selectedPlatforms.join(","));
 				}
-				const [calendarResponse, capabilityResponse] = await Promise.all([
+				const [
+					calendarResponse,
+					capabilityResponse,
+					resourceResponse,
+					resourceSetResponse,
+				] = await Promise.all([
 					customerRequest<CalendarResponse>(`/calendar?${params.toString()}`),
 					capabilities
 						? Promise.resolve(capabilities)
 						: customerRequest<ResourceCapabilityMatrix>(
 								"/resources/capabilities",
 							),
+					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+					customerRequest<ApiListResponse<ResourceSetSummary>>(
+						"/resource-sets",
+					),
 				]);
 				if (cancelled) {
 					return;
 				}
 				setCalendar(calendarResponse);
 				setCapabilities(capabilityResponse);
+				setResources(resourceResponse.items);
+				setResourceSets(resourceSetResponse.items);
 			} catch (loadError) {
 				if (!cancelled) {
 					setError(
@@ -916,6 +1034,13 @@ export function DashboardCalendar() {
 		return count;
 	}, [currentWeek, entriesByLaneDay, lanes]);
 
+	const unfinalizedCount = useMemo(
+		() =>
+			filteredEntries.filter((item) => item.planningState === "tentative")
+				.length,
+		[filteredEntries],
+	);
+
 	const blockedCount = useMemo(
 		() =>
 			filteredEntries.filter((item) => itemIsBlocked(item)).length +
@@ -1011,7 +1136,19 @@ export function DashboardCalendar() {
 			.catch(() => undefined);
 	}
 
-	function optimisticSchedule(variantId: string, plannedAt: string) {
+	function findCalendarItem(variantId: string) {
+		return (
+			calendar?.entries.find((item) => item.variantId === variantId) ??
+			calendar?.backlog.find((item) => item.variantId === variantId) ??
+			null
+		);
+	}
+
+	function optimisticPlaceVariant(
+		variantId: string,
+		plannedAt: string,
+		nextPlanningState: CalendarEntry["planningState"],
+	) {
 		setCalendar((current) => {
 			if (!current) {
 				return current;
@@ -1025,7 +1162,14 @@ export function DashboardCalendar() {
 					moved = {
 						...entry,
 						plannedAt,
-						publicationState: "scheduled",
+						planningState: nextPlanningState,
+						publicationState:
+							nextPlanningState === "tentative"
+								? entry.publicationState
+								: "scheduled",
+						finalizable:
+							nextPlanningState === "tentative" &&
+							entry.readiness.scheduleBlockers.length === 0,
 					};
 					return null;
 				})
@@ -1037,7 +1181,14 @@ export function DashboardCalendar() {
 				moved = {
 					...item,
 					plannedAt,
-					publicationState: "scheduled",
+					planningState: nextPlanningState,
+					publicationState:
+						nextPlanningState === "tentative"
+							? item.publicationState
+							: "scheduled",
+					finalizable:
+						nextPlanningState === "tentative" &&
+						item.readiness.scheduleBlockers.length === 0,
 				};
 				return false;
 			});
@@ -1052,26 +1203,16 @@ export function DashboardCalendar() {
 				...current,
 				entries: nextEntries,
 				backlog: remainingBacklog,
-				platforms: current.platforms.map((lane) => ({
-					...lane,
-					scheduledCount:
-						lane.platform === movedItem.platform
-							? lane.scheduledCount +
-								(current.entries.some((entry) => entry.variantId === variantId)
-									? 0
-									: 1)
-							: lane.scheduledCount,
-					backlogCount:
-						lane.platform === movedItem.platform &&
-						current.backlog.some((item) => item.variantId === variantId)
-							? Math.max(0, lane.backlogCount - 1)
-							: lane.backlogCount,
-				})),
+				platforms: rebuildPlatformCounts(
+					current.platforms,
+					nextEntries,
+					remainingBacklog,
+				),
 			};
 		});
 	}
 
-	function optimisticUnschedule(variantId: string) {
+	function optimisticClearPlacement(variantId: string) {
 		setCalendar((current) => {
 			if (!current) {
 				return current;
@@ -1087,9 +1228,11 @@ export function DashboardCalendar() {
 					title: entry.title,
 					platform: entry.platform,
 					surface: entry.surface,
+					planningState: "unscheduled",
 					approvalState: entry.approvalState,
 					publicationState: "unscheduled",
 					requiresApproval: entry.requiresApproval,
+					finalizable: false,
 					readiness: entry.readiness,
 					excerpt: entry.excerpt,
 					assetCount: entry.assetCount,
@@ -1108,17 +1251,10 @@ export function DashboardCalendar() {
 				...current,
 				entries: nextEntries,
 				backlog: [movedItem, ...current.backlog],
-				platforms: current.platforms.map((lane) => ({
-					...lane,
-					scheduledCount:
-						lane.platform === movedItem.platform
-							? Math.max(0, lane.scheduledCount - 1)
-							: lane.scheduledCount,
-					backlogCount:
-						lane.platform === movedItem.platform
-							? lane.backlogCount + 1
-							: lane.backlogCount,
-				})),
+				platforms: rebuildPlatformCounts(current.platforms, nextEntries, [
+					movedItem,
+					...current.backlog,
+				]),
 			};
 		});
 	}
@@ -1136,10 +1272,31 @@ export function DashboardCalendar() {
 			`/calendar?${params.toString()}`,
 		);
 		setCalendar(response);
+		setPanelState((current) => {
+			if (current.mode !== "entry" && current.mode !== "backlog") {
+				return current;
+			}
+			const nextEntry =
+				response.entries.find(
+					(item) => item.variantId === current.item.variantId,
+				) ?? null;
+			if (nextEntry) {
+				return { mode: "entry", item: nextEntry };
+			}
+			const nextBacklog =
+				response.backlog.find(
+					(item) => item.variantId === current.item.variantId,
+				) ?? null;
+			if (nextBacklog) {
+				return { mode: "backlog", item: nextBacklog };
+			}
+			return { mode: "closed" };
+		});
+		return response;
 	}
 
 	async function handleScheduleVariant(variantId: string, plannedAt: string) {
-		optimisticSchedule(variantId, plannedAt);
+		optimisticPlaceVariant(variantId, plannedAt, "scheduled");
 		try {
 			await customerRequest(
 				`/posts/variants/${variantId}/publication/schedule`,
@@ -1159,20 +1316,52 @@ export function DashboardCalendar() {
 		}
 	}
 
-	async function handleUnscheduleVariant(variantId: string) {
-		optimisticUnschedule(variantId);
+	async function handleTentativePlacement(
+		variantId: string,
+		plannedAt: string,
+	) {
+		optimisticPlaceVariant(variantId, plannedAt, "tentative");
 		try {
-			await customerRequest(
-				`/posts/variants/${variantId}/publication/unschedule`,
-				{ method: "POST" },
+			await customerRequest(`/posts/variants/${variantId}/planning`, {
+				method: "POST",
+				body: { plannedAt, source: "manual" },
+			});
+			await reloadCalendar();
+		} catch (planningError) {
+			await reloadCalendar();
+			toast.error(
+				planningError instanceof Error
+					? planningError.message
+					: "Unable to place this tentative slot.",
 			);
+		}
+	}
+
+	async function handleClearPlacement(
+		variantId: string,
+		planningState:
+			| CalendarEntry["planningState"]
+			| CalendarBacklogItem["planningState"],
+	) {
+		optimisticClearPlacement(variantId);
+		try {
+			if (planningState === "tentative") {
+				await customerRequest(`/posts/variants/${variantId}/planning`, {
+					method: "DELETE",
+				});
+			} else {
+				await customerRequest(
+					`/posts/variants/${variantId}/publication/unschedule`,
+					{ method: "POST" },
+				);
+			}
 			await reloadCalendar();
 		} catch (scheduleError) {
 			await reloadCalendar();
 			toast.error(
 				scheduleError instanceof Error
 					? scheduleError.message
-					: "Unable to unschedule this variant.",
+					: "Unable to clear this planned slot.",
 			);
 		} finally {
 			clearDragState();
@@ -1210,7 +1399,15 @@ export function DashboardCalendar() {
 			0,
 			0,
 		);
-		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		const item = findCalendarItem(payload.variantId);
+		const shouldUseTentative =
+			payload.planningState === "tentative" ||
+			(item ? item.readiness.scheduleBlockers.length > 0 : false);
+		if (shouldUseTentative) {
+			await handleTentativePlacement(payload.variantId, nextDate.toISOString());
+		} else {
+			await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		}
 		clearDragState();
 	}
 
@@ -1246,7 +1443,15 @@ export function DashboardCalendar() {
 			0,
 			0,
 		);
-		await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		const item = findCalendarItem(payload.variantId);
+		const shouldUseTentative =
+			payload.planningState === "tentative" ||
+			(item ? item.readiness.scheduleBlockers.length > 0 : false);
+		if (shouldUseTentative) {
+			await handleTentativePlacement(payload.variantId, nextDate.toISOString());
+		} else {
+			await handleScheduleVariant(payload.variantId, nextDate.toISOString());
+		}
 		clearDragState();
 	}
 
@@ -1321,22 +1526,39 @@ export function DashboardCalendar() {
 				},
 			});
 
+			const refreshedVariant = await customerRequest<PostVariant>(
+				`/posts/variants/${variant.id}`,
+			);
 			const nextPlannedAt = toIsoValue(panelDraft.plannedLocal);
 			if (nextPlannedAt) {
+				const shouldUseTentative =
+					Boolean(refreshedVariant.latestTentativePlan) ||
+					refreshedVariant.readiness.scheduleBlockers.length > 0;
 				await customerRequest(
-					`/posts/variants/${variant.id}/publication/schedule`,
+					shouldUseTentative
+						? `/posts/variants/${variant.id}/planning`
+						: `/posts/variants/${variant.id}/publication/schedule`,
 					{
 						method: "POST",
 						body: { plannedAt: nextPlannedAt, source: "manual" },
 					},
 				);
 			} else if (panelState.mode === "entry") {
-				await customerRequest(
-					`/posts/variants/${variant.id}/publication/unschedule`,
-					{
-						method: "POST",
-					},
-				);
+				if (
+					panelState.item.planningState === "tentative" ||
+					refreshedVariant.latestTentativePlan
+				) {
+					await customerRequest(`/posts/variants/${variant.id}/planning`, {
+						method: "DELETE",
+					});
+				} else {
+					await customerRequest(
+						`/posts/variants/${variant.id}/publication/unschedule`,
+						{
+							method: "POST",
+						},
+					);
+				}
 			}
 
 			await reloadCalendar();
@@ -1401,7 +1623,9 @@ export function DashboardCalendar() {
 			if (plannedAt) {
 				try {
 					await customerRequest(
-						`/posts/variants/${createdVariant.id}/publication/schedule`,
+						createdVariant.readiness.scheduleBlockers.length > 0
+							? `/posts/variants/${createdVariant.id}/planning`
+							: `/posts/variants/${createdVariant.id}/publication/schedule`,
 						{
 							method: "POST",
 							body: {
@@ -1414,7 +1638,7 @@ export function DashboardCalendar() {
 					toast.error(
 						scheduleError instanceof Error
 							? `${scheduleError.message} The draft stayed in backlog.`
-							: "The draft was created but could not be scheduled.",
+							: "The draft was created but could not be placed on the calendar.",
 					);
 				}
 			}
@@ -1427,6 +1651,72 @@ export function DashboardCalendar() {
 				createError instanceof Error
 					? createError.message
 					: "Unable to create this draft.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function syncVariantAssets(
+		nextAssetMode: PostVariant["assetMode"],
+		resourceIds: string[],
+		removedInheritedResourceIds: string[],
+	) {
+		if (!currentVariant || !selectedPost) {
+			return;
+		}
+		setSaving(true);
+		setPanelError(null);
+		try {
+			await customerRequest<PostVariant>(
+				`/posts/variants/${currentVariant.id}/assets`,
+				{
+					method: "PUT",
+					body: {
+						resourceIds,
+						assetMode: nextAssetMode,
+						removedInheritedResourceIds,
+					},
+				},
+			);
+			await reloadCalendar();
+			refreshPostSelection(selectedPost.id);
+			toast.success("Assets updated.");
+		} catch (assetError) {
+			setPanelError(
+				assetError instanceof Error
+					? assetError.message
+					: "Unable to update assets from the calendar.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function finalizeTentativeSlot() {
+		if (
+			panelState.mode !== "entry" ||
+			panelState.item.planningState !== "tentative"
+		) {
+			return;
+		}
+		setSaving(true);
+		setPanelError(null);
+		try {
+			await customerRequest(
+				`/posts/variants/${panelState.item.variantId}/planning/finalize`,
+				{
+					method: "POST",
+				},
+			);
+			await reloadCalendar();
+			refreshPostSelection(panelState.item.postId);
+			toast.success("Tentative slot finalized.");
+		} catch (finalizeError) {
+			setPanelError(
+				finalizeError instanceof Error
+					? finalizeError.message
+					: "Unable to finalize this tentative slot.",
 			);
 		} finally {
 			setSaving(false);
@@ -1476,6 +1766,14 @@ export function DashboardCalendar() {
 		panelState.mode === "entry" || panelState.mode === "backlog"
 			? findVariant(selectedPost, panelState.item.variantId)
 			: null;
+	const inheritedAssets = useMemo(
+		() => resolveInheritedAssets(selectedPost, currentVariant),
+		[selectedPost, currentVariant],
+	);
+	const variantSpecificAssets = useMemo(
+		() => currentVariant?.assets ?? [],
+		[currentVariant],
+	);
 	const surfaceOptions = surfaceOptionsForPlatform(
 		capabilities,
 		panelDraft.platform,
@@ -1516,11 +1814,11 @@ export function DashboardCalendar() {
 									</p>
 								</div>
 							</div>
-							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
 								<PlanningStatChip
-									label="Scheduled"
+									label="On calendar"
 									value={String(filteredEntries.length)}
-									detail="Visible items in range"
+									detail="Scheduled plus tentative slots"
 									icon={CalendarRange}
 								/>
 								<PlanningStatChip
@@ -1534,6 +1832,12 @@ export function DashboardCalendar() {
 									value={String(filteredBacklog.length)}
 									detail="Unscheduled variants"
 									icon={Clock3}
+								/>
+								<PlanningStatChip
+									label="Unfinalized"
+									value={String(unfinalizedCount)}
+									detail="Tentative slots still blocked"
+									icon={AlertTriangle}
 								/>
 								<PlanningStatChip
 									label="Blocked"
@@ -1783,6 +2087,16 @@ export function DashboardCalendar() {
 											<SelectItem value="ready">Ready</SelectItem>
 											<SelectItem value="blocked">Blocked</SelectItem>
 											<SelectItem value="in_review">In review</SelectItem>
+											<SelectItem value="tentative">Tentative</SelectItem>
+											<SelectItem value="approval_blocked">
+												Approval blocked
+											</SelectItem>
+											<SelectItem value="asset_blocked">
+												Asset blocked
+											</SelectItem>
+											<SelectItem value="ready_to_finalize">
+												Ready to finalize
+											</SelectItem>
 										</SelectContent>
 									</Select>
 									<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/88 px-3 py-2 text-sm">
@@ -1871,7 +2185,7 @@ export function DashboardCalendar() {
 																		{lane.label}
 																	</div>
 																	<div className="mt-1 text-xs text-muted-foreground">
-																		{lane.scheduledCount} scheduled ·{" "}
+																		{lane.scheduledCount} on calendar ·{" "}
 																		{lane.backlogCount} backlog
 																	</div>
 																</div>
@@ -2067,15 +2381,23 @@ export function DashboardCalendar() {
 																		boxShadow: `inset 0 1px 0 ${withAlpha(
 																			getPlatformMeta(item.platform)?.color ??
 																				"#64748B",
-																			0.12,
+																			item.planningState === "tentative"
+																				? 0.22
+																				: 0.12,
 																		)}`,
+																		backgroundColor:
+																			item.planningState === "tentative"
+																				? "rgba(251,191,36,0.08)"
+																				: undefined,
 																	}}
 																>
 																	<div className="truncate font-medium">
 																		{item.title}
 																	</div>
 																	<div className="mt-1 text-muted-foreground">
-																		{formatTimeLabel(item.plannedAt)}
+																		{item.planningState === "tentative"
+																			? `Tentative ${formatTimeLabel(item.plannedAt)}`
+																			: formatTimeLabel(item.plannedAt)}
 																	</div>
 																</div>
 															))}
@@ -2361,6 +2683,7 @@ export function DashboardCalendar() {
 										</div>
 										<div className="text-sm text-muted-foreground">
 											Drag these variants into any gap or exact-time slot.
+											Blocked drafts stay tentative until finalized.
 										</div>
 									</div>
 									<Badge variant="outline" className="rounded-full">
@@ -2380,7 +2703,10 @@ export function DashboardCalendar() {
 										if (!payload || payload.source !== "entry") {
 											return;
 										}
-										void handleUnscheduleVariant(payload.variantId);
+										void handleClearPlacement(
+											payload.variantId,
+											payload.planningState ?? "scheduled",
+										);
 									}}
 									className="rounded-[20px] border border-dashed p-3 text-xs text-muted-foreground transition duration-200"
 									style={{
@@ -2406,8 +2732,8 @@ export function DashboardCalendar() {
 								>
 									{activeDropTarget?.kind === "backlog" &&
 									activeDropTarget.valid
-										? "Drop to send this variant back to backlog."
-										: "Drop scheduled cards here to unschedule them."}
+										? "Drop to clear this slot and send the variant back to backlog."
+										: "Drop scheduled or tentative cards here to return them to backlog."}
 								</div>
 								<div className="space-y-3">
 									{filteredBacklog.length === 0 ? (
@@ -2443,7 +2769,9 @@ export function DashboardCalendar() {
 					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
 						<SheetTitle>
 							{panelState.mode === "entry"
-								? "Scheduled item"
+								? panelState.item.planningState === "tentative"
+									? "Tentative slot"
+									: "Scheduled item"
 								: panelState.mode === "backlog"
 									? "Backlog item"
 									: panelState.mode === "gap"
@@ -2452,7 +2780,7 @@ export function DashboardCalendar() {
 						</SheetTitle>
 						<SheetDescription>
 							{panelState.mode === "entry" || panelState.mode === "backlog"
-								? "Adjust the draft, planning time, and review state without leaving the calendar."
+								? "Adjust the draft, assets, planning time, and review state without leaving the calendar."
 								: "Create a new draft already pointed at the right platform and time slot."}
 						</SheetDescription>
 					</SheetHeader>
@@ -2639,6 +2967,9 @@ export function DashboardCalendar() {
 						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
 							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
 								<div className="flex flex-wrap items-center gap-2">
+									{panelState.item.planningState === "tentative" ? (
+										<span className="pill pill-warning">Tentative slot</span>
+									) : null}
 									<span
 										className={statusClassName(panelState.item.approvalState)}
 									>
@@ -2646,9 +2977,14 @@ export function DashboardCalendar() {
 									</span>
 									<span className={publicationBadgeTone(panelState.item)}>
 										{panelState.mode === "entry"
-											? formatDateTimeLabel(panelState.item.plannedAt)
+											? panelState.item.planningState === "tentative"
+												? `Tentative ${formatDateTimeLabel(panelState.item.plannedAt)}`
+												: formatDateTimeLabel(panelState.item.plannedAt)
 											: panelState.item.publicationState}
 									</span>
+									{panelState.item.finalizable ? (
+										<span className="pill pill-success">Ready to finalize</span>
+									) : null}
 									{panelState.item.requiresApproval ? (
 										<span className="pill pill-warning">Approval required</span>
 									) : null}
@@ -2689,6 +3025,11 @@ export function DashboardCalendar() {
 											)}
 										</div>
 									</div>
+								) : panelState.item.planningState === "tentative" ? (
+									<div className="rounded-[18px] border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-800 dark:text-amber-100">
+										This slot is placed on the calendar, but it will not run
+										until you finalize it into a real schedule.
+									</div>
 								) : (
 									<div className="rounded-[18px] border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-700 dark:text-emerald-200">
 										This item is clear to move or schedule from the calendar.
@@ -2726,21 +3067,186 @@ export function DashboardCalendar() {
 										<XCircle className="size-4" />
 										Request changes
 									</Button>
+									{panelState.mode === "entry" &&
+									panelState.item.planningState === "tentative" ? (
+										<Button
+											type="button"
+											variant="outline"
+											className="rounded-full border-emerald-500/20 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100"
+											onClick={() => void finalizeTentativeSlot()}
+											disabled={saving || !panelState.item.finalizable}
+										>
+											<CheckCircle2 className="size-4" />
+											Finalize schedule
+										</Button>
+									) : null}
 									{panelState.mode === "entry" ? (
 										<Button
 											type="button"
 											variant="outline"
 											className="rounded-full"
 											onClick={() =>
-												void handleUnscheduleVariant(panelState.item.variantId)
+												void handleClearPlacement(
+													panelState.item.variantId,
+													panelState.item.planningState,
+												)
 											}
 											disabled={saving}
 										>
 											<Clock3 className="size-4" />
-											Unschedule
+											{panelState.item.planningState === "tentative"
+												? "Clear tentative slot"
+												: "Unschedule"}
 										</Button>
 									) : null}
 								</div>
+							</div>
+						) : null}
+
+						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
+							<div className="space-y-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<div className="text-sm font-medium">Assets</div>
+										<div className="text-sm text-muted-foreground">
+											Attach missing media and resolve blockers without leaving
+											the calendar.
+										</div>
+									</div>
+									{currentVariant ? (
+										<ResourcePicker
+											resources={resources}
+											resourceSets={resourceSets}
+											resolveResourceSetIds={resolveResourceSetIds}
+											value={variantSpecificAssets.map((asset) => asset.id)}
+											onChange={(nextValue) => {
+												void syncVariantAssets(
+													currentVariant.assetMode,
+													nextValue,
+													currentVariant.removedInheritedResourceIds,
+												);
+											}}
+											triggerLabel={
+												currentVariant.assetMode === "replace"
+													? "Choose assets"
+													: "Append assets"
+											}
+										/>
+									) : null}
+								</div>
+
+								{currentVariant ? (
+									<div className="flex flex-wrap gap-2">
+										<Button
+											type="button"
+											variant={
+												currentVariant.assetMode === "inherit"
+													? "default"
+													: "outline"
+											}
+											className="rounded-full"
+											onClick={() =>
+												void syncVariantAssets(
+													"inherit",
+													variantSpecificAssets.map((asset) => asset.id),
+													currentVariant.removedInheritedResourceIds,
+												)
+											}
+											disabled={saving}
+										>
+											Inherit
+										</Button>
+										<Button
+											type="button"
+											variant={
+												currentVariant.assetMode === "replace"
+													? "default"
+													: "outline"
+											}
+											className="rounded-full"
+											onClick={() =>
+												void syncVariantAssets(
+													"replace",
+													variantSpecificAssets.map((asset) => asset.id),
+													[],
+												)
+											}
+											disabled={saving}
+										>
+											Replace
+										</Button>
+									</div>
+								) : null}
+
+								{currentVariant?.assetMode === "inherit" ? (
+									<div className="space-y-4">
+										<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 p-3">
+											<div className="mb-3 text-sm font-medium">
+												Inherited assets
+											</div>
+											<ResourceChipList
+												resources={inheritedAssets}
+												onRemove={(resourceId) => {
+													void syncVariantAssets(
+														"inherit",
+														variantSpecificAssets.map((asset) => asset.id),
+														currentVariant.removedInheritedResourceIds.includes(
+															resourceId,
+														)
+															? currentVariant.removedInheritedResourceIds.filter(
+																	(item) => item !== resourceId,
+																)
+															: [
+																	...currentVariant.removedInheritedResourceIds,
+																	resourceId,
+																],
+													);
+												}}
+											/>
+										</div>
+										<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 p-3">
+											<div className="mb-3 text-sm font-medium">
+												Appended assets
+											</div>
+											<ResourceChipList
+												resources={variantSpecificAssets}
+												onRemove={(resourceId) => {
+													void syncVariantAssets(
+														"inherit",
+														variantSpecificAssets
+															.filter((asset) => asset.id !== resourceId)
+															.map((asset) => asset.id),
+														currentVariant.removedInheritedResourceIds,
+													);
+												}}
+											/>
+										</div>
+									</div>
+								) : currentVariant ? (
+									<ResourceChipList
+										resources={variantSpecificAssets}
+										onRemove={(resourceId) => {
+											void syncVariantAssets(
+												"replace",
+												variantSpecificAssets
+													.filter((asset) => asset.id !== resourceId)
+													.map((asset) => asset.id),
+												[],
+											);
+										}}
+									/>
+								) : null}
+
+								{currentVariant?.effectiveAssets?.length ? (
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 p-3">
+										<div className="mb-3 text-sm font-medium">
+											Effective assets
+										</div>
+										<ResourceChipList
+											resources={currentVariant.effectiveAssets}
+										/>
+									</div>
+								) : null}
 							</div>
 						) : null}
 

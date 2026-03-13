@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http/httptest"
 	"testing"
 
@@ -61,5 +62,38 @@ func TestBindCalendarQueryRejectsInvalidRange(t *testing.T) {
 	}
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", fiber.StatusBadRequest, resp.StatusCode)
+	}
+}
+
+func TestBindSchedulePublicationInputParsesPlannedAt(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New()
+	app.Post("/planning", func(c fiber.Ctx) error {
+		input, err := bindSchedulePublicationInput(c)
+		if err != nil {
+			return err
+		}
+		if input.PlannedAt == nil || input.PlannedAt.Format("2006-01-02T15:04:05Z07:00") != "2026-03-09T09:00:00Z" {
+			t.Fatalf("expected plannedAt to parse, got %#v", input.PlannedAt)
+		}
+		if input.Source != "manual" {
+			t.Fatalf("expected source to parse, got %q", input.Source)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(
+		"POST",
+		"/planning",
+		bytes.NewBufferString(`{"plannedAt":"2026-03-09T09:00:00Z","source":"manual"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", fiber.StatusNoContent, resp.StatusCode)
 	}
 }

@@ -450,6 +450,19 @@ var schemaStatements = []string{
 		UNIQUE (variant_id)
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_post_variant_publications_workspace_planned ON post_variant_publications (workspace_id, planned_at ASC)`,
+	`CREATE TABLE IF NOT EXISTS post_variant_tentative_plans (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		variant_id uuid NOT NULL REFERENCES post_variants(id) ON DELETE CASCADE,
+		planned_at timestamptz NOT NULL,
+		source text NOT NULL DEFAULT 'manual',
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE (variant_id)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_post_variant_tentative_plans_workspace_planned ON post_variant_tentative_plans (workspace_id, planned_at ASC)`,
 	`CREATE TABLE IF NOT EXISTS metric_definitions (
 		id uuid PRIMARY KEY,
 		code text NOT NULL,

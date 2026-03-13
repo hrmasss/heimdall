@@ -231,6 +231,15 @@ export type PublicationPlan = {
 	updatedAt: string;
 };
 
+export type TentativePlan = {
+	id: string;
+	variantId: string;
+	plannedAt: string;
+	source: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
 export type ReadinessIssue = {
 	code: string;
 	message: string;
@@ -282,6 +291,7 @@ export type PostVariant = {
 	latestReview?: ReviewRecord;
 	reviewHistory: ReviewRecord[];
 	latestPublication?: PublicationPlan;
+	latestTentativePlan?: TentativePlan;
 	readiness: VariantReadiness;
 	metricSnapshot: MetricSnapshotItem[];
 	notes?: string;
@@ -344,6 +354,14 @@ export type CalendarEntry = {
 	platform: string;
 	surface: string;
 	plannedAt: string;
+	planningState:
+		| "unscheduled"
+		| "tentative"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
 	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
 	publicationState:
 		| "unscheduled"
@@ -353,6 +371,7 @@ export type CalendarEntry = {
 		| "failed"
 		| "cancelled";
 	requiresApproval: boolean;
+	finalizable: boolean;
 	readiness: VariantReadiness;
 	excerpt: string;
 	assetCount: number;
@@ -368,6 +387,14 @@ export type CalendarBacklogItem = {
 	title: string;
 	platform: string;
 	surface: string;
+	planningState:
+		| "unscheduled"
+		| "tentative"
+		| "scheduled"
+		| "publishing"
+		| "published"
+		| "failed"
+		| "cancelled";
 	approvalState: "draft" | "in_review" | "approved" | "changes_requested";
 	publicationState:
 		| "unscheduled"
@@ -377,6 +404,7 @@ export type CalendarBacklogItem = {
 		| "failed"
 		| "cancelled";
 	requiresApproval: boolean;
+	finalizable: boolean;
 	readiness: VariantReadiness;
 	excerpt: string;
 	assetCount: number;
