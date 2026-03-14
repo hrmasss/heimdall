@@ -132,8 +132,26 @@ func NewService(db *bun.DB, cfg *config.Config) *Service {
 	return &Service{db: db, cfg: cfg}
 }
 
-func (s *Service) Bootstrap(ctx context.Context) error {
-	return database.Bootstrap(ctx, s.db, s.cfg)
+func (s *Service) SeedSystem(ctx context.Context) error {
+	return database.SeedSystem(ctx, s.db, s.cfg)
+}
+
+func (s *Service) CheckHealth(ctx context.Context) (map[string]string, error) {
+	checks := map[string]string{
+		"api": "ok",
+	}
+
+	if err := s.db.PingContext(ctx); err != nil {
+		checks["database"] = "error"
+		return checks, err
+	}
+	checks["database"] = "ok"
+	if err := database.CheckSchema(ctx, s.db); err != nil {
+		checks["schema"] = "error"
+		return checks, err
+	}
+	checks["schema"] = "ok"
+	return checks, nil
 }
 
 func (s *Service) BuildPrincipal(token string) (*Principal, error) {

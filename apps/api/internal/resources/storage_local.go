@@ -37,6 +37,31 @@ func NewLocalStorage(rootDir, secret string) (*LocalStorage, error) {
 	}, nil
 }
 
+func CheckLocalStorage(rootDir string) error {
+	if strings.TrimSpace(rootDir) == "" {
+		return fmt.Errorf("local storage root is required")
+	}
+	if err := os.MkdirAll(rootDir, 0o755); err != nil {
+		return err
+	}
+
+	file, err := os.CreateTemp(rootDir, ".healthcheck-*")
+	if err != nil {
+		return err
+	}
+	name := file.Name()
+	if _, err := file.WriteString("ok"); err != nil {
+		file.Close()
+		_ = os.Remove(name)
+		return err
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	return os.Remove(name)
+}
+
 func (s *LocalStorage) Put(_ context.Context, key string, body io.Reader) error {
 	path, err := s.pathForKey(key)
 	if err != nil {

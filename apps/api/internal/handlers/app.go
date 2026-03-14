@@ -37,7 +37,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	app.Get("/reference", ServeScalarReference)
 
 	api := app.Group("/api/v1")
-	api.Get("/health", HealthCheck)
+	api.Get("/health", h.HealthCheck)
 
 	api.Post("/auth/register", h.customerRegister)
 	api.Post("/auth/login", h.customerLogin)

@@ -1,0 +1,35 @@
+{
+	auto_https off
+	admin off
+}
+
+http://api.heimdall.social {
+	reverse_proxy 127.0.0.1:8080
+}
+
+http://app.heimdall.social {
+	@app_root {
+		path /
+	}
+	redir @app_root /login 302
+
+	@app_marketing {
+		path /features /pricing /about /blog /blog/*
+	}
+	redir @app_marketing https://heimdall.social{uri} 302
+
+	root * /srv/heimdall/web/dist
+	try_files {path} {path}/ /index.html
+	file_server
+}
+
+http://heimdall.social, http://www.heimdall.social {
+	@marketing_to_app {
+		path /login /signup /dashboard /dashboard/* /admin /admin/*
+	}
+	redir @marketing_to_app https://app.heimdall.social{uri} 302
+
+	root * /srv/heimdall/web/dist
+	try_files {path} {path}/ /index.html
+	file_server
+}

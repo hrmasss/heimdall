@@ -328,7 +328,7 @@ function Footer() {
                   Blog
                 </Link>
                 <a
-                  href="mailto:team@heimdall.app"
+                  href="mailto:team@heimdall.social"
                   className="block transition-colors hover:text-foreground">
                   Contact
                 </a>

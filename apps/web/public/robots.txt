@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://heimdall.app/sitemap.xml
+Sitemap: https://heimdall.social/sitemap.xml

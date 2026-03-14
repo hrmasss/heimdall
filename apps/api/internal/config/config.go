@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,9 +20,10 @@ type Config struct {
 
 // APIConfig holds API server configuration
 type APIConfig struct {
-	Host   string
-	Port   string
-	Prefix string
+	Host           string
+	Port           string
+	Prefix         string
+	AllowedOrigins []string
 }
 
 // DatabaseConfig holds database configuration
@@ -53,19 +55,19 @@ type StorageConfig struct {
 
 // SocialConfig holds platform integration settings.
 type SocialConfig struct {
-	EncryptionKey      string
-	OAuthStateTTL      time.Duration
-	PublicAPIBaseURL   string
-	PublicAssetBaseURL string
-	TempMediaProvider  string
-	MetaClientID       string
-	MetaClientSecret   string
-	MetaAPIVersion     string
-	LinkedInClientID   string
+	EncryptionKey        string
+	OAuthStateTTL        time.Duration
+	PublicAPIBaseURL     string
+	PublicAssetBaseURL   string
+	TempMediaProvider    string
+	MetaClientID         string
+	MetaClientSecret     string
+	MetaAPIVersion       string
+	LinkedInClientID     string
 	LinkedInClientSecret string
-	LinkedInVersion    string
-	XClientID          string
-	XClientSecret      string
+	LinkedInVersion      string
+	XClientID            string
+	XClientSecret        string
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -80,9 +82,10 @@ func Load() *Config {
 	return &Config{
 		Environment: getEnv("GO_ENV", "development"),
 		API: APIConfig{
-			Host:   getEnv("API_HOST", "localhost"),
-			Port:   getEnv("API_PORT", "18080"),
-			Prefix: getEnv("API_PREFIX", "/api/v1"),
+			Host:           getEnv("API_HOST", "localhost"),
+			Port:           getEnv("API_PORT", "18080"),
+			Prefix:         getEnv("API_PREFIX", "/api/v1"),
+			AllowedOrigins: getEnvCSV("API_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"}),
 		},
 		Database: DatabaseConfig{
 			URL:            getEnv("DATABASE_URL", "postgres://heimdall:heimdall@localhost:5432/heimdall?sslmode=disable"),
@@ -171,4 +174,24 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 		}
 	}
 	return defaultValue
+}
+
+func getEnvCSV(key string, defaultValue []string) []string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return defaultValue
+	}
+	return result
 }

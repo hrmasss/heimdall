@@ -576,34 +576,7 @@ var schemaStatements = []string{
 }
 
 // Bootstrap creates the schema and seeds system permissions/roles/admin.
-func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
-	for _, statement := range schemaStatements {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("exec schema statement: %w", err)
-		}
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE auth_sessions ADD COLUMN IF NOT EXISTS impersonator_user_id uuid REFERENCES users(id) ON DELETE SET NULL`); err != nil {
-		return fmt.Errorf("ensure auth_sessions.impersonator_user_id: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS require_post_approval boolean NOT NULL DEFAULT false`); err != nil {
-		return fmt.Errorf("ensure workspaces.require_post_approval: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE posts ADD COLUMN IF NOT EXISTS requires_approval boolean NOT NULL DEFAULT false`); err != nil {
-		return fmt.Errorf("ensure posts.requires_approval: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE post_variants ADD COLUMN IF NOT EXISTS inherit_source text NOT NULL DEFAULT 'shared'`); err != nil {
-		return fmt.Errorf("ensure post_variants.inherit_source: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE post_variant_publications ADD COLUMN IF NOT EXISTS social_target_id uuid REFERENCES social_targets(id) ON DELETE SET NULL`); err != nil {
-		return fmt.Errorf("ensure post_variant_publications.social_target_id: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE social_oauth_states ADD COLUMN IF NOT EXISTS return_origin text NOT NULL DEFAULT ''`); err != nil {
-		return fmt.Errorf("ensure social_oauth_states.return_origin: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE social_oauth_states ADD COLUMN IF NOT EXISTS return_path text NOT NULL DEFAULT '/dashboard/settings'`); err != nil {
-		return fmt.Errorf("ensure social_oauth_states.return_path: %w", err)
-	}
-
+func SeedSystem(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 	if err := seedPermissions(ctx, db); err != nil {
 		return err
 	}

@@ -17,16 +17,16 @@ info:
     Most endpoints require authentication via Bearer token in the Authorization header.
   contact:
     name: Heimdall API Support
-    email: api@heimdall.dev
+    email: api@heimdall.social
   license:
     name: MIT
     identifier: MIT
 
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:18080
     description: Local development server
-  - url: https://api.heimdall.dev
-    description: Production server (future)
+  - url: https://api.heimdall.social
+    description: Production server
 
 tags:
   - name: Health

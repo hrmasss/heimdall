@@ -1,5 +1,6 @@
 export const SITE_NAME = "Heimdall";
-export const SITE_URL = "https://heimdall.app";
+const configuredSiteURL = import.meta.env.VITE_SITE_URL?.trim();
+export const SITE_URL = configuredSiteURL || "https://heimdall.social";
 export const SITE_IMAGE = `${SITE_URL}/branding/heimdall-icon-512.png`;
 
 export type RouteSeo = {
