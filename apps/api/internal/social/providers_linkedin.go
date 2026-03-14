@@ -26,7 +26,13 @@ func newLinkedInAdapter(cfg config.SocialConfig) providerAdapter {
 func (a *linkedInAdapter) Provider() string { return "linkedin" }
 func (a *linkedInAdapter) Label() string    { return "LinkedIn" }
 func (a *linkedInAdapter) DefaultScopes() []string {
-	return []string{"w_organization_social", "r_organization_social", "rw_organization_admin"}
+	return []string{
+		"w_organization_social",
+		"r_organization_social",
+		"w_organization_social_feed",
+		"r_organization_social_feed",
+		"rw_organization_admin",
+	}
 }
 func (a *linkedInAdapter) SupportsBYOK() bool { return true }
 
@@ -208,27 +214,39 @@ func (a *linkedInAdapter) GetPostMetrics(ctx context.Context, session providerSe
 	if publication.ExternalPostID == nil {
 		return &metricResult{Metrics: map[string]float64{}, Metadata: map[string]any{}}, nil
 	}
-	var metadata struct {
-		CommentSummary struct {
-			Count float64 `json:"count"`
-		} `json:"commentSummary"`
-		ReactionSummary struct {
-			Count float64 `json:"count"`
-		} `json:"reactionSummary"`
-		ShareSummary struct {
-			Count float64 `json:"count"`
-		} `json:"shareSummary"`
+	var summary struct {
+		LikesSummary struct {
+			AggregatedTotalLikes float64 `json:"aggregatedTotalLikes"`
+			TotalLikes           float64 `json:"totalLikes"`
+		} `json:"likesSummary"`
+		CommentsSummary struct {
+			AggregatedTotalComments float64 `json:"aggregatedTotalComments"`
+			TotalFirstLevelComments float64 `json:"totalFirstLevelComments"`
+		} `json:"commentsSummary"`
+		Target string `json:"target"`
 	}
-	if err := a.getSocialMetadata(ctx, defaultString(*publication.ExternalPostID, ""), a.headers(session.AccessToken), &metadata); err != nil {
+	externalPostID := defaultString(*publication.ExternalPostID, "")
+	if err := a.getSocialActionsSummary(ctx, externalPostID, a.headers(session.AccessToken), &summary); err != nil {
 		return nil, err
+	}
+	likes := summary.LikesSummary.AggregatedTotalLikes
+	if likes == 0 {
+		likes = summary.LikesSummary.TotalLikes
+	}
+	comments := summary.CommentsSummary.AggregatedTotalComments
+	if comments == 0 {
+		comments = summary.CommentsSummary.TotalFirstLevelComments
 	}
 	return &metricResult{
 		Metrics: map[string]float64{
-			"comments": metadata.CommentSummary.Count,
-			"likes":    metadata.ReactionSummary.Count,
-			"shares":   metadata.ShareSummary.Count,
+			"comments": comments,
+			"likes":    likes,
 		},
-		Metadata: map[string]any{"provider": "linkedin"},
+		Metadata: map[string]any{
+			"provider":        "linkedin",
+			"externalPostUrl": a.postPermalink(externalPostID),
+			"targetURN":       summary.Target,
+		},
 	}, nil
 }
 
@@ -286,21 +304,13 @@ func (a *linkedInAdapter) createPost(ctx context.Context, headers map[string]str
 	return response.ID, nil
 }
 
-func (a *linkedInAdapter) getSocialMetadata(ctx context.Context, externalPostID string, headers map[string]string, out any) error {
+func (a *linkedInAdapter) getSocialActionsSummary(ctx context.Context, externalPostID string, headers map[string]string, out any) error {
 	externalPostID = strings.TrimSpace(externalPostID)
-	candidates := []string{
-		fmt.Sprintf("https://api.linkedin.com/rest/socialMetadata/%s", externalPostID),
-		fmt.Sprintf("https://api.linkedin.com/rest/socialMetadata/%s", url.PathEscape(externalPostID)),
+	endpoint := fmt.Sprintf("https://api.linkedin.com/rest/socialActions/%s", url.QueryEscape(externalPostID))
+	if err := getJSON(ctx, endpoint, headers, out); err != nil {
+		return fmt.Errorf("linkedin socialActions summary failed for %s via %s: %w", externalPostID, endpoint, err)
 	}
-	var lastErr error
-	for _, endpoint := range candidates {
-		if err := getJSON(ctx, endpoint, headers, out); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-	}
-	return lastErr
+	return nil
 }
 
 func (a *linkedInAdapter) discoverTargets(ctx context.Context, headers map[string]string) ([]discoveredTarget, string, error) {
