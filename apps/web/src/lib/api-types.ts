@@ -224,6 +224,7 @@ export type PublicationPlan = {
 	plannedAt?: string;
 	publishedAt?: string;
 	externalPostId?: string;
+	externalPostUrl?: string;
 	externalAccountId?: string;
 	source: string;
 	lastError?: string;

@@ -55,6 +55,7 @@ type StorageConfig struct {
 type SocialConfig struct {
 	PublicAPIBaseURL     string
 	PublicAssetBaseURL   string
+	TempMediaProvider    string
 	EncryptionKey        string
 	OAuthStateTTL        time.Duration
 	MetaAPIVersion       string
@@ -107,6 +108,7 @@ func Load() *Config {
 		Social: SocialConfig{
 			PublicAPIBaseURL:     getEnv("SOCIAL_PUBLIC_API_BASE_URL", "http://localhost:18080"),
 			PublicAssetBaseURL:   getEnv("SOCIAL_PUBLIC_ASSET_BASE_URL", ""),
+			TempMediaProvider:    getEnv("SOCIAL_TEMP_MEDIA_PROVIDER", ""),
 			EncryptionKey:        getEnv("SOCIAL_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
 			OAuthStateTTL:        getEnvDuration("SOCIAL_OAUTH_STATE_TTL", 15*time.Minute),
 			MetaAPIVersion:       getEnv("SOCIAL_META_API_VERSION", "v23.0"),

@@ -129,6 +129,7 @@ type PublicationPlan struct {
 	PlannedAt         string         `json:"plannedAt,omitempty"`
 	PublishedAt       string         `json:"publishedAt,omitempty"`
 	ExternalPostID    string         `json:"externalPostId,omitempty"`
+	ExternalPostURL   string         `json:"externalPostUrl,omitempty"`
 	ExternalAccountID string         `json:"externalAccountId,omitempty"`
 	Source            string         `json:"source"`
 	LastError         string         `json:"lastError,omitempty"`
@@ -2599,6 +2600,9 @@ func mapPublicationPlan(record database.PostVariantPublication) *PublicationPlan
 	if record.ExternalPostID != nil {
 		item.ExternalPostID = *record.ExternalPostID
 	}
+	if externalPostURL := publicationExternalPostURL(record); externalPostURL != "" {
+		item.ExternalPostURL = externalPostURL
+	}
 	if record.ExternalAccountID != nil {
 		item.ExternalAccountID = *record.ExternalAccountID
 	}
@@ -2654,6 +2658,19 @@ func parseMetadata(payload string) map[string]any {
 	metadata := map[string]any{}
 	_ = json.Unmarshal([]byte(payload), &metadata)
 	return metadata
+}
+
+func publicationExternalPostURL(record database.PostVariantPublication) string {
+	metadata := parseMetadata(record.Metadata)
+	if value, ok := metadata["externalPostUrl"]; ok {
+		return strings.TrimSpace(fmt.Sprint(value))
+	}
+	if publishResult, ok := metadata["publishResult"].(map[string]any); ok {
+		if value, ok := publishResult["externalPostUrl"]; ok {
+			return strings.TrimSpace(fmt.Sprint(value))
+		}
+	}
+	return ""
 }
 
 func marshalMust(value map[string]any) string {

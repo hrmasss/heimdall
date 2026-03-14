@@ -836,6 +836,8 @@ export function DashboardPostDetailPage() {
 											plannedAt,
 											publishedAt: variant.latestPublication?.publishedAt,
 											externalPostId: variant.latestPublication?.externalPostId,
+											externalPostUrl:
+												variant.latestPublication?.externalPostUrl,
 											externalAccountId:
 												variant.latestPublication?.externalAccountId,
 											source: variant.latestPublication?.source ?? "manual",
@@ -982,7 +984,8 @@ export function DashboardPostDetailPage() {
 			| "changes_requested"
 			| "schedule"
 			| "unschedule"
-			| "record",
+			| "record"
+			| "sync_metrics",
 	) {
 		setSaving(true);
 		setError(null);
@@ -1021,6 +1024,10 @@ export function DashboardPostDetailPage() {
 					`/posts/variants/${variant.id}/publication/unschedule`,
 					{ method: "POST" },
 				);
+			} else if (action === "sync_metrics") {
+				await customerRequest(`/social/variants/${variant.id}/metrics/sync`, {
+					method: "POST",
+				});
 			} else {
 				await customerRequest(
 					`/posts/variants/${variant.id}/publication/record-published`,
@@ -1766,8 +1773,29 @@ export function DashboardPostDetailPage() {
 														</SurfaceCard>
 
 														<SurfaceCard tone="muted" className="space-y-4 p-5">
-															<div className="text-sm font-medium">
-																Variant performance
+															<div className="flex items-center justify-between gap-3">
+																<div className="text-sm font-medium">
+																	Variant performance
+																</div>
+																{variant.latestPublication?.publicationState ===
+																"published" ? (
+																	<Button
+																		type="button"
+																		variant="outline"
+																		size="sm"
+																		className="rounded-full"
+																		onClick={() =>
+																			void runVariantAction(
+																				variant,
+																				"sync_metrics",
+																			)
+																		}
+																		disabled={saving}
+																	>
+																		<Send className="size-4" />
+																		Refresh KPIs
+																	</Button>
+																) : null}
 															</div>
 															<MetricStrip items={variantMetrics} />
 														</SurfaceCard>
@@ -1849,6 +1877,24 @@ export function DashboardPostDetailPage() {
 									value={
 										activeVariant.latestPublication?.publicationState ??
 										"unscheduled"
+									}
+								/>
+								<SummaryStat
+									label="Live post"
+									value={
+										activeVariant.latestPublication?.externalPostUrl ? (
+											<a
+												href={activeVariant.latestPublication.externalPostUrl}
+												target="_blank"
+												rel="noreferrer"
+												className="inline-flex items-center gap-2 text-primary hover:underline"
+											>
+												<Globe2 className="size-4" />
+												Open published post
+											</a>
+										) : (
+											"No public link recorded yet"
+										)
 									}
 								/>
 								<SummaryStat

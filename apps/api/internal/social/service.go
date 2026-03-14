@@ -569,6 +569,9 @@ func (s *Service) PublishVariant(ctx context.Context, principal *iam.Principal, 
 	metadata := parseJSONMap(publication.Metadata)
 	metadata["publishResult"] = result.Metadata
 	metadata["capabilitySnapshot"] = preview.CapabilitySnapshot
+	if externalPostURL := stringValue(result.Metadata["externalPostUrl"]); externalPostURL != "" {
+		metadata["externalPostUrl"] = externalPostURL
+	}
 	publication.PublicationState = "published"
 	publication.PublishedAt = &result.PublishedAt
 	publication.ExternalPostID = optionalString(result.ExternalPostID)
@@ -590,6 +593,7 @@ func (s *Service) PublishVariant(ctx context.Context, principal *iam.Principal, 
 		PublicationState:  publication.PublicationState,
 		PublishedAt:       result.PublishedAt.Format(time.RFC3339),
 		ExternalPostID:    result.ExternalPostID,
+		ExternalPostURL:   stringValue(metadata["externalPostUrl"]),
 		ExternalAccountID: result.ExternalAccountID,
 		Source:            publication.Source,
 		Metadata:          metadata,
@@ -675,6 +679,19 @@ func (s *Service) SyncPublicationMetrics(ctx context.Context, principal *iam.Pri
 		if _, err := s.db.NewInsert().Model(record).Exec(ctx); err != nil {
 			return nil, err
 		}
+	}
+	metadata := parseJSONMap(publication.Metadata)
+	for key, value := range result.Metadata {
+		metadata[key] = value
+	}
+	publication.Metadata = marshalMustJSON(metadata)
+	publication.UpdatedAt = now
+	if _, err := s.db.NewUpdate().
+		Model(publication).
+		Column("metadata", "updated_at").
+		WherePK().
+		Exec(ctx); err != nil {
+		return nil, err
 	}
 	return &SyncMetricsResult{
 		PublicationID: publication.ID.String(),

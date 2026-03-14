@@ -1,10 +1,13 @@
 package social
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -222,13 +225,16 @@ func (a *metaAdapter) GetPostMetrics(ctx context.Context, session providerSessio
 	if publication.ExternalPostID == nil {
 		return &metricResult{Metrics: map[string]float64{}, Metadata: map[string]any{}}, nil
 	}
+	token := a.targetAccessToken(target, session.AccessToken)
 	if target.TargetType == "instagram_professional" {
 		var media struct {
+			ID            string  `json:"id"`
+			Permalink     string  `json:"permalink"`
 			LikeCount     float64 `json:"like_count"`
 			CommentsCount float64 `json:"comments_count"`
 		}
 		if err := getJSON(ctx,
-			fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=like_count,comments_count&access_token=%s", a.cfg.MetaAPIVersion, *publication.ExternalPostID, url.QueryEscape(session.AccessToken)),
+			fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=id,permalink,like_count,comments_count&access_token=%s", a.cfg.MetaAPIVersion, *publication.ExternalPostID, url.QueryEscape(token)),
 			nil,
 			&media,
 		); err != nil {
@@ -239,11 +245,16 @@ func (a *metaAdapter) GetPostMetrics(ctx context.Context, session providerSessio
 				"likes":    media.LikeCount,
 				"comments": media.CommentsCount,
 			},
-			Metadata: map[string]any{"provider": "meta"},
+			Metadata: map[string]any{
+				"provider":        "meta",
+				"externalPostUrl": media.Permalink,
+			},
 		}, nil
 	}
 	var post struct {
-		Likes struct {
+		ID           string `json:"id"`
+		PermalinkURL string `json:"permalink_url"`
+		Likes        struct {
 			Summary struct {
 				TotalCount float64 `json:"total_count"`
 			} `json:"summary"`
@@ -258,7 +269,7 @@ func (a *metaAdapter) GetPostMetrics(ctx context.Context, session providerSessio
 		} `json:"shares"`
 	}
 	if err := getJSON(ctx,
-		fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=likes.summary(true),comments.summary(true),shares&access_token=%s", a.cfg.MetaAPIVersion, *publication.ExternalPostID, url.QueryEscape(session.AccessToken)),
+		fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=id,permalink_url,likes.summary(true),comments.summary(true),shares&access_token=%s", a.cfg.MetaAPIVersion, *publication.ExternalPostID, url.QueryEscape(token)),
 		nil,
 		&post,
 	); err != nil {
@@ -270,7 +281,10 @@ func (a *metaAdapter) GetPostMetrics(ctx context.Context, session providerSessio
 			"comments": post.Comments.Summary.TotalCount,
 			"shares":   post.Shares.Count,
 		},
-		Metadata: map[string]any{"provider": "meta"},
+		Metadata: map[string]any{
+			"provider":        "meta",
+			"externalPostUrl": post.PermalinkURL,
+		},
 	}, nil
 }
 
@@ -298,7 +312,15 @@ func (a *metaAdapter) publishFacebookPage(ctx context.Context, session providerS
 		if strings.TrimSpace(payload.ID) == "" {
 			return nil, fmt.Errorf("meta facebook feed publish did not return a post id")
 		}
-		return &publishResult{ExternalPostID: payload.ID, ExternalAccountID: target.ExternalAccountID, PublishedAt: time.Now().UTC(), Metadata: map[string]any{"mode": "feed"}}, nil
+		return &publishResult{
+			ExternalPostID:    payload.ID,
+			ExternalAccountID: target.ExternalAccountID,
+			PublishedAt:       time.Now().UTC(),
+			Metadata: map[string]any{
+				"mode":            "feed",
+				"externalPostUrl": a.facebookPermalink(ctx, token, payload.ID),
+			},
+		}, nil
 	}
 	asset := assets[0]
 	reader, err := asset.Open(ctx)
@@ -342,25 +364,38 @@ func (a *metaAdapter) publishFacebookPage(ctx context.Context, session providerS
 	if strings.TrimSpace(postID) == "" {
 		return nil, fmt.Errorf("meta facebook photo publish did not return a post id")
 	}
-	return &publishResult{ExternalPostID: postID, ExternalAccountID: target.ExternalAccountID, PublishedAt: time.Now().UTC(), Metadata: map[string]any{"mode": "photo"}}, nil
+	return &publishResult{
+		ExternalPostID:    postID,
+		ExternalAccountID: target.ExternalAccountID,
+		PublishedAt:       time.Now().UTC(),
+		Metadata: map[string]any{
+			"mode":            "photo",
+			"externalPostUrl": a.facebookPermalink(ctx, token, postID),
+		},
+	}, nil
 }
 
 func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSession, target database.SocialTarget, content publishContent, assets []assetBlob) (*publishResult, error) {
 	if len(assets) == 0 {
 		return nil, fmt.Errorf("instagram publishing requires at least one asset")
 	}
-	for _, asset := range assets {
+	instagramAssets, err := a.prepareInstagramAssets(ctx, assets)
+	if err != nil {
+		return nil, err
+	}
+	for _, asset := range instagramAssets {
 		if !strings.HasPrefix(asset.PublicURL, "http://") && !strings.HasPrefix(asset.PublicURL, "https://") {
 			return nil, fmt.Errorf("instagram publishing requires SOCIAL_PUBLIC_ASSET_BASE_URL so media URLs are publicly reachable")
 		}
 	}
-	creationID, err := a.createInstagramMedia(ctx, session.AccessToken, target.ExternalAccountID, content, assets)
+	token := a.targetAccessToken(target, session.AccessToken)
+	creationID, err := a.createInstagramMedia(ctx, token, target.ExternalAccountID, content, instagramAssets)
 	if err != nil {
 		return nil, err
 	}
 	values := url.Values{
 		"creation_id":  []string{creationID},
-		"access_token": []string{session.AccessToken},
+		"access_token": []string{token},
 	}
 	resp, err := postForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s/media_publish", a.cfg.MetaAPIVersion, target.ExternalAccountID), values, nil)
 	if err != nil {
@@ -380,8 +415,113 @@ func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSess
 		ExternalPostID:    publishResp.ID,
 		ExternalAccountID: target.ExternalAccountID,
 		PublishedAt:       time.Now().UTC(),
-		Metadata:          map[string]any{"creationId": creationID},
+		Metadata: map[string]any{
+			"creationId":      creationID,
+			"externalPostUrl": a.instagramPermalink(ctx, token, publishResp.ID),
+		},
 	}, nil
+}
+
+func (a *metaAdapter) targetAccessToken(target database.SocialTarget, fallback string) string {
+	if pageToken, ok := parseJSONMap(target.Metadata)["pageAccessToken"].(string); ok && strings.TrimSpace(pageToken) != "" {
+		return pageToken
+	}
+	return fallback
+}
+
+func (a *metaAdapter) facebookPermalink(ctx context.Context, accessToken, postID string) string {
+	if strings.TrimSpace(postID) == "" || strings.TrimSpace(accessToken) == "" {
+		return ""
+	}
+	var payload struct {
+		PermalinkURL string `json:"permalink_url"`
+	}
+	if err := getJSON(ctx,
+		fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=permalink_url&access_token=%s", a.cfg.MetaAPIVersion, postID, url.QueryEscape(accessToken)),
+		nil,
+		&payload,
+	); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.PermalinkURL)
+}
+
+func (a *metaAdapter) instagramPermalink(ctx context.Context, accessToken, mediaID string) string {
+	if strings.TrimSpace(mediaID) == "" || strings.TrimSpace(accessToken) == "" {
+		return ""
+	}
+	var payload struct {
+		Permalink string `json:"permalink"`
+	}
+	if err := getJSON(ctx,
+		fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=permalink&access_token=%s", a.cfg.MetaAPIVersion, mediaID, url.QueryEscape(accessToken)),
+		nil,
+		&payload,
+	); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.Permalink)
+}
+
+func (a *metaAdapter) prepareInstagramAssets(ctx context.Context, assets []assetBlob) ([]assetBlob, error) {
+	if strings.EqualFold(strings.TrimSpace(a.cfg.TempMediaProvider), "catbox") {
+		result := make([]assetBlob, 0, len(assets))
+		for _, asset := range assets {
+			hostedURL, err := a.uploadAssetToCatbox(ctx, asset)
+			if err != nil {
+				return nil, err
+			}
+			asset.PublicURL = hostedURL
+			result = append(result, asset)
+		}
+		return result, nil
+	}
+	return assets, nil
+}
+
+func (a *metaAdapter) uploadAssetToCatbox(ctx context.Context, asset assetBlob) (string, error) {
+	reader, err := asset.Open(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	buffer := &bytes.Buffer{}
+	writer := multipart.NewWriter(buffer)
+	if err := writer.WriteField("reqtype", "fileupload"); err != nil {
+		return "", err
+	}
+	part, err := writer.CreateFormFile("fileToUpload", asset.OriginalName)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(part, reader); err != nil {
+		return "", err
+	}
+	if err := writer.Close(); err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://catbox.moe/user/api.php", buffer)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := socialHTTPClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("temp media upload failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(payload)))
+	}
+	hostedURL := strings.TrimSpace(string(payload))
+	if !strings.HasPrefix(hostedURL, "http://") && !strings.HasPrefix(hostedURL, "https://") {
+		return "", fmt.Errorf("temp media upload returned an invalid public url")
+	}
+	return hostedURL, nil
 }
 
 func (a *metaAdapter) createInstagramMedia(ctx context.Context, accessToken, accountID string, content publishContent, assets []assetBlob) (string, error) {
