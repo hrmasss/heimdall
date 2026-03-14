@@ -24,7 +24,16 @@ func postForm(ctx context.Context, endpoint string, values url.Values, headers m
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	return socialHTTPClient.Do(req)
+	resp, err := socialHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		defer resp.Body.Close()
+		payload, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("provider request failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(payload)))
+	}
+	return resp, nil
 }
 
 func getJSON(ctx context.Context, endpoint string, headers map[string]string, out any) error {

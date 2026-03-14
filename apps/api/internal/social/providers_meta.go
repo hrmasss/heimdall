@@ -30,7 +30,7 @@ func (a *metaAdapter) DefaultScopes() []string {
 		"pages_manage_engagement",
 		"publish_video",
 		"instagram_basic",
-		"instagram_business_content_publish",
+		"instagram_content_publish",
 		"business_management",
 	}
 }
@@ -130,7 +130,7 @@ func (a *metaAdapter) ExchangeCode(ctx context.Context, credential providerCrede
 				Username:              page.InstagramBusinessAccount.Username,
 				TargetType:            "instagram_professional",
 				AccountClassification: "business",
-				Scopes:                []string{"instagram_basic", "instagram_business_content_publish"},
+				Scopes:                []string{"instagram_basic", "instagram_content_publish"},
 				Status:                targetStatusHealthy,
 				Capabilities: map[string]any{
 					"allowedSurfaces": []string{"feed_photo", "carousel", "reel"},
@@ -295,6 +295,9 @@ func (a *metaAdapter) publishFacebookPage(ctx context.Context, session providerS
 		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 			return nil, err
 		}
+		if strings.TrimSpace(payload.ID) == "" {
+			return nil, fmt.Errorf("meta facebook feed publish did not return a post id")
+		}
 		return &publishResult{ExternalPostID: payload.ID, ExternalAccountID: target.ExternalAccountID, PublishedAt: time.Now().UTC(), Metadata: map[string]any{"mode": "feed"}}, nil
 	}
 	asset := assets[0]
@@ -335,7 +338,11 @@ func (a *metaAdapter) publishFacebookPage(ctx context.Context, session providerS
 	); err != nil {
 		return nil, err
 	}
-	return &publishResult{ExternalPostID: defaultString(payload.PostID, payload.ID), ExternalAccountID: target.ExternalAccountID, PublishedAt: time.Now().UTC(), Metadata: map[string]any{"mode": "photo"}}, nil
+	postID := defaultString(payload.PostID, payload.ID)
+	if strings.TrimSpace(postID) == "" {
+		return nil, fmt.Errorf("meta facebook photo publish did not return a post id")
+	}
+	return &publishResult{ExternalPostID: postID, ExternalAccountID: target.ExternalAccountID, PublishedAt: time.Now().UTC(), Metadata: map[string]any{"mode": "photo"}}, nil
 }
 
 func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSession, target database.SocialTarget, content publishContent, assets []assetBlob) (*publishResult, error) {
@@ -365,6 +372,9 @@ func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSess
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&publishResp); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(creationID) == "" || strings.TrimSpace(publishResp.ID) == "" {
+		return nil, fmt.Errorf("meta instagram publish did not return a media id")
 	}
 	return &publishResult{
 		ExternalPostID:    publishResp.ID,
@@ -398,6 +408,9 @@ func (a *metaAdapter) createInstagramMedia(ctx context.Context, accessToken, acc
 				return "", err
 			}
 			resp.Body.Close()
+			if strings.TrimSpace(payload.ID) == "" {
+				return "", fmt.Errorf("meta instagram carousel child creation did not return a media id")
+			}
 			children = append(children, payload.ID)
 		}
 		values := url.Values{
@@ -416,6 +429,9 @@ func (a *metaAdapter) createInstagramMedia(ctx context.Context, accessToken, acc
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 			return "", err
+		}
+		if strings.TrimSpace(payload.ID) == "" {
+			return "", fmt.Errorf("meta instagram carousel creation did not return a media id")
 		}
 		return payload.ID, nil
 	}
@@ -444,6 +460,9 @@ func (a *metaAdapter) createInstagramMedia(ctx context.Context, accessToken, acc
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return "", err
+	}
+	if strings.TrimSpace(payload.ID) == "" {
+		return "", fmt.Errorf("meta instagram media creation did not return a media id")
 	}
 	return payload.ID, nil
 }

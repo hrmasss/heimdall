@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
@@ -357,13 +356,16 @@ func (s *Service) SelectTarget(ctx context.Context, principal *iam.Principal, wo
 	}
 	now := time.Now().UTC()
 	if selected {
-		if _, err := s.db.NewUpdate().
+		query := s.db.NewUpdate().
 			Model((*database.SocialTarget)(nil)).
 			Set("is_selected = false").
 			Set("updated_at = ?", now).
 			Where("workspace_id = ?", workspaceID).
-			Where("provider = ?", target.Provider).
-			Exec(ctx); err != nil {
+			Where("provider = ?", target.Provider)
+		if target.Provider == "meta" {
+			query = query.Where("target_type = ?", metaTargetTypeForPlatform(selectionScopeForTarget(*target)))
+		}
+		if _, err := query.Exec(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -462,7 +464,7 @@ func (s *Service) PreviewVariantPublishability(ctx context.Context, principal *i
 	targetRecord := mapSocialTarget(*target)
 	preview.Target = &targetRecord
 	preview.CapabilitySnapshot = parseJSONMap(target.CapabilitySnapshot)
-	if target.Provider != variant.Platform {
+	if !targetMatchesPlatform(*target, variant.Platform) {
 		preview.Issues = append(preview.Issues, posts.ReadinessIssue{
 			Code:    "target_platform_mismatch",
 			Message: "The selected account belongs to a different platform than this variant.",
@@ -1025,14 +1027,20 @@ func (s *Service) findTarget(ctx context.Context, workspaceID, targetID uuid.UUI
 
 func (s *Service) findSelectedTargetByPlatform(ctx context.Context, workspaceID uuid.UUID, provider string) (*database.SocialTarget, error) {
 	row := new(database.SocialTarget)
-	if err := s.db.NewSelect().
+	query := s.db.NewSelect().
 		Model(row).
 		Where("workspace_id = ?", workspaceID).
-		Where("provider = ?", provider).
 		Where("is_selected = ?", true).
 		OrderExpr("updated_at DESC").
-		Limit(1).
-		Scan(ctx); err != nil {
+		Limit(1)
+	if provider == "facebook" || provider == "instagram" {
+		query = query.
+			Where("provider = ?", "meta").
+			Where("target_type = ?", metaTargetTypeForPlatform(provider))
+	} else {
+		query = query.Where("provider = ?", provider)
+	}
+	if err := query.Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, iam.ErrNotFound
 		}
@@ -1119,6 +1127,51 @@ func buildPublishContent(variant posts.PostVariant) publishContent {
 		content.ThreadItems = items
 	}
 	return content
+}
+
+func selectionScopeForTarget(target database.SocialTarget) string {
+	if target.Provider != "meta" {
+		return target.Provider
+	}
+	switch target.TargetType {
+	case "facebook_page":
+		return "facebook"
+	case "instagram_professional":
+		return "instagram"
+	default:
+		return target.Provider
+	}
+}
+
+func metaTargetTypeForPlatform(platform string) string {
+	switch strings.TrimSpace(platform) {
+	case "facebook":
+		return "facebook_page"
+	case "instagram":
+		return "instagram_professional"
+	default:
+		return ""
+	}
+}
+
+func targetMatchesPlatform(target database.SocialTarget, platform string) bool {
+	platform = strings.TrimSpace(platform)
+	if target.Provider == platform {
+		return true
+	}
+	if target.Provider != "meta" {
+		return false
+	}
+	switch platform {
+	case "facebook":
+		return target.TargetType == "facebook_page"
+	case "instagram":
+		return target.TargetType == "instagram_professional"
+	case "meta":
+		return true
+	default:
+		return false
+	}
 }
 
 func mapProviderCredentialRecord(record database.ProviderAppCredential) AppCredentialRecord {
@@ -1297,7 +1350,8 @@ func metricLabel(code string) string {
 
 func absoluteURL(base, maybeRelative string) string {
 	base = strings.TrimSpace(base)
-	if strings.TrimSpace(maybeRelative) == "" {
+	maybeRelative = strings.TrimSpace(maybeRelative)
+	if maybeRelative == "" {
 		return ""
 	}
 	if strings.HasPrefix(maybeRelative, "http://") || strings.HasPrefix(maybeRelative, "https://") {
@@ -1306,12 +1360,15 @@ func absoluteURL(base, maybeRelative string) string {
 	if base == "" {
 		return maybeRelative
 	}
-	parsed, err := url.Parse(base)
+	baseURL, err := url.Parse(base)
 	if err != nil {
 		return maybeRelative
 	}
-	parsed.Path = path.Join(parsed.Path, maybeRelative)
-	return parsed.String()
+	relativeURL, err := url.Parse(maybeRelative)
+	if err != nil {
+		return maybeRelative
+	}
+	return baseURL.ResolveReference(relativeURL).String()
 }
 
 func surfaceAllowed(capabilities map[string]any, surface string) bool {
