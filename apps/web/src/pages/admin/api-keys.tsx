@@ -435,6 +435,7 @@ export function AdminApiKeys() {
 				<DataTable
 					title="Credential inventory"
 					description="Search credentials, filter by health or permission scope, and switch from audit table to compact grid cards."
+					storageKey="admin-api-keys-table"
 					rows={apiKeys}
 					columns={columns}
 					getRowId={(apiKey) => apiKey.id}

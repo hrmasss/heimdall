@@ -23,6 +23,7 @@ import { AlertInbox } from "@/components/app/alert-inbox";
 import { getDashboardBreadcrumbs } from "@/components/app/dashboard-context";
 import { MiraAssistant } from "@/components/app/mira-assistant";
 import { SearchCommand } from "@/components/app/search-command";
+import { SidebarTooltip } from "@/components/app/sidebar-tooltip";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import {
@@ -41,6 +42,8 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +60,7 @@ const navigation = [
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "heimdall-dashboard-sidebar-collapsed";
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
 	return (
@@ -143,6 +147,7 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 						compact && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 					)}
 					aria-label={compact ? activeWorkspace.workspaceName : undefined}
+					title={compact ? activeWorkspace.workspaceName : undefined}
 				>
 					<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 						{activeWorkspace.workspaceName[0]}
@@ -267,29 +272,34 @@ function Sidebar({
 									: location.pathname.startsWith(item.href);
 
 							return (
-								<Link
+								<SidebarTooltip
 									key={item.href}
-									to={item.href}
-									onClick={onClose}
-									aria-label={collapsed ? item.label : undefined}
-									className={cn(
-										"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
-										sidebarTransitionClass,
-										active
-											? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
-											: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-										collapsed &&
-											"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-									)}
+									disabled={!collapsed}
+									label={item.label}
 								>
-									<item.icon className="size-5 shrink-0" />
-									<SidebarCopy
-										collapsed={collapsed}
-										className="whitespace-nowrap"
+									<Link
+										to={item.href}
+										onClick={onClose}
+										aria-label={collapsed ? item.label : undefined}
+										className={cn(
+											"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+											sidebarTransitionClass,
+											active
+												? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
+												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+											collapsed &&
+												"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+										)}
 									>
-										<span>{item.label}</span>
-									</SidebarCopy>
-								</Link>
+										<item.icon className="size-5 shrink-0" />
+										<SidebarCopy
+											collapsed={collapsed}
+											className="whitespace-nowrap"
+										>
+											<span>{item.label}</span>
+										</SidebarCopy>
+									</Link>
+								</SidebarTooltip>
 							);
 						})}
 					</nav>
@@ -306,6 +316,7 @@ function Sidebar({
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
 									aria-label={collapsed ? currentUser.fullName : undefined}
+									title={collapsed ? currentUser.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 										{currentUser.fullName
@@ -427,6 +438,7 @@ function TopBar({
 						className="hidden lg:inline-flex"
 						onClick={onToggleSidebar}
 						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
 						{collapsed ? (
 							<PanelLeftOpen className="size-4" />
@@ -516,7 +528,10 @@ function TopBar({
 }
 
 export function DashboardLayout() {
-	const [collapsed, setCollapsed] = useState(false);
+	const [collapsed, setCollapsed] = useLocalStorageState(
+		SIDEBAR_COLLAPSED_STORAGE_KEY,
+		true,
+	);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
@@ -529,56 +544,58 @@ export function DashboardLayout() {
 	}, [location.pathname]);
 
 	return (
-		<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
-			<div className="dashboard-shell-surface relative flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
-				<Sidebar
-					collapsed={collapsed}
-					mobileOpen={mobileOpen}
-					onClose={() => setMobileOpen(false)}
-				/>
-				<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-					<TopBar
+		<TooltipProvider delayDuration={120}>
+			<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
+				<div className="dashboard-shell-surface relative flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+					<Sidebar
 						collapsed={collapsed}
-						onOpenMobile={() => setMobileOpen(true)}
-						onToggleSidebar={() => setCollapsed((value) => !value)}
-						onOpenAssistant={() => setAssistantOpen(true)}
+						mobileOpen={mobileOpen}
+						onClose={() => setMobileOpen(false)}
 					/>
-					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
-						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
-							<ScrollArea
-								type="scroll"
-								scrollHideDelay={180}
-								className="dashboard-content-scroll min-h-0 flex-1 rounded-[inherit]"
-								scrollbarClassName="dashboard-content-scrollbar"
-								thumbClassName="dashboard-content-scrollbar-thumb"
-							>
-								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
-									{customerSession?.impersonator ? (
-										<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-											Support impersonation active. Acting as{" "}
-											{customerSession.user.fullName} on behalf of{" "}
-											{customerSession.impersonator.fullName}.
-										</div>
-									) : null}
-									{customerSession?.assumedWorkspaceId ? (
-										<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-											Support access session active for{" "}
-											{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
-										</div>
-									) : null}
-									<Outlet />
-								</div>
-							</ScrollArea>
-						</div>
-					</main>
+					<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+						<TopBar
+							collapsed={collapsed}
+							onOpenMobile={() => setMobileOpen(true)}
+							onToggleSidebar={() => setCollapsed((value) => !value)}
+							onOpenAssistant={() => setAssistantOpen(true)}
+						/>
+						<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
+							<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
+								<ScrollArea
+									type="scroll"
+									scrollHideDelay={180}
+									className="dashboard-content-scroll min-h-0 flex-1 rounded-[inherit]"
+									scrollbarClassName="dashboard-content-scrollbar"
+									thumbClassName="dashboard-content-scrollbar-thumb"
+								>
+									<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+										{customerSession?.impersonator ? (
+											<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+												Support impersonation active. Acting as{" "}
+												{customerSession.user.fullName} on behalf of{" "}
+												{customerSession.impersonator.fullName}.
+											</div>
+										) : null}
+										{customerSession?.assumedWorkspaceId ? (
+											<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+												Support access session active for{" "}
+												{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
+											</div>
+										) : null}
+										<Outlet />
+									</div>
+								</ScrollArea>
+							</div>
+						</main>
+					</div>
 				</div>
+				<MiraAssistant
+					open={assistantOpen}
+					onOpenChange={setAssistantOpen}
+					workspaceName={activeWorkspaceMembership?.workspaceName ?? "Workspace"}
+					currentUserName={customerSession?.user.fullName ?? "User"}
+				/>
 			</div>
-			<MiraAssistant
-				open={assistantOpen}
-				onOpenChange={setAssistantOpen}
-				workspaceName={activeWorkspaceMembership?.workspaceName ?? "Workspace"}
-				currentUserName={customerSession?.user.fullName ?? "User"}
-			/>
-		</div>
+		</TooltipProvider>
 	);
 }

@@ -387,6 +387,7 @@ export function AdminBlogPosts() {
 				<DataTable
 					title="Editorial queue"
 					description="Filter by publication state or category, rank by traffic, and jump between structured list and content cards."
+					storageKey="admin-blog-posts-table"
 					rows={blogPosts}
 					columns={columns}
 					getRowId={(post) => post.id}

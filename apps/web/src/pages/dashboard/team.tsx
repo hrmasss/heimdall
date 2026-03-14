@@ -306,6 +306,7 @@ export function DashboardTeam() {
 				<DataTable
 					title="Member directory"
 					description="Search members, inspect multi-role assignments, and change workspace access state."
+					storageKey="dashboard-team-members-table"
 					rows={members}
 					columns={columns}
 					getRowId={(record) => record.membershipId}

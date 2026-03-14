@@ -129,6 +129,7 @@ export function AdminWorkspaces() {
 				<DataTable
 					title="Workspace directory"
 					description="Inspect customer tenancy health, member counts, and launch support sessions when a customer needs help."
+					storageKey="admin-workspaces-table"
 					rows={workspaces}
 					columns={columns}
 					getRowId={(workspace) => workspace.id}

@@ -152,6 +152,7 @@ export function DashboardPosts() {
 				<DataTable
 					title="Post queue"
 					description="Open any post to inspect its generic source, platform variants, planned slots, and KPI rollups."
+					storageKey="dashboard-posts-table"
 					rows={posts}
 					columns={columns}
 					getRowId={(row) => row.id}

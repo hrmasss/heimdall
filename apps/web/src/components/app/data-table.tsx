@@ -46,6 +46,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { cn } from "@/lib/utils";
 
 export type DataTableColumn<T> = {
@@ -141,6 +142,7 @@ export function DataTable<T>({
 	loading = false,
 	error = null,
 	initialView = "list",
+	storageKey,
 	pageSizeOptions = [6, 12, 24],
 	searchPlaceholder = "Search campaigns, owners, notes...",
 	gridClassName,
@@ -166,6 +168,7 @@ export function DataTable<T>({
 	loading?: boolean;
 	error?: string | null;
 	initialView?: "list" | "grid";
+	storageKey?: string;
 	pageSizeOptions?: number[];
 	searchPlaceholder?: string;
 	gridClassName?: string;
@@ -176,7 +179,10 @@ export function DataTable<T>({
 	const defaultSortColumn =
 		columns.find((column) => column.getSortValue)?.id ?? columns[0]?.id ?? "";
 	const deferredSearchQuery = useDeferredValue(searchQuery);
-	const [activeView, setActiveView] = useState<"list" | "grid">(initialView);
+	const [activeView, setActiveView] = useLocalStorageState<"list" | "grid">(
+		storageKey ? `${storageKey}:view` : null,
+		initialView,
+	);
 	const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 6);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [sortColumnId, setSortColumnId] = useState(defaultSortColumn);
@@ -253,12 +259,19 @@ export function DataTable<T>({
 
 	useEffect(() => {
 		if (
-			typeof window !== "undefined" &&
-			window.matchMedia("(max-width: 767px)").matches
+			typeof window === "undefined" ||
+			!window.matchMedia("(max-width: 767px)").matches
 		) {
-			setActiveView("grid");
+			return;
 		}
-	}, []);
+		if (
+			storageKey &&
+			window.localStorage.getItem(`${storageKey}:view`) !== null
+		) {
+			return;
+		}
+		setActiveView("grid");
+	}, [setActiveView, storageKey]);
 
 	function cycleSort(columnId: string) {
 		const column = columns.find((item) => item.id === columnId);

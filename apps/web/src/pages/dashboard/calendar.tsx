@@ -59,6 +59,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import type {
 	ApiListResponse,
 	CalendarBacklogItem,
@@ -155,6 +156,7 @@ const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
 const WEEK_PLATFORM_COLUMN_WIDTH = 220;
 const WEEK_DAY_COLUMN_MIN_WIDTH = 172;
 const WEEK_VISIBLE_STACK_COUNT = 2;
+const CALENDAR_VIEW_STORAGE_KEY = "dashboard-calendar-view";
 
 function padNumber(value: number) {
 	return String(value).padStart(2, "0");
@@ -969,7 +971,10 @@ export function DashboardCalendar() {
 		useState<ResourceCapabilityMatrix | null>(null);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
-	const [view, setView] = useState<CalendarView>("week");
+	const [view, setView] = useLocalStorageState<CalendarView>(
+		CALENDAR_VIEW_STORAGE_KEY,
+		"week",
+	);
 	const [anchorDate, setAnchorDate] = useState(() => startOfDay(new Date()));
 	const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 	const [statusFilter, setStatusFilter] = useState<CalendarStatusFilter>("all");

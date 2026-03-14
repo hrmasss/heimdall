@@ -57,6 +57,7 @@ import type {
 	ResourceSetSummary,
 	ResourceUploadResponse,
 } from "@/lib/api-types";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,8 @@ type UploadQueueItem = {
 };
 
 type LibraryMode = "resources" | "sets";
+
+const LIBRARY_MODE_STORAGE_KEY = "dashboard-library-mode";
 
 function getFileExtension(name: string) {
 	return name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -150,7 +153,10 @@ export function DashboardLibrary() {
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const queueRef = useRef<UploadQueueItem[]>([]);
-	const [libraryMode, setLibraryMode] = useState<LibraryMode>("resources");
+	const [libraryMode, setLibraryMode] = useLocalStorageState<LibraryMode>(
+		LIBRARY_MODE_STORAGE_KEY,
+		"resources",
+	);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [capabilities, setCapabilities] =
@@ -1048,6 +1054,7 @@ export function DashboardLibrary() {
 					<DataTable
 						title="Workspace resources"
 						description={`Tracking ${capabilities?.rules.length ?? 0} backend-owned platform surface rules. Grid view stays the default because previews matter here.`}
+						storageKey="dashboard-library-resources-table"
 						rows={resources}
 						columns={resourceColumns}
 						getRowId={(resource) => resource.id}
@@ -1180,6 +1187,7 @@ export function DashboardLibrary() {
 					<DataTable
 						title="Asset sets"
 						description="Reusable ordered groups for sequences like Instagram carousels, story frames, or coordinated document bundles."
+						storageKey="dashboard-library-sets-table"
 						rows={resourceSets}
 						columns={resourceSetColumns}
 						getRowId={(set) => set.id}

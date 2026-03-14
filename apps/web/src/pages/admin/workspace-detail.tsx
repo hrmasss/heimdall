@@ -228,6 +228,7 @@ export function AdminWorkspaceDetailPage() {
 				<DataTable
 					title="Workspace associations"
 					description="Create new workspace users, attach existing users, and adjust their role mix from dedicated forms."
+					storageKey="admin-workspace-detail-members-table"
 					rows={members}
 					columns={columns}
 					getRowId={(record) => record.membershipId}
