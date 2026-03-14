@@ -218,6 +218,17 @@ body {
 	background-clip: padding-box;
 }
 
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+	width: 0;
+	height: 0;
+}
+
 .alert-inbox-scroll {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in srgb, var(--foreground) 14%, transparent)

@@ -145,6 +145,12 @@ type ActiveDropTarget =
 			valid: boolean;
 	  };
 
+type WeekHeaderDragState = {
+	pointerId: number;
+	startClientX: number;
+	startScrollLeft: number;
+};
+
 const TIMELINE_HOURS = Array.from({ length: 16 }, (_, index) => index + 6);
 const WEEK_PLATFORM_COLUMN_WIDTH = 220;
 const WEEK_DAY_COLUMN_MIN_WIDTH = 172;
@@ -1000,8 +1006,59 @@ export function DashboardCalendar() {
 		[anchorDate],
 	);
 	const platformPillRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+	const weekScrollRef = useRef<HTMLDivElement | null>(null);
+	const weekHeaderDragRef = useRef<WeekHeaderDragState | null>(null);
 	const weekLaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
 	const timelineLaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const [isWeekHeaderDragging, setIsWeekHeaderDragging] = useState(false);
+
+	function endWeekHeaderDrag() {
+		weekHeaderDragRef.current = null;
+		setIsWeekHeaderDragging(false);
+	}
+
+	function handleWeekHeaderPointerDown(
+		event: React.PointerEvent<HTMLDivElement>,
+	) {
+		if (event.pointerType === "mouse" && event.button !== 0) {
+			return;
+		}
+		const container = weekScrollRef.current;
+		if (!container || container.scrollWidth <= container.clientWidth + 1) {
+			return;
+		}
+		weekHeaderDragRef.current = {
+			pointerId: event.pointerId,
+			startClientX: event.clientX,
+			startScrollLeft: container.scrollLeft,
+		};
+		setIsWeekHeaderDragging(true);
+		event.currentTarget.setPointerCapture(event.pointerId);
+		event.preventDefault();
+	}
+
+	function handleWeekHeaderPointerMove(
+		event: React.PointerEvent<HTMLDivElement>,
+	) {
+		const dragState = weekHeaderDragRef.current;
+		const container = weekScrollRef.current;
+		if (!dragState || !container || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		container.scrollLeft =
+			dragState.startScrollLeft - (event.clientX - dragState.startClientX);
+	}
+
+	function handleWeekHeaderPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+		const dragState = weekHeaderDragRef.current;
+		if (!dragState || dragState.pointerId !== event.pointerId) {
+			return;
+		}
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+		endWeekHeaderDrag();
+	}
 
 	function revealPlatformLane(platform: string) {
 		const behavior = prefersReducedMotion ? "auto" : "smooth";
@@ -2421,7 +2478,10 @@ export function DashboardCalendar() {
 						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 							<div className="space-y-4">
 								{view === "week" ? (
-									<div className="overflow-x-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55">
+									<div
+										ref={weekScrollRef}
+										className="no-scrollbar overflow-x-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/55"
+									>
 										<div
 											className="grid gap-px bg-[var(--brand-border-soft)]"
 											style={weekGridStyle}
@@ -2432,7 +2492,17 @@ export function DashboardCalendar() {
 											{currentWeek.map((day) => (
 												<div
 													key={day.toISOString()}
-													className="bg-background/80 px-4 py-3 text-sm"
+													className={cn(
+														"select-none bg-background/80 px-4 py-3 text-sm [touch-action:pan-y]",
+														isWeekHeaderDragging
+															? "cursor-grabbing"
+															: "cursor-grab",
+													)}
+													onPointerDown={handleWeekHeaderPointerDown}
+													onPointerMove={handleWeekHeaderPointerMove}
+													onPointerUp={handleWeekHeaderPointerUp}
+													onPointerCancel={handleWeekHeaderPointerUp}
+													onLostPointerCapture={endWeekHeaderDrag}
 												>
 													<div className="font-medium">
 														{formatDayHeader(day)}
