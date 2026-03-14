@@ -126,8 +126,8 @@ jobs:
         run: |
           {
             printf 'PROD_ENV_FILE_B64=%s\n' '${{ secrets.PROD_ENV_FILE_B64 }}'
-            printf 'GHCR_USERNAME=%s\n' '${{ secrets.PROD_GHCR_USERNAME }}'
-            printf 'GHCR_TOKEN=%s\n' '${{ secrets.PROD_GHCR_TOKEN }}'
+            printf 'GHCR_USERNAME=%s\n' '${{ github.actor }}'
+            printf 'GHCR_TOKEN=%s\n' '${{ secrets.GITHUB_TOKEN }}'
           } > deploy.env
           scp -i ~/.ssh/id_heimdall -P "${{ secrets.PROD_SSH_PORT }}" deploy.env "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:/opt/heimdall/deploy.env"
 
