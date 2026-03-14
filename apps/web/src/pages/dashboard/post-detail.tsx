@@ -1332,6 +1332,8 @@ export function DashboardPostDetailPage() {
 											value: item.value,
 											unit: item.unit,
 										}));
+									const isPublished =
+										variant.latestPublication?.publicationState === "published";
 									const contentText = renderContentText(
 										resolvedContent.kind,
 										resolvedContent.payload,
@@ -1528,248 +1530,319 @@ export function DashboardPostDetailPage() {
 														<SurfaceCard className="space-y-4 p-5">
 															<div className="mb-1 flex items-center gap-2 text-sm font-medium">
 																<CalendarClock className="size-4 text-primary" />
-																Review and publish actions
+																{isPublished
+																	? "Published post"
+																	: "Review and publish actions"}
 															</div>
-															<div className="grid gap-4">
-																<div className="space-y-2">
-																	<Label>Planned date</Label>
-																	<Popover>
-																		<PopoverTrigger asChild>
-																			<Button
-																				type="button"
-																				variant="outline"
-																				className="h-11 w-full justify-between rounded-2xl px-4 text-left font-normal"
-																			>
-																				<span className="flex items-center gap-3">
-																					<CalendarDays className="size-4 text-muted-foreground" />
-																					<span
-																						className={cn(
-																							plannedDate
-																								? "text-foreground"
-																								: "text-muted-foreground",
-																						)}
-																					>
-																						{formatPlannedDateLabel(plannedAt)}
-																					</span>
-																				</span>
-																				<ChevronDown className="size-4 text-muted-foreground" />
-																			</Button>
-																		</PopoverTrigger>
-																		<PopoverContent
-																			align="start"
-																			className="w-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-3 shadow-xl backdrop-blur"
-																		>
-																			<Calendar
-																				mode="single"
-																				selected={plannedDate ?? undefined}
-																				onSelect={(value) =>
-																					setPlannedDate(variant, value)
-																				}
-																				className="p-0"
-																			/>
-																			<div className="flex justify-end pt-2">
-																				<Button
-																					type="button"
-																					variant="ghost"
-																					size="sm"
-																					className="rounded-full"
-																					onClick={() =>
-																						setPlannedDate(variant)
-																					}
-																				>
-																					Clear
-																				</Button>
-																			</div>
-																		</PopoverContent>
-																	</Popover>
-																</div>
-
-																<div className="space-y-2">
-																	<div className="text-sm font-medium">
-																		Planned time
+															{isPublished ? (
+																<div className="space-y-4">
+																	<div className="grid gap-3 sm:grid-cols-2">
+																		<SummaryStat
+																			label="Published at"
+																			value={
+																				variant.latestPublication?.publishedAt
+																					? new Date(
+																							variant.latestPublication.publishedAt,
+																						).toLocaleString()
+																					: "Recorded as published"
+																			}
+																		/>
+																		<SummaryStat
+																			label="Platform post id"
+																			value={
+																				variant.latestPublication?.externalPostId ??
+																				"Waiting for provider id"
+																			}
+																		/>
 																	</div>
-																	<div
-																		id={`planned-time-${variant.id}`}
-																		className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
-																	>
-																		<Input
-																			aria-label="Planned hour"
-																			name={`planned-hour-${variant.id}`}
-																			inputMode="numeric"
-																			value={plannedTimeDraft.hour}
-																			onChange={(event) =>
-																				updatePlannedTimeDraft(variant, {
-																					hour: event.target.value
-																						.replace(/\D/g, "")
-																						.slice(0, 2),
-																				})
-																			}
-																			onBlur={() => commitPlannedTime(variant)}
-																			className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
-																			placeholder="09"
-																		/>
-																		<span className="px-1 text-sm text-muted-foreground">
-																			:
-																		</span>
-																		<Input
-																			aria-label="Planned minute"
-																			name={`planned-minute-${variant.id}`}
-																			inputMode="numeric"
-																			value={plannedTimeDraft.minute}
-																			onChange={(event) =>
-																				updatePlannedTimeDraft(variant, {
-																					minute: event.target.value
-																						.replace(/\D/g, "")
-																						.slice(0, 2),
-																				})
-																			}
-																			onBlur={() => commitPlannedTime(variant)}
-																			className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
-																			placeholder="00"
-																		/>
-																		<div className="ml-auto flex items-center gap-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 p-1">
+																	<div className="flex flex-wrap gap-2">
+																		{variant.latestPublication?.externalPostUrl ? (
 																			<Button
-																				type="button"
-																				variant="ghost"
-																				size="sm"
-																				className={cn(
-																					"h-7 rounded-full px-2 text-xs",
-																					plannedTimeDraft.meridiem === "AM" &&
-																						"bg-background text-foreground shadow-sm",
-																				)}
-																				onClick={() => {
-																					updatePlannedTimeDraft(variant, {
-																						meridiem: "AM",
-																					});
-																					setPlannedTime(variant, {
-																						meridiem: "AM",
-																					});
-																				}}
+																				variant="outline"
+																				className="rounded-full"
+																				asChild
 																			>
-																				AM
+																				<a
+																					href={
+																						variant.latestPublication.externalPostUrl
+																					}
+																					target="_blank"
+																					rel="noreferrer"
+																				>
+																					<Globe2 className="size-4" />
+																					View on{" "}
+																					{formatPlatformLabel(variant.platform)}
+																				</a>
 																			</Button>
-																			<Button
-																				type="button"
-																				variant="ghost"
-																				size="sm"
-																				className={cn(
-																					"h-7 rounded-full px-2 text-xs",
-																					plannedTimeDraft.meridiem === "PM" &&
-																						"bg-background text-foreground shadow-sm",
-																				)}
-																				onClick={() => {
-																					updatePlannedTimeDraft(variant, {
-																						meridiem: "PM",
-																					});
-																					setPlannedTime(variant, {
-																						meridiem: "PM",
-																					});
-																				}}
-																			>
-																				PM
-																			</Button>
-																		</div>
+																		) : null}
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="rounded-full"
+																			onClick={() =>
+																				void runVariantAction(
+																					variant,
+																					"sync_metrics",
+																				)
+																			}
+																			disabled={saving}
+																		>
+																			<Send className="size-4" />
+																			Refresh KPIs
+																		</Button>
 																	</div>
 																	<div className="text-xs text-muted-foreground">
-																		{plannedAt
-																			? `Scheduled for ${formatPlannedDateLabel(plannedAt)} at ${formatPlannedTimeLabel(plannedAt)}`
-																			: "No publish slot selected yet."}
+																		Published variants no longer need review or
+																		scheduling controls. Use the link above to
+																		inspect the live post and refresh KPIs after
+																		new interactions.
 																	</div>
 																</div>
-															</div>
+															) : (
+																<>
+																	<div className="grid gap-4">
+																		<div className="space-y-2">
+																			<Label>Planned date</Label>
+																			<Popover>
+																				<PopoverTrigger asChild>
+																					<Button
+																						type="button"
+																						variant="outline"
+																						className="h-11 w-full justify-between rounded-2xl px-4 text-left font-normal"
+																					>
+																						<span className="flex items-center gap-3">
+																							<CalendarDays className="size-4 text-muted-foreground" />
+																							<span
+																								className={cn(
+																									plannedDate
+																										? "text-foreground"
+																										: "text-muted-foreground",
+																								)}
+																							>
+																								{formatPlannedDateLabel(plannedAt)}
+																							</span>
+																						</span>
+																						<ChevronDown className="size-4 text-muted-foreground" />
+																					</Button>
+																				</PopoverTrigger>
+																				<PopoverContent
+																					align="start"
+																					className="w-auto rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-3 shadow-xl backdrop-blur"
+																				>
+																					<Calendar
+																						mode="single"
+																						selected={plannedDate ?? undefined}
+																						onSelect={(value) =>
+																							setPlannedDate(variant, value)
+																						}
+																						className="p-0"
+																					/>
+																					<div className="flex justify-end pt-2">
+																						<Button
+																							type="button"
+																							variant="ghost"
+																							size="sm"
+																							className="rounded-full"
+																							onClick={() =>
+																								setPlannedDate(variant)
+																							}
+																						>
+																							Clear
+																						</Button>
+																					</div>
+																				</PopoverContent>
+																			</Popover>
+																		</div>
 
-															<div className="mt-4 flex flex-wrap gap-2">
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-sky-500/20 bg-sky-500/10 px-4 text-sky-800 hover:bg-sky-500/15 hover:text-sky-900 dark:text-sky-100 dark:hover:text-sky-50"
-																	onClick={() =>
-																		void runVariantAction(variant, "submit")
-																	}
-																	disabled={saving}
-																>
-																	<Send className="size-4" />
-																	Submit
-																</Button>
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100 dark:hover:text-emerald-50"
-																	onClick={() =>
-																		void runVariantAction(variant, "approved")
-																	}
-																	disabled={saving}
-																>
-																	<CheckCircle2 className="size-4" />
-																	Approve
-																</Button>
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-amber-500/20 bg-amber-500/10 px-4 text-amber-800 hover:bg-amber-500/15 hover:text-amber-900 dark:text-amber-100 dark:hover:text-amber-50"
-																	onClick={() =>
-																		void runVariantAction(
-																			variant,
-																			"changes_requested",
-																		)
-																	}
-																	disabled={saving}
-																>
-																	<XCircle className="size-4" />
-																	Request changes
-																</Button>
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-indigo-500/20 bg-indigo-500/10 px-4 text-indigo-800 hover:bg-indigo-500/15 hover:text-indigo-900 dark:text-indigo-100 dark:hover:text-indigo-50"
-																	onClick={() =>
-																		void runVariantAction(variant, "schedule")
-																	}
-																	disabled={
-																		saving ||
-																		!plannedAt ||
-																		variant.readiness.scheduleBlockers.length >
-																			0
-																	}
-																>
-																	<Clock3 className="size-4" />
-																	Schedule
-																</Button>
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-white/10 bg-white/5 px-4 text-foreground hover:bg-white/10"
-																	onClick={() =>
-																		void runVariantAction(variant, "unschedule")
-																	}
-																	disabled={saving}
-																>
-																	Unschedule
-																</Button>
-																<Button
-																	type="button"
-																	variant="outline"
-																	className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
-																	onClick={() =>
-																		void runVariantAction(variant, "record")
-																	}
-																	disabled={
-																		saving ||
-																		variant.readiness.publishBlockers.length > 0
-																	}
-																>
-																	Record as published
-																</Button>
-															</div>
+																		<div className="space-y-2">
+																			<div className="text-sm font-medium">
+																				Planned time
+																			</div>
+																			<div
+																				id={`planned-time-${variant.id}`}
+																				className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
+																			>
+																				<Input
+																					aria-label="Planned hour"
+																					name={`planned-hour-${variant.id}`}
+																					inputMode="numeric"
+																					value={plannedTimeDraft.hour}
+																					onChange={(event) =>
+																						updatePlannedTimeDraft(variant, {
+																							hour: event.target.value
+																								.replace(/\D/g, "")
+																								.slice(0, 2),
+																						})
+																					}
+																					onBlur={() => commitPlannedTime(variant)}
+																					className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
+																					placeholder="09"
+																				/>
+																				<span className="px-1 text-sm text-muted-foreground">
+																					:
+																				</span>
+																				<Input
+																					aria-label="Planned minute"
+																					name={`planned-minute-${variant.id}`}
+																					inputMode="numeric"
+																					value={plannedTimeDraft.minute}
+																					onChange={(event) =>
+																						updatePlannedTimeDraft(variant, {
+																							minute: event.target.value
+																								.replace(/\D/g, "")
+																								.slice(0, 2),
+																						})
+																					}
+																					onBlur={() => commitPlannedTime(variant)}
+																					className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
+																					placeholder="00"
+																				/>
+																				<div className="ml-auto flex items-center gap-1 rounded-full border border-[var(--brand-border-soft)] bg-background/70 p-1">
+																					<Button
+																						type="button"
+																						variant="ghost"
+																						size="sm"
+																						className={cn(
+																							"h-7 rounded-full px-2 text-xs",
+																							plannedTimeDraft.meridiem === "AM" &&
+																								"bg-background text-foreground shadow-sm",
+																						)}
+																						onClick={() => {
+																							updatePlannedTimeDraft(variant, {
+																								meridiem: "AM",
+																							});
+																							setPlannedTime(variant, {
+																								meridiem: "AM",
+																							});
+																						}}
+																					>
+																						AM
+																					</Button>
+																					<Button
+																						type="button"
+																						variant="ghost"
+																						size="sm"
+																						className={cn(
+																							"h-7 rounded-full px-2 text-xs",
+																							plannedTimeDraft.meridiem === "PM" &&
+																								"bg-background text-foreground shadow-sm",
+																						)}
+																						onClick={() => {
+																							updatePlannedTimeDraft(variant, {
+																								meridiem: "PM",
+																							});
+																							setPlannedTime(variant, {
+																								meridiem: "PM",
+																							});
+																						}}
+																					>
+																						PM
+																					</Button>
+																				</div>
+																			</div>
+																			<div className="text-xs text-muted-foreground">
+																				{plannedAt
+																					? `Scheduled for ${formatPlannedDateLabel(plannedAt)} at ${formatPlannedTimeLabel(plannedAt)}`
+																					: "No publish slot selected yet."}
+																			</div>
+																		</div>
+																	</div>
 
-															<ActionBlockers
-																scheduleBlockers={
-																	variant.readiness.scheduleBlockers
-																}
-																publishBlockers={
-																	variant.readiness.publishBlockers
-																}
-															/>
+																	<div className="mt-4 flex flex-wrap gap-2">
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-sky-500/20 bg-sky-500/10 px-4 text-sky-800 hover:bg-sky-500/15 hover:text-sky-900 dark:text-sky-100 dark:hover:text-sky-50"
+																			onClick={() =>
+																				void runVariantAction(variant, "submit")
+																			}
+																			disabled={saving}
+																		>
+																			<Send className="size-4" />
+																			Submit
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100 dark:hover:text-emerald-50"
+																			onClick={() =>
+																				void runVariantAction(variant, "approved")
+																			}
+																			disabled={saving}
+																		>
+																			<CheckCircle2 className="size-4" />
+																			Approve
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-amber-500/20 bg-amber-500/10 px-4 text-amber-800 hover:bg-amber-500/15 hover:text-amber-900 dark:text-amber-100 dark:hover:text-amber-50"
+																			onClick={() =>
+																				void runVariantAction(
+																					variant,
+																					"changes_requested",
+																				)
+																			}
+																			disabled={saving}
+																		>
+																			<XCircle className="size-4" />
+																			Request changes
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-indigo-500/20 bg-indigo-500/10 px-4 text-indigo-800 hover:bg-indigo-500/15 hover:text-indigo-900 dark:text-indigo-100 dark:hover:text-indigo-50"
+																			onClick={() =>
+																				void runVariantAction(variant, "schedule")
+																			}
+																			disabled={
+																				saving ||
+																				!plannedAt ||
+																				variant.readiness.scheduleBlockers.length >
+																					0
+																			}
+																		>
+																			<Clock3 className="size-4" />
+																			Schedule
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-white/10 bg-white/5 px-4 text-foreground hover:bg-white/10"
+																			onClick={() =>
+																				void runVariantAction(variant, "unschedule")
+																			}
+																			disabled={saving}
+																		>
+																			Unschedule
+																		</Button>
+																		<Button
+																			type="button"
+																			variant="outline"
+																			className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
+																			onClick={() =>
+																				void runVariantAction(variant, "record")
+																			}
+																			disabled={
+																				saving ||
+																				variant.readiness.publishBlockers.length >
+																					0
+																			}
+																		>
+																			Record as published
+																		</Button>
+																	</div>
+
+																	<ActionBlockers
+																		scheduleBlockers={
+																			variant.readiness.scheduleBlockers
+																		}
+																		publishBlockers={
+																			variant.readiness.publishBlockers
+																		}
+																	/>
+																</>
+															)}
 														</SurfaceCard>
 
 														<SurfaceCard tone="muted" className="space-y-4 p-5">

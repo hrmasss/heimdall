@@ -51,21 +51,21 @@ type StorageConfig struct {
 	OptimizeImagesByDefault bool
 }
 
-// SocialConfig holds provider integration settings.
+// SocialConfig holds platform integration settings.
 type SocialConfig struct {
-	PublicAPIBaseURL     string
-	PublicAssetBaseURL   string
-	TempMediaProvider    string
-	EncryptionKey        string
-	OAuthStateTTL        time.Duration
-	MetaAPIVersion       string
-	LinkedInVersion      string
-	MetaClientID         string
-	MetaClientSecret     string
-	LinkedInClientID     string
+	EncryptionKey      string
+	OAuthStateTTL      time.Duration
+	PublicAPIBaseURL   string
+	PublicAssetBaseURL string
+	TempMediaProvider  string
+	MetaClientID       string
+	MetaClientSecret   string
+	MetaAPIVersion     string
+	LinkedInClientID   string
 	LinkedInClientSecret string
-	XClientID            string
-	XClientSecret        string
+	LinkedInVersion    string
+	XClientID          string
+	XClientSecret      string
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -106,19 +106,19 @@ func Load() *Config {
 			OptimizeImagesByDefault: getEnvBool("STORAGE_OPTIMIZE_IMAGES_BY_DEFAULT", true),
 		},
 		Social: SocialConfig{
-			PublicAPIBaseURL:     getEnv("SOCIAL_PUBLIC_API_BASE_URL", "http://localhost:18080"),
-			PublicAssetBaseURL:   getEnv("SOCIAL_PUBLIC_ASSET_BASE_URL", ""),
-			TempMediaProvider:    getEnv("SOCIAL_TEMP_MEDIA_PROVIDER", ""),
 			EncryptionKey:        getEnv("SOCIAL_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
 			OAuthStateTTL:        getEnvDuration("SOCIAL_OAUTH_STATE_TTL", 15*time.Minute),
-			MetaAPIVersion:       getEnv("SOCIAL_META_API_VERSION", "v23.0"),
-			LinkedInVersion:      getEnv("SOCIAL_LINKEDIN_VERSION", "202505"),
-			MetaClientID:         getEnv("FACEBOOK_APP_ID", getEnv("INSTAGRAM_CLIENT_ID", "")),
-			MetaClientSecret:     getEnv("FACEBOOK_APP_SECRET", getEnv("INSTAGRAM_CLIENT_SECRET", "")),
+			PublicAPIBaseURL:     getEnv("SOCIAL_PUBLIC_API_BASE_URL", "http://localhost:18080"),
+			PublicAssetBaseURL:   getEnv("SOCIAL_PUBLIC_ASSET_BASE_URL", "http://localhost:18080"),
+			TempMediaProvider:    getEnv("SOCIAL_TEMP_MEDIA_PROVIDER", ""),
+			MetaClientID:         getEnv("META_CLIENT_ID", getEnv("FACEBOOK_APP_ID", "")),
+			MetaClientSecret:     getEnv("META_CLIENT_SECRET", getEnv("FACEBOOK_APP_SECRET", "")),
+			MetaAPIVersion:       getEnv("META_API_VERSION", "v23.0"),
 			LinkedInClientID:     getEnv("LINKEDIN_CLIENT_ID", ""),
 			LinkedInClientSecret: getEnv("LINKEDIN_CLIENT_SECRET", ""),
-			XClientID:            getEnv("X_CLIENT_ID", getEnv("TWITTER_API_KEY", "")),
-			XClientSecret:        getEnv("X_CLIENT_SECRET", getEnv("TWITTER_API_SECRET", "")),
+			LinkedInVersion:      getEnv("LINKEDIN_VERSION", "202503"),
+			XClientID:            getEnv("X_CLIENT_ID", ""),
+			XClientSecret:        getEnv("X_CLIENT_SECRET", ""),
 		},
 		Bootstrap: BootstrapConfig{
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),

@@ -1,5 +1,4 @@
 import {
-	Building2,
 	ChevronDown,
 	ChevronLeft,
 	Command,
@@ -16,6 +15,7 @@ import {
 	ShieldCheck,
 	Tag,
 	Users,
+	Building2,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -25,7 +25,6 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { AlertInbox } from "@/components/app/alert-inbox";
 import { MiraAssistant } from "@/components/app/mira-assistant";
 import { SearchCommand } from "@/components/app/search-command";
-import { SidebarTooltip } from "@/components/app/sidebar-tooltip";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import {
@@ -44,8 +43,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +59,6 @@ const adminNavigation = [
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
-const SIDEBAR_COLLAPSED_STORAGE_KEY = "heimdall-admin-sidebar-collapsed";
 
 function AdminSidebarBrand({ collapsed }: { collapsed: boolean }) {
 	return (
@@ -139,11 +135,10 @@ function AdminSidebar({
 	const { platformRequest, platformSession, logoutPlatform } = useAuth();
 	const currentAdmin = platformSession?.user;
 	const hasCustomerAccess =
-		platformSession?.workspaceMemberships?.some(
+		(platformSession?.workspaceMemberships?.some(
 			(membership) =>
-				membership.status === "active" &&
-				membership.workspaceStatus === "active",
-		) ?? false;
+				membership.status === "active" && membership.workspaceStatus === "active",
+		) ?? false);
 	const currentAdminRoles =
 		platformSession?.platformRoles.map((role) => role.label).join(", ") ??
 		"Platform user";
@@ -237,67 +232,53 @@ function AdminSidebar({
 									: location.pathname.startsWith(item.href);
 
 							return (
-								<SidebarTooltip
+								<Link
 									key={item.href}
-									disabled={!collapsed}
-									label={item.label}
+									to={item.href}
+									onClick={onClose}
+									aria-label={collapsed ? item.label : undefined}
+									className={cn(
+										"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+										sidebarTransitionClass,
+										active
+											? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_14px_30px_-18px_rgba(245,158,11,0.5)]"
+											: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+										collapsed &&
+											"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+									)}
 								>
-									<Link
-										to={item.href}
-										onClick={onClose}
-										aria-label={collapsed ? item.label : undefined}
-										className={cn(
-											"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
-											sidebarTransitionClass,
-											active
-												? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_14px_30px_-18px_rgba(245,158,11,0.5)]"
-												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-											collapsed &&
-												"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-										)}
+									<item.icon className="size-5 shrink-0" />
+									<SidebarCopy
+										collapsed={collapsed}
+										className="whitespace-nowrap"
 									>
-										<item.icon className="size-5 shrink-0" />
-										<SidebarCopy
-											collapsed={collapsed}
-											className="whitespace-nowrap"
-										>
-											<span>{item.label}</span>
-										</SidebarCopy>
-									</Link>
-								</SidebarTooltip>
+										<span>{item.label}</span>
+									</SidebarCopy>
+								</Link>
 							);
 						})}
 					</nav>
 
 					<div className="mt-6 space-y-3">
-						<SidebarTooltip
-							disabled={!collapsed}
-							label="User Dashboard"
+						<button
+							type="button"
+							onClick={() => void openOwnDashboard()}
+							disabled={!hasCustomerAccess}
+							title={
+								hasCustomerAccess
+									? "Open the customer workspace in a new tab."
+									: "Assign this platform user to a workspace to enable customer access."
+							}
+							className={cn(
+								"flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[var(--brand-border-soft)] bg-background/50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+								collapsed && "lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+							)}
 						>
-							<button
-								type="button"
-								onClick={() => void openOwnDashboard()}
-								disabled={!hasCustomerAccess}
-								title={
-									hasCustomerAccess
-										? "Open the customer workspace in a new tab."
-										: "Assign this platform user to a workspace to enable customer access."
-								}
-								className={cn(
-									"flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[var(--brand-border-soft)] bg-background/50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-									collapsed &&
-										"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-								)}
-							>
-								<Shield className="size-5 shrink-0" />
-								<SidebarCopy
-									collapsed={collapsed}
-									className="whitespace-nowrap"
-								>
-									<span>User Dashboard</span>
-								</SidebarCopy>
-							</button>
-						</SidebarTooltip>
+							<Shield className="size-5 shrink-0" />
+							<SidebarCopy collapsed={collapsed} className="whitespace-nowrap">
+								<span>User Dashboard</span>
+							</SidebarCopy>
+						</button>
 
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -310,7 +291,6 @@ function AdminSidebar({
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
 									aria-label={collapsed ? currentAdmin.fullName : undefined}
-									title={collapsed ? currentAdmin.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-sm font-semibold text-white">
 										{currentAdmin.fullName
@@ -353,9 +333,7 @@ function AdminSidebar({
 								)}
 							>
 								<div className="mb-1 border-b border-border px-3 py-3">
-									<div className="text-sm font-medium">
-										{currentAdmin.fullName}
-									</div>
+									<div className="text-sm font-medium">{currentAdmin.fullName}</div>
 									<div className="mt-1 text-xs text-muted-foreground">
 										{currentAdmin.email}
 									</div>
@@ -466,7 +444,6 @@ function AdminTopBar({
 						className="hidden lg:inline-flex"
 						onClick={onToggleSidebar}
 						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
 						{collapsed ? (
 							<PanelLeftOpen className="size-4" />
@@ -556,10 +533,7 @@ function AdminTopBar({
 }
 
 export function AdminLayout() {
-	const [collapsed, setCollapsed] = useLocalStorageState(
-		SIDEBAR_COLLAPSED_STORAGE_KEY,
-		true,
-	);
+	const [collapsed, setCollapsed] = useState(false);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
@@ -572,45 +546,43 @@ export function AdminLayout() {
 	}, [location.pathname]);
 
 	return (
-		<TooltipProvider delayDuration={120}>
-			<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
-				<div className="dashboard-shell-surface relative flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
-					<AdminSidebar
-						collapsed={collapsed}
-						mobileOpen={mobileOpen}
-						onClose={() => setMobileOpen(false)}
-					/>
-					<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-						<AdminTopBar
-							collapsed={collapsed}
-							onOpenMobile={() => setMobileOpen(true)}
-							onToggleSidebar={() => setCollapsed((value) => !value)}
-							onOpenAssistant={() => setAssistantOpen(true)}
-						/>
-						<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
-							<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
-								<ScrollArea
-									type="scroll"
-									scrollHideDelay={180}
-									className="dashboard-content-scroll min-h-0 flex-1 rounded-[inherit]"
-									scrollbarClassName="dashboard-content-scrollbar"
-									thumbClassName="dashboard-content-scrollbar-thumb"
-								>
-									<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
-										<Outlet />
-									</div>
-								</ScrollArea>
-							</div>
-						</main>
-					</div>
-				</div>
-				<MiraAssistant
-					open={assistantOpen}
-					onOpenChange={setAssistantOpen}
-					workspaceName="Admin Portal"
-					currentUserName={platformSession?.user.fullName ?? "Admin"}
+		<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
+			<div className="dashboard-shell-surface relative flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+				<AdminSidebar
+					collapsed={collapsed}
+					mobileOpen={mobileOpen}
+					onClose={() => setMobileOpen(false)}
 				/>
+				<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+					<AdminTopBar
+						collapsed={collapsed}
+						onOpenMobile={() => setMobileOpen(true)}
+						onToggleSidebar={() => setCollapsed((value) => !value)}
+						onOpenAssistant={() => setAssistantOpen(true)}
+					/>
+					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
+						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
+							<ScrollArea
+								type="scroll"
+								scrollHideDelay={180}
+								className="dashboard-content-scroll min-h-0 flex-1 rounded-[inherit]"
+								scrollbarClassName="dashboard-content-scrollbar"
+								thumbClassName="dashboard-content-scrollbar-thumb"
+							>
+								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+									<Outlet />
+								</div>
+							</ScrollArea>
+						</div>
+					</main>
+				</div>
 			</div>
-		</TooltipProvider>
+			<MiraAssistant
+				open={assistantOpen}
+				onOpenChange={setAssistantOpen}
+				workspaceName="Admin Portal"
+				currentUserName={platformSession?.user.fullName ?? "Admin"}
+			/>
+		</div>
 	);
 }

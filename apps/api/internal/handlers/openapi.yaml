@@ -5,14 +5,14 @@ info:
   description: |
     Heimdall is a centralized social media management platform that brings 
     multiple social platforms into one unified dashboard.
-    
+
     ## Features
     - Multi-platform social media management
     - Content planning and scheduling
     - Analytics and performance insights
     - AI-powered content generation
     - Team collaboration
-    
+
     ## Authentication
     Most endpoints require authentication via Bearer token in the Authorization header.
   contact:
@@ -55,12 +55,12 @@ paths:
       tags:
         - Health
       responses:
-        '200':
+        "200":
           description: API is healthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                $ref: "#/components/schemas/HealthResponse"
               example:
                 status: healthy
                 timestamp: "2026-03-06T12:00:00Z"
@@ -90,12 +90,12 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Resource capability matrix
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceCapabilityMatrix'
+                $ref: "#/components/schemas/ResourceCapabilityMatrix"
   /api/v1/resources:
     get:
       operationId: listResources
@@ -112,12 +112,12 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Workspace resources
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceListResponse'
+                $ref: "#/components/schemas/ResourceListResponse"
     post:
       operationId: uploadResource
       summary: Upload Resource
@@ -153,12 +153,12 @@ paths:
                 transformRecipe:
                   type: string
       responses:
-        '201':
+        "201":
           description: Uploaded resource
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceUploadResponse'
+                $ref: "#/components/schemas/ResourceUploadResponse"
   /api/v1/resources/{id}:
     get:
       operationId: getResource
@@ -168,15 +168,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '200':
+        "200":
           description: Resource detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceDetail'
+                $ref: "#/components/schemas/ResourceDetail"
     patch:
       operationId: updateResource
       summary: Update Resource
@@ -185,8 +185,8 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
@@ -204,10 +204,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '204':
+        "204":
           description: Resource queued for cleanup
   /api/v1/resources/{id}/download:
     get:
@@ -218,10 +218,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '302':
+        "302":
           description: Redirects to a signed blob URL
   /api/v1/resources/{id}/variants:
     post:
@@ -232,8 +232,8 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
@@ -261,14 +261,14 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: "#/components/parameters/WorkspaceHeader"
       responses:
-        '200':
+        "200":
           description: Workspace asset sets
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetListResponse'
+                $ref: "#/components/schemas/ResourceSetListResponse"
     post:
       operationId: createResourceSet
       summary: Create Resource Set
@@ -277,20 +277,20 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: "#/components/parameters/WorkspaceHeader"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ResourceSetUpsert'
+              $ref: "#/components/schemas/ResourceSetUpsert"
       responses:
-        '201':
+        "201":
           description: Created asset set
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetDetail'
+                $ref: "#/components/schemas/ResourceSetDetail"
   /api/v1/resource-sets/{id}:
     get:
       operationId: getResourceSet
@@ -300,15 +300,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '200':
+        "200":
           description: Resource set detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetDetail'
+                $ref: "#/components/schemas/ResourceSetDetail"
     patch:
       operationId: updateResourceSet
       summary: Update Resource Set
@@ -317,21 +317,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ResourceSetUpdate'
+              $ref: "#/components/schemas/ResourceSetUpdate"
       responses:
-        '200':
+        "200":
           description: Updated resource set
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetDetail'
+                $ref: "#/components/schemas/ResourceSetDetail"
     delete:
       operationId: deleteResourceSet
       summary: Delete Resource Set
@@ -340,10 +340,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '204':
+        "204":
           description: Resource set deleted
   /api/v1/resource-sets/{id}/items:
     put:
@@ -354,8 +354,8 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
@@ -366,14 +366,14 @@ paths:
                 items:
                   type: array
                   items:
-                    $ref: '#/components/schemas/ResourceSetItemInput'
+                    $ref: "#/components/schemas/ResourceSetItemInput"
       responses:
-        '200':
+        "200":
           description: Updated resource set membership
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ResourceSetDetail'
+                $ref: "#/components/schemas/ResourceSetDetail"
   /api/v1/posts:
     get:
       operationId: listPosts
@@ -383,14 +383,14 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: "#/components/parameters/WorkspaceHeader"
       responses:
-        '200':
+        "200":
           description: Workspace posts
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostListResponse'
+                $ref: "#/components/schemas/PostListResponse"
     post:
       operationId: createPost
       summary: Create Post
@@ -399,20 +399,20 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: "#/components/parameters/WorkspaceHeader"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostUpsert'
+              $ref: "#/components/schemas/PostUpsert"
       responses:
-        '201':
+        "201":
           description: Created post
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostDetail'
+                $ref: "#/components/schemas/PostDetail"
   /api/v1/posts/{id}:
     get:
       operationId: getPost
@@ -422,15 +422,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '200':
+        "200":
           description: Post detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostDetail'
+                $ref: "#/components/schemas/PostDetail"
     patch:
       operationId: updatePost
       summary: Update Post
@@ -439,21 +439,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostUpsert'
+              $ref: "#/components/schemas/PostUpsert"
       responses:
-        '200':
+        "200":
           description: Updated post
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostDetail'
+                $ref: "#/components/schemas/PostDetail"
     delete:
       operationId: deletePost
       summary: Delete Post
@@ -462,10 +462,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       responses:
-        '204':
+        "204":
           description: Post deleted
   /api/v1/posts/{id}/assets:
     put:
@@ -476,21 +476,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostAssetSync'
+              $ref: "#/components/schemas/PostAssetSync"
       responses:
-        '200':
+        "200":
           description: Post detail with updated assets
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostDetail'
+                $ref: "#/components/schemas/PostDetail"
   /api/v1/posts/{id}/variants:
     post:
       operationId: createPostVariant
@@ -500,21 +500,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/ResourceId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostVariantUpsert'
+              $ref: "#/components/schemas/PostVariantUpsert"
       responses:
-        '201':
+        "201":
           description: Created post variant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
   /api/v1/posts/variants/{variantId}:
     get:
       operationId: getPostVariant
@@ -524,15 +524,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       responses:
-        '200':
+        "200":
           description: Post variant detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
     patch:
       operationId: updatePostVariant
       summary: Update Post Variant
@@ -541,21 +541,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostVariantUpsert'
+              $ref: "#/components/schemas/PostVariantUpsert"
       responses:
-        '200':
+        "200":
           description: Updated post variant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
     delete:
       operationId: deletePostVariant
       summary: Delete Post Variant
@@ -564,10 +564,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       responses:
-        '204':
+        "204":
           description: Variant deleted
   /api/v1/posts/variants/{variantId}/assets:
     put:
@@ -578,21 +578,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostVariantAssetSync'
+              $ref: "#/components/schemas/PostVariantAssetSync"
       responses:
-        '200':
+        "200":
           description: Updated post variant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
   /api/v1/posts/variants/{variantId}/reviews/submit:
     post:
       operationId: submitPostVariantReview
@@ -602,21 +602,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostReviewInput'
+              $ref: "#/components/schemas/PostReviewInput"
       responses:
-        '200':
+        "200":
           description: Updated post variant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
   /api/v1/posts/variants/{variantId}/reviews/decision:
     post:
       operationId: decidePostVariantReview
@@ -626,81 +626,58 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostReviewDecisionInput'
+              $ref: "#/components/schemas/PostReviewDecisionInput"
       responses:
-        '200':
+        "200":
           description: Updated post variant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostVariant'
-  /api/v1/posts/variants/{variantId}/publication/schedule:
-    post:
-      operationId: schedulePostVariantPublication
-      summary: Schedule Variant Publication
+                $ref: "#/components/schemas/PostVariant"
+  /api/v1/posts/variants/{variantId}/publication:
+    put:
+      operationId: upsertPostVariantPublication
+      summary: Upsert Variant Publication Plan
       tags:
         - Posts
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostPublicationSchedule'
+              $ref: "#/components/schemas/PostPublicationUpsert"
       responses:
-        '200':
+        "200":
           description: Updated publication plan
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PostPublication'
-  /api/v1/posts/variants/{variantId}/publication/unschedule:
-    post:
-      operationId: unschedulePostVariantPublication
-      summary: Unschedule Variant Publication
+                $ref: "#/components/schemas/PostPublication"
+    delete:
+      operationId: deletePostVariantPublication
+      summary: Delete Variant Publication Plan
       tags:
         - Posts
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       responses:
-        '200':
-          description: Updated publication plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PostPublication'
-  /api/v1/posts/variants/{variantId}/publication/record-published:
-    post:
-      operationId: recordPostVariantPublication
-      summary: Record Variant As Published
-      tags:
-        - Posts
-      security:
-        - BearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
-      responses:
-        '200':
-          description: Updated publication plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PostPublication'
+        "204":
+          description: Publication plan deleted
   /api/v1/posts/variants/{variantId}/metrics:
     get:
       operationId: listPostVariantMetrics
@@ -710,15 +687,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       responses:
-        '200':
+        "200":
           description: Metric observations for the variant publication
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MetricObservationListResponse'
+                $ref: "#/components/schemas/MetricObservationListResponse"
     post:
       operationId: recordPostVariantMetric
       summary: Record Variant Metric Observation
@@ -727,21 +704,21 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
-        - $ref: '#/components/parameters/VariantId'
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/VariantId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MetricObservationInput'
+              $ref: "#/components/schemas/MetricObservationInput"
       responses:
-        '201':
+        "201":
           description: Recorded metric observation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MetricObservation'
+                $ref: "#/components/schemas/MetricObservation"
   /api/v1/posts/metric-definitions:
     get:
       operationId: listPostMetricDefinitions
@@ -751,7 +728,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: "#/components/parameters/WorkspaceHeader"
         - in: query
           name: platform
           schema:
@@ -761,12 +738,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Metric definitions
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MetricDefinitionListResponse'
+                $ref: "#/components/schemas/MetricDefinitionListResponse"
 
 components:
   securitySchemes:
@@ -821,7 +798,7 @@ components:
           type: string
           description: API version
         go:
-          $ref: '#/components/schemas/GoInfo'
+          $ref: "#/components/schemas/GoInfo"
         checks:
           type: object
           additionalProperties:
@@ -872,7 +849,7 @@ components:
         rules:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceCapabilityRule'
+            $ref: "#/components/schemas/ResourceCapabilityRule"
     ResourceCapabilityRule:
       type: object
       properties:
@@ -894,15 +871,6 @@ components:
           type: array
           items:
             type: string
-        supportedContentKinds:
-          type: array
-          items:
-            type: string
-            enum: [text, article, thread]
-        assetRequired:
-          type: boolean
-        minItems:
-          type: integer
         maxItems:
           type: integer
     ResourceCompatibility:
@@ -974,7 +942,7 @@ components:
         compatibility:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceCompatibility'
+            $ref: "#/components/schemas/ResourceCompatibility"
         createdAt:
           type: string
           format: date-time
@@ -983,24 +951,24 @@ components:
           format: date-time
     ResourceDetail:
       allOf:
-        - $ref: '#/components/schemas/ResourceRecord'
+        - $ref: "#/components/schemas/ResourceRecord"
         - type: object
           properties:
             variants:
               type: array
               items:
-                $ref: '#/components/schemas/ResourceRecord'
+                $ref: "#/components/schemas/ResourceRecord"
             sets:
               type: array
               items:
-                $ref: '#/components/schemas/ResourceSetSummary'
+                $ref: "#/components/schemas/ResourceSetSummary"
     ResourceListResponse:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceRecord'
+            $ref: "#/components/schemas/ResourceRecord"
     ResourceSetItemInput:
       type: object
       properties:
@@ -1044,7 +1012,7 @@ components:
         membersPreview:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceRecord'
+            $ref: "#/components/schemas/ResourceRecord"
         createdAt:
           type: string
           format: date-time
@@ -1068,21 +1036,21 @@ components:
           type: object
           additionalProperties: true
         resource:
-          $ref: '#/components/schemas/ResourceRecord'
+          $ref: "#/components/schemas/ResourceRecord"
     ResourceSetDetail:
       allOf:
-        - $ref: '#/components/schemas/ResourceSetSummary'
+        - $ref: "#/components/schemas/ResourceSetSummary"
         - type: object
           properties:
             metadata:
               type: object
               additionalProperties: true
             coverResource:
-              $ref: '#/components/schemas/ResourceRecord'
+              $ref: "#/components/schemas/ResourceRecord"
             items:
               type: array
               items:
-                $ref: '#/components/schemas/ResourceSetItem'
+                $ref: "#/components/schemas/ResourceSetItem"
     ResourceSetUpsert:
       type: object
       properties:
@@ -1108,10 +1076,10 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceSetItemInput'
+            $ref: "#/components/schemas/ResourceSetItemInput"
     ResourceSetUpdate:
       allOf:
-        - $ref: '#/components/schemas/ResourceSetUpsert'
+        - $ref: "#/components/schemas/ResourceSetUpsert"
         - type: object
           properties:
             clearCover:
@@ -1122,7 +1090,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceSetSummary'
+            $ref: "#/components/schemas/ResourceSetSummary"
     ResourceUploadOptimization:
       type: object
       properties:
@@ -1141,9 +1109,9 @@ components:
       type: object
       properties:
         resource:
-          $ref: '#/components/schemas/ResourceDetail'
+          $ref: "#/components/schemas/ResourceDetail"
         optimization:
-          $ref: '#/components/schemas/ResourceUploadOptimization'
+          $ref: "#/components/schemas/ResourceUploadOptimization"
     MetricSnapshotItem:
       type: object
       properties:
@@ -1181,28 +1149,6 @@ components:
         createdAt:
           type: string
           format: date-time
-    ReadinessIssue:
-      type: object
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-    VariantReadiness:
-      type: object
-      properties:
-        draftIssues:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReadinessIssue'
-        scheduleBlockers:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReadinessIssue'
-        publishBlockers:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReadinessIssue'
     PostPublication:
       type: object
       properties:
@@ -1250,8 +1196,6 @@ components:
           type: string
         surface:
           type: string
-        inheritSource:
-          type: string
         contentMode:
           type: string
           enum: [inherit, custom]
@@ -1272,27 +1216,25 @@ components:
         assets:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceRecord'
+            $ref: "#/components/schemas/ResourceRecord"
         effectiveAssets:
           type: array
           items:
-            $ref: '#/components/schemas/ResourceRecord'
+            $ref: "#/components/schemas/ResourceRecord"
         approvalState:
           type: string
         latestReview:
-          $ref: '#/components/schemas/PostReview'
+          $ref: "#/components/schemas/PostReview"
         reviewHistory:
           type: array
           items:
-            $ref: '#/components/schemas/PostReview'
+            $ref: "#/components/schemas/PostReview"
         latestPublication:
-          $ref: '#/components/schemas/PostPublication'
-        readiness:
-          $ref: '#/components/schemas/VariantReadiness'
+          $ref: "#/components/schemas/PostPublication"
         metricSnapshot:
           type: array
           items:
-            $ref: '#/components/schemas/MetricSnapshotItem'
+            $ref: "#/components/schemas/MetricSnapshotItem"
         notes:
           type: string
         createdAt:
@@ -1319,8 +1261,6 @@ components:
           type: string
         originSurface:
           type: string
-        requiresApproval:
-          type: boolean
         aggregateApprovalState:
           type: string
         aggregatePublicationState:
@@ -1333,7 +1273,7 @@ components:
         metricSnapshot:
           type: array
           items:
-            $ref: '#/components/schemas/MetricSnapshotItem'
+            $ref: "#/components/schemas/MetricSnapshotItem"
         createdAt:
           type: string
           format: date-time
@@ -1342,7 +1282,7 @@ components:
           format: date-time
     PostDetail:
       allOf:
-        - $ref: '#/components/schemas/PostSummary'
+        - $ref: "#/components/schemas/PostSummary"
         - type: object
           properties:
             contentPayload:
@@ -1351,15 +1291,11 @@ components:
             assets:
               type: array
               items:
-                $ref: '#/components/schemas/ResourceRecord'
+                $ref: "#/components/schemas/ResourceRecord"
             variants:
               type: array
               items:
-                $ref: '#/components/schemas/PostVariant'
-            legacyVariants:
-              type: array
-              items:
-                $ref: '#/components/schemas/PostVariant'
+                $ref: "#/components/schemas/PostVariant"
             notes:
               type: string
     PostUpsert:
@@ -1377,8 +1313,6 @@ components:
           type: string
         originSurface:
           type: string
-        requiresApproval:
-          type: boolean
         notes:
           type: string
     PostVariantUpsert:
@@ -1387,8 +1321,6 @@ components:
         platform:
           type: string
         surface:
-          type: string
-        inheritSource:
           type: string
         contentMode:
           type: string
@@ -1414,7 +1346,7 @@ components:
             format: uuid
     PostVariantAssetSync:
       allOf:
-        - $ref: '#/components/schemas/PostAssetSync'
+        - $ref: "#/components/schemas/PostAssetSync"
         - type: object
           properties:
             assetMode:
@@ -1438,21 +1370,35 @@ components:
           enum: [approved, changes_requested]
         comment:
           type: string
-    PostPublicationSchedule:
+    PostPublicationUpsert:
       type: object
       properties:
+        publicationState:
+          type: string
         plannedAt:
           type: string
           format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+        externalPostId:
+          type: string
+        externalAccountId:
+          type: string
         source:
           type: string
+        lastError:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
     PostListResponse:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/PostSummary'
+            $ref: "#/components/schemas/PostSummary"
     MetricDefinition:
       type: object
       properties:
@@ -1477,7 +1423,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/MetricDefinition'
+            $ref: "#/components/schemas/MetricDefinition"
     MetricObservationInput:
       type: object
       properties:
@@ -1526,4 +1472,4 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/MetricObservation'
+            $ref: "#/components/schemas/MetricObservation"

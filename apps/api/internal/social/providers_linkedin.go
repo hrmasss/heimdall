@@ -1,10 +1,12 @@
 package social
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -24,7 +26,7 @@ func newLinkedInAdapter(cfg config.SocialConfig) providerAdapter {
 func (a *linkedInAdapter) Provider() string { return "linkedin" }
 func (a *linkedInAdapter) Label() string    { return "LinkedIn" }
 func (a *linkedInAdapter) DefaultScopes() []string {
-	return []string{"openid", "profile", "email", "w_organization_social", "r_organization_social", "rw_organization_admin"}
+	return []string{"w_organization_social", "r_organization_social", "rw_organization_admin"}
 }
 func (a *linkedInAdapter) SupportsBYOK() bool { return true }
 
@@ -69,62 +71,35 @@ func (a *linkedInAdapter) ExchangeCode(ctx context.Context, credential providerC
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}
-	if err := getJSON(ctx, "https://api.linkedin.com/v2/userinfo", headers, &userInfo); err != nil {
+	_ = getJSON(ctx, "https://api.linkedin.com/v2/userinfo", headers, &userInfo)
+	targets, roleAssignee, err := a.discoverTargets(ctx, headers)
+	if err != nil {
 		return nil, err
-	}
-	var aclResp struct {
-		Elements []struct {
-			Organization string `json:"organization"`
-			Role         string `json:"role"`
-			State        string `json:"state"`
-		} `json:"elements"`
-	}
-	if err := getJSON(ctx, "https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&state=APPROVED", headers, &aclResp); err != nil {
-		return nil, err
-	}
-	targets := make([]discoveredTarget, 0, len(aclResp.Elements))
-	for _, acl := range aclResp.Elements {
-		orgID := strings.TrimPrefix(acl.Organization, "urn:li:organization:")
-		var org struct {
-			ID               int64  `json:"id"`
-			Name             string `json:"localizedName"`
-			VanityName       string `json:"vanityName"`
-			OrganizationType string `json:"organizationType"`
-		}
-		if err := getJSON(ctx, fmt.Sprintf("https://api.linkedin.com/rest/organizations/%s", orgID), headers, &org); err != nil {
-			continue
-		}
-		targets = append(targets, discoveredTarget{
-			ExternalAccountID:     orgID,
-			DisplayName:           defaultString(org.Name, orgID),
-			Username:              org.VanityName,
-			TargetType:            "linkedin_organization",
-			AccountClassification: "business",
-			Scopes:                a.DefaultScopes(),
-			Status:                targetStatusHealthy,
-			Capabilities: map[string]any{
-				"allowedSurfaces": []string{"text_post", "image_post", "multi_image", "video_post", "document_post"},
-				"role":            acl.Role,
-			},
-			Metadata: map[string]any{
-				"organizationURN": acl.Organization,
-				"role":            acl.Role,
-			},
-		})
 	}
 	var expiresAt *time.Time
 	if tokenResp.ExpiresIn > 0 {
 		value := time.Now().UTC().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 		expiresAt = &value
 	}
+	authSubjectID := defaultString(userInfo.Sub, roleAssignee)
+	if authSubjectID == "" {
+		authSubjectID = "linkedin-member"
+	}
+	authSubjectName := defaultString(userInfo.Name, userInfo.Email)
+	if authSubjectName == "" {
+		authSubjectName = "LinkedIn account"
+	}
 	return &exchangeResult{
-		AuthSubjectID:        userInfo.Sub,
-		AuthSubjectName:      defaultString(userInfo.Name, userInfo.Email),
+		AuthSubjectID:        authSubjectID,
+		AuthSubjectName:      authSubjectName,
 		AccessToken:          tokenResp.AccessToken,
 		TokenType:            "Bearer",
 		AccessTokenExpiresAt: expiresAt,
 		Scopes:               a.DefaultScopes(),
-		Metadata:             map[string]any{"organizationCount": len(targets)},
+		Metadata: map[string]any{
+			"organizationCount": len(targets),
+			"roleAssignee":      roleAssignee,
+		},
 		Targets:              targets,
 	}, nil
 }
@@ -134,12 +109,10 @@ func (a *linkedInAdapter) RefreshConnection(ctx context.Context, session provide
 		Sub  string `json:"sub"`
 		Name string `json:"name"`
 	}
-	if err := getJSON(ctx, "https://api.linkedin.com/v2/userinfo", a.headers(session.AccessToken), &userInfo); err != nil {
-		return nil, err
-	}
+	_ = getJSON(ctx, "https://api.linkedin.com/v2/userinfo", a.headers(session.AccessToken), &userInfo)
 	return &exchangeResult{
-		AuthSubjectID:   userInfo.Sub,
-		AuthSubjectName: userInfo.Name,
+		AuthSubjectID:   defaultString(userInfo.Sub, session.Connection.AuthSubjectID),
+		AuthSubjectName: defaultString(userInfo.Name, session.Connection.AuthSubjectName),
 		AccessToken:     session.AccessToken,
 		RefreshToken:    session.RefreshToken,
 		TokenType:       "Bearer",
@@ -197,36 +170,37 @@ func (a *linkedInAdapter) PublishPost(ctx context.Context, session providerSessi
 				urns = append(urns, urn)
 			}
 			if len(urns) == 1 {
-				postPayload["content"] = map[string]any{"media": map[string]any{"id": urns[0]}, "shareMediaCategory": "IMAGE"}
+				postPayload["content"] = map[string]any{"media": map[string]any{"id": urns[0]}}
 			} else {
-				postPayload["content"] = map[string]any{"multiImage": map[string]any{"images": urns}, "shareMediaCategory": "IMAGE"}
+				postPayload["content"] = map[string]any{"multiImage": map[string]any{"images": urns}}
 			}
 		case "video":
 			urn, err := a.uploadVideo(ctx, headers, target.ExternalAccountID, assets[0])
 			if err != nil {
 				return nil, err
 			}
-			postPayload["content"] = map[string]any{"media": map[string]any{"id": urn}, "shareMediaCategory": "VIDEO"}
+			postPayload["content"] = map[string]any{"media": map[string]any{"id": urn}}
 		case "document":
 			urn, err := a.uploadDocument(ctx, headers, target.ExternalAccountID, assets[0])
 			if err != nil {
 				return nil, err
 			}
-			postPayload["content"] = map[string]any{"media": map[string]any{"id": urn}, "shareMediaCategory": "DOCUMENT"}
+			postPayload["content"] = map[string]any{"media": map[string]any{"id": urn}}
 		}
 	}
 
-	var resp struct {
-		ID string `json:"id"`
-	}
-	if err := postJSON(ctx, "https://api.linkedin.com/rest/posts", postPayload, headers, &resp); err != nil {
+	restliID, err := a.createPost(ctx, headers, postPayload)
+	if err != nil {
 		return nil, err
 	}
 	return &publishResult{
-		ExternalPostID:    resp.ID,
+		ExternalPostID:    restliID,
 		ExternalAccountID: target.ExternalAccountID,
 		PublishedAt:       time.Now().UTC(),
-		Metadata:          map[string]any{"author": author},
+		Metadata: map[string]any{
+			"author":          author,
+			"externalPostUrl": a.postPermalink(restliID),
+		},
 	}, nil
 }
 
@@ -245,8 +219,7 @@ func (a *linkedInAdapter) GetPostMetrics(ctx context.Context, session providerSe
 			Count float64 `json:"count"`
 		} `json:"shareSummary"`
 	}
-	urn := url.PathEscape(defaultString(*publication.ExternalPostID, ""))
-	if err := getJSON(ctx, fmt.Sprintf("https://api.linkedin.com/rest/socialMetadata/%s", urn), a.headers(session.AccessToken), &metadata); err != nil {
+	if err := a.getSocialMetadata(ctx, defaultString(*publication.ExternalPostID, ""), a.headers(session.AccessToken), &metadata); err != nil {
 		return nil, err
 	}
 	return &metricResult{
@@ -265,6 +238,119 @@ func (a *linkedInAdapter) headers(accessToken string) map[string]string {
 		"LinkedIn-Version":          a.cfg.LinkedInVersion,
 		"X-Restli-Protocol-Version": "2.0.0",
 	}
+}
+
+func (a *linkedInAdapter) postPermalink(externalPostID string) string {
+	externalPostID = strings.TrimSpace(externalPostID)
+	if externalPostID == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://www.linkedin.com/feed/update/%s/", externalPostID)
+}
+
+func (a *linkedInAdapter) createPost(ctx context.Context, headers map[string]string, payload map[string]any) (string, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.linkedin.com/rest/posts", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	resp, err := socialHTTPClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		payload, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("provider request failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(payload)))
+	}
+	restliID := strings.TrimSpace(resp.Header.Get("x-restli-id"))
+	if restliID != "" {
+		return restliID, nil
+	}
+	var response struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil && err != io.EOF {
+		return "", err
+	}
+	if strings.TrimSpace(response.ID) == "" {
+		return "", fmt.Errorf("linkedin publish did not return a post id")
+	}
+	return response.ID, nil
+}
+
+func (a *linkedInAdapter) getSocialMetadata(ctx context.Context, externalPostID string, headers map[string]string, out any) error {
+	externalPostID = strings.TrimSpace(externalPostID)
+	candidates := []string{
+		fmt.Sprintf("https://api.linkedin.com/rest/socialMetadata/%s", externalPostID),
+		fmt.Sprintf("https://api.linkedin.com/rest/socialMetadata/%s", url.PathEscape(externalPostID)),
+	}
+	var lastErr error
+	for _, endpoint := range candidates {
+		if err := getJSON(ctx, endpoint, headers, out); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
+func (a *linkedInAdapter) discoverTargets(ctx context.Context, headers map[string]string) ([]discoveredTarget, string, error) {
+	var aclResp struct {
+		Elements []struct {
+			Organization string `json:"organization"`
+			Role         string `json:"role"`
+			State        string `json:"state"`
+			RoleAssignee string `json:"roleAssignee"`
+		} `json:"elements"`
+	}
+	if err := getJSON(ctx, "https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&state=APPROVED", headers, &aclResp); err != nil {
+		return nil, "", err
+	}
+	targets := make([]discoveredTarget, 0, len(aclResp.Elements))
+	roleAssignee := ""
+	for _, acl := range aclResp.Elements {
+		if roleAssignee == "" {
+			roleAssignee = strings.TrimSpace(acl.RoleAssignee)
+		}
+		orgID := strings.TrimPrefix(acl.Organization, "urn:li:organization:")
+		var org struct {
+			ID               int64  `json:"id"`
+			Name             string `json:"localizedName"`
+			VanityName       string `json:"vanityName"`
+			OrganizationType string `json:"organizationType"`
+		}
+		if err := getJSON(ctx, fmt.Sprintf("https://api.linkedin.com/rest/organizations/%s", orgID), headers, &org); err != nil {
+			continue
+		}
+		targets = append(targets, discoveredTarget{
+			ExternalAccountID:     orgID,
+			DisplayName:           defaultString(org.Name, orgID),
+			Username:              org.VanityName,
+			TargetType:            "linkedin_organization",
+			AccountClassification: "business",
+			Scopes:                a.DefaultScopes(),
+			Status:                targetStatusHealthy,
+			Capabilities: map[string]any{
+				"allowedSurfaces": []string{"text_post", "image_post", "multi_image", "video_post", "document_post"},
+				"role":            acl.Role,
+			},
+			Metadata: map[string]any{
+				"organizationURN": acl.Organization,
+				"role":            acl.Role,
+				"roleAssignee":    acl.RoleAssignee,
+			},
+		})
+	}
+	return targets, roleAssignee, nil
 }
 
 func (a *linkedInAdapter) uploadImage(ctx context.Context, headers map[string]string, owner string, asset assetBlob) (string, error) {
