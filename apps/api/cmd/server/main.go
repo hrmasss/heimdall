@@ -20,6 +20,7 @@ import (
 	"github.com/heimdall/api/internal/iam"
 	"github.com/heimdall/api/internal/posts"
 	"github.com/heimdall/api/internal/resources"
+	"github.com/heimdall/api/internal/social"
 )
 
 func main() {
@@ -53,6 +54,7 @@ func main() {
 	}
 	resourceService := resources.NewService(db, cfg.Storage, storage, service)
 	postService := posts.NewService(db, service, resourceService)
+	socialService := social.NewService(db, cfg.Social, service, postService, storage)
 	if err := resourceService.RunCleanupSweep(ctx); err != nil {
 		log.Printf("Resource cleanup sweep failed during startup: %v", err)
 	}
@@ -92,7 +94,7 @@ func main() {
 	}))
 
 	// Register routes
-	handlers.NewAppHandler(service, resourceService, postService, storage, cfg).Register(app)
+	handlers.NewAppHandler(service, resourceService, postService, socialService, storage, cfg).Register(app)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)

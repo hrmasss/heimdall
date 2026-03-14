@@ -580,8 +580,9 @@ func bindDecisionInput(c fiber.Ctx) (posts.DecisionInput, error) {
 
 func bindSchedulePublicationInput(c fiber.Ctx) (posts.SchedulePublicationInput, error) {
 	var body struct {
-		PlannedAt string `json:"plannedAt"`
-		Source    string `json:"source"`
+		PlannedAt      string `json:"plannedAt"`
+		Source         string `json:"source"`
+		SocialTargetID string `json:"socialTargetId"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
 		return posts.SchedulePublicationInput{}, iam.ErrValidation
@@ -594,10 +595,18 @@ func bindSchedulePublicationInput(c fiber.Ctx) (posts.SchedulePublicationInput, 
 		}
 		plannedAt = &parsed
 	}
-	return posts.SchedulePublicationInput{
+	input := posts.SchedulePublicationInput{
 		PlannedAt: plannedAt,
-		Source:    body.Source,
-	}, nil
+		Source:    strings.TrimSpace(body.Source),
+	}
+	if value := strings.TrimSpace(body.SocialTargetID); value != "" {
+		parsed, err := uuid.Parse(value)
+		if err != nil {
+			return posts.SchedulePublicationInput{}, iam.ErrValidation
+		}
+		input.SocialTargetID = &parsed
+	}
+	return input, nil
 }
 
 func bindCalendarQuery(c fiber.Ctx) (posts.CalendarQueryInput, error) {

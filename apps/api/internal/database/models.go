@@ -297,6 +297,7 @@ type PostVariantPublication struct {
 	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
 	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
 	VariantID         uuid.UUID  `bun:"variant_id,notnull,type:uuid"`
+	SocialTargetID    *uuid.UUID `bun:"social_target_id,type:uuid"`
 	PublicationState  string     `bun:"publication_state,notnull"`
 	PlannedAt         *time.Time `bun:"planned_at"`
 	PublishedAt       *time.Time `bun:"published_at"`
@@ -352,4 +353,91 @@ type MetricObservation struct {
 	Metadata           string     `bun:"metadata,notnull"`
 	CreatedByUserID    *uuid.UUID `bun:"created_by_user_id,type:uuid"`
 	CreatedAt          time.Time  `bun:"created_at,notnull"`
+}
+
+type ProviderAppCredential struct {
+	bun.BaseModel `bun:"table:provider_app_credentials"`
+
+	ID                     uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID            uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider               string     `bun:"provider,notnull"`
+	Source                 string     `bun:"source,notnull"`
+	Status                 string     `bun:"status,notnull"`
+	ClientID               string     `bun:"client_id,notnull"`
+	ClientSecretCiphertext string     `bun:"client_secret_ciphertext,notnull"`
+	ClientSecretHint       string     `bun:"client_secret_hint,notnull"`
+	Metadata               string     `bun:"metadata,notnull"`
+	CreatedByUserID        *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID        *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt              time.Time  `bun:"created_at,notnull"`
+	UpdatedAt              time.Time  `bun:"updated_at,notnull"`
+}
+
+type SocialOAuthState struct {
+	bun.BaseModel `bun:"table:social_oauth_states"`
+
+	ID                   uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID          uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider             string     `bun:"provider,notnull"`
+	CredentialSource     string     `bun:"credential_source,notnull"`
+	ProviderCredentialID *uuid.UUID `bun:"provider_credential_id,type:uuid"`
+	StateToken           string     `bun:"state_token,notnull"`
+	CodeVerifier         *string    `bun:"code_verifier"`
+	ReturnOrigin         string     `bun:"return_origin,notnull"`
+	ReturnPath           string     `bun:"return_path,notnull"`
+	Status               string     `bun:"status,notnull"`
+	ExpiresAt            time.Time  `bun:"expires_at,notnull"`
+	CreatedByUserID      *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	CreatedAt            time.Time  `bun:"created_at,notnull"`
+}
+
+type SocialConnection struct {
+	bun.BaseModel `bun:"table:social_connections"`
+
+	ID                     uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID            uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider               string     `bun:"provider,notnull"`
+	CredentialSource       string     `bun:"credential_source,notnull"`
+	ProviderCredentialID   *uuid.UUID `bun:"provider_credential_id,type:uuid"`
+	Status                 string     `bun:"status,notnull"`
+	HealthStatus           string     `bun:"health_status,notnull"`
+	AuthSubjectID          string     `bun:"auth_subject_id,notnull"`
+	AuthSubjectName        string     `bun:"auth_subject_name,notnull"`
+	AccessTokenCiphertext  string     `bun:"access_token_ciphertext,notnull"`
+	RefreshTokenCiphertext string     `bun:"refresh_token_ciphertext,notnull"`
+	TokenType              string     `bun:"token_type,notnull"`
+	Scopes                 string     `bun:"scopes,notnull"`
+	Metadata               string     `bun:"metadata,notnull"`
+	AccessTokenExpiresAt   *time.Time `bun:"access_token_expires_at"`
+	LastValidatedAt        *time.Time `bun:"last_validated_at"`
+	LastValidationError    *string    `bun:"last_validation_error"`
+	ConnectedAt            time.Time  `bun:"connected_at,notnull"`
+	CreatedByUserID        *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID        *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt              time.Time  `bun:"created_at,notnull"`
+	UpdatedAt              time.Time  `bun:"updated_at,notnull"`
+}
+
+type SocialTarget struct {
+	bun.BaseModel `bun:"table:social_targets"`
+
+	ID                    uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID           uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ConnectionID          uuid.UUID  `bun:"connection_id,notnull,type:uuid"`
+	Provider              string     `bun:"provider,notnull"`
+	ExternalAccountID     string     `bun:"external_account_id,notnull"`
+	ExternalParentID      *string    `bun:"external_parent_id"`
+	DisplayName           string     `bun:"display_name,notnull"`
+	Username              *string    `bun:"username"`
+	TargetType            string     `bun:"target_type,notnull"`
+	AccountClassification string     `bun:"account_classification,notnull"`
+	Status                string     `bun:"status,notnull"`
+	IsSelected            bool       `bun:"is_selected,notnull"`
+	ScopeSnapshot         string     `bun:"scope_snapshot,notnull"`
+	CapabilitySnapshot    string     `bun:"capability_snapshot,notnull"`
+	Metadata              string     `bun:"metadata,notnull"`
+	LastValidatedAt       *time.Time `bun:"last_validated_at"`
+	LastValidationError   *string    `bun:"last_validation_error"`
+	CreatedAt             time.Time  `bun:"created_at,notnull"`
+	UpdatedAt             time.Time  `bun:"updated_at,notnull"`
 }

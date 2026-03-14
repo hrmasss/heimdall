@@ -16,18 +16,20 @@ import (
 	"github.com/heimdall/api/internal/iam"
 	"github.com/heimdall/api/internal/posts"
 	"github.com/heimdall/api/internal/resources"
+	"github.com/heimdall/api/internal/social"
 )
 
 type AppHandler struct {
 	service         *iam.Service
 	resourceService *resources.Service
 	postService     *posts.Service
+	socialService   *social.Service
 	blobServer      resources.SignedBlobServer
 	cfg             *config.Config
 }
 
-func NewAppHandler(service *iam.Service, resourceService *resources.Service, postService *posts.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, resourceService: resourceService, postService: postService, blobServer: blobServer, cfg: cfg}
+func NewAppHandler(service *iam.Service, resourceService *resources.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, resourceService: resourceService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -100,6 +102,18 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/posts/variants/:variantId/publication/record-published", h.requireAuth, h.recordPostVariantPublication)
 	api.Get("/posts/variants/:variantId/metrics", h.requireAuth, h.listPostVariantMetrics)
 	api.Post("/posts/variants/:variantId/metrics", h.requireAuth, h.recordPostVariantMetric)
+	api.Get("/social/providers", h.requireAuth, h.listSocialProviders)
+	api.Get("/social/credentials", h.requireAuth, h.listSocialCredentials)
+	api.Put("/social/credentials/:provider", h.requireAuth, h.upsertSocialCredential)
+	api.Post("/social/oauth/start", h.requireAuth, h.startSocialOAuth)
+	api.Get("/social/oauth/callback/:provider", h.completeSocialOAuth)
+	api.Get("/social/connections", h.requireAuth, h.listSocialConnections)
+	api.Post("/social/targets/:targetId/select", h.requireAuth, h.selectSocialTarget)
+	api.Post("/social/targets/:targetId/validate", h.requireAuth, h.validateSocialTarget)
+	api.Post("/social/variants/:variantId/preview", h.requireAuth, h.previewSocialVariant)
+	api.Post("/social/variants/:variantId/publish", h.requireAuth, h.publishSocialVariant)
+	api.Post("/social/variants/:variantId/metrics/sync", h.requireAuth, h.syncSocialVariantMetrics)
+	api.Post("/social/publications/run-due", h.requireAuth, h.runDueSocialPublications)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)

@@ -435,6 +435,7 @@ var schemaStatements = []string{
 		id uuid PRIMARY KEY,
 		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
 		variant_id uuid NOT NULL REFERENCES post_variants(id) ON DELETE CASCADE,
+		social_target_id uuid,
 		publication_state text NOT NULL DEFAULT 'unscheduled',
 		planned_at timestamptz,
 		published_at timestamptz,
@@ -489,6 +490,89 @@ var schemaStatements = []string{
 		created_at timestamptz NOT NULL DEFAULT now()
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_metric_observations_publication_metric_observed ON metric_observations (publication_id, metric_definition_id, observed_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS provider_app_credentials (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		provider text NOT NULL,
+		source text NOT NULL DEFAULT 'byok',
+		status text NOT NULL DEFAULT 'active',
+		client_id text NOT NULL,
+		client_secret_ciphertext text NOT NULL,
+		client_secret_hint text NOT NULL DEFAULT '',
+		metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE NULLS NOT DISTINCT (workspace_id, provider, source)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_provider_app_credentials_workspace_provider ON provider_app_credentials (workspace_id, provider)`,
+	`CREATE TABLE IF NOT EXISTS social_oauth_states (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		provider text NOT NULL,
+		credential_source text NOT NULL,
+		provider_credential_id uuid REFERENCES provider_app_credentials(id) ON DELETE SET NULL,
+		state_token text NOT NULL UNIQUE,
+		code_verifier text,
+		return_origin text NOT NULL DEFAULT '',
+		return_path text NOT NULL DEFAULT '/dashboard/settings',
+		status text NOT NULL DEFAULT 'pending',
+		expires_at timestamptz NOT NULL,
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_social_oauth_states_workspace_provider ON social_oauth_states (workspace_id, provider, created_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS social_connections (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		provider text NOT NULL,
+		credential_source text NOT NULL,
+		provider_credential_id uuid REFERENCES provider_app_credentials(id) ON DELETE SET NULL,
+		status text NOT NULL DEFAULT 'connected',
+		health_status text NOT NULL DEFAULT 'healthy',
+		auth_subject_id text NOT NULL,
+		auth_subject_name text NOT NULL DEFAULT '',
+		access_token_ciphertext text NOT NULL,
+		refresh_token_ciphertext text NOT NULL DEFAULT '',
+		token_type text NOT NULL DEFAULT 'Bearer',
+		scopes jsonb NOT NULL DEFAULT '[]'::jsonb,
+		metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+		access_token_expires_at timestamptz,
+		last_validated_at timestamptz,
+		last_validation_error text,
+		connected_at timestamptz NOT NULL DEFAULT now(),
+		created_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		updated_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE NULLS NOT DISTINCT (workspace_id, provider, auth_subject_id, credential_source)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_social_connections_workspace_provider ON social_connections (workspace_id, provider, updated_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS social_targets (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		connection_id uuid NOT NULL REFERENCES social_connections(id) ON DELETE CASCADE,
+		provider text NOT NULL,
+		external_account_id text NOT NULL,
+		external_parent_id text,
+		display_name text NOT NULL,
+		username text,
+		target_type text NOT NULL,
+		account_classification text NOT NULL DEFAULT 'business',
+		status text NOT NULL DEFAULT 'healthy',
+		is_selected boolean NOT NULL DEFAULT false,
+		scope_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
+		capability_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+		metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+		last_validated_at timestamptz,
+		last_validation_error text,
+		created_at timestamptz NOT NULL DEFAULT now(),
+		updated_at timestamptz NOT NULL DEFAULT now(),
+		UNIQUE NULLS NOT DISTINCT (workspace_id, provider, external_account_id)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_social_targets_workspace_provider ON social_targets (workspace_id, provider, updated_at DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_social_targets_connection ON social_targets (connection_id, updated_at DESC)`,
 }
 
 // Bootstrap creates the schema and seeds system permissions/roles/admin.
@@ -509,6 +593,15 @@ func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 	}
 	if _, err := db.ExecContext(ctx, `ALTER TABLE post_variants ADD COLUMN IF NOT EXISTS inherit_source text NOT NULL DEFAULT 'shared'`); err != nil {
 		return fmt.Errorf("ensure post_variants.inherit_source: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE post_variant_publications ADD COLUMN IF NOT EXISTS social_target_id uuid REFERENCES social_targets(id) ON DELETE SET NULL`); err != nil {
+		return fmt.Errorf("ensure post_variant_publications.social_target_id: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE social_oauth_states ADD COLUMN IF NOT EXISTS return_origin text NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("ensure social_oauth_states.return_origin: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE social_oauth_states ADD COLUMN IF NOT EXISTS return_path text NOT NULL DEFAULT '/dashboard/settings'`); err != nil {
+		return fmt.Errorf("ensure social_oauth_states.return_path: %w", err)
 	}
 
 	if err := seedPermissions(ctx, db); err != nil {

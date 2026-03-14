@@ -78,8 +78,9 @@ type DecisionInput struct {
 }
 
 type SchedulePublicationInput struct {
-	PlannedAt *time.Time
-	Source    string
+	PlannedAt      *time.Time
+	Source         string
+	SocialTargetID *uuid.UUID
 }
 
 type RecordMetricObservationInput struct {
@@ -123,6 +124,7 @@ type VariantReadiness struct {
 type PublicationPlan struct {
 	ID                string         `json:"id"`
 	VariantID         string         `json:"variantId"`
+	SocialTargetID    string         `json:"socialTargetId,omitempty"`
 	PublicationState  string         `json:"publicationState"`
 	PlannedAt         string         `json:"plannedAt,omitempty"`
 	PublishedAt       string         `json:"publishedAt,omitempty"`
@@ -685,7 +687,7 @@ func (s *Service) SchedulePublication(ctx context.Context, principal *iam.Princi
 	if source == "" {
 		source = "manual"
 	}
-	plan, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", input.PlannedAt, nil, source)
+	plan, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, input.SocialTargetID, "scheduled", input.PlannedAt, nil, source)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +704,7 @@ func (s *Service) UnschedulePublication(ctx context.Context, principal *iam.Prin
 	if _, err := s.findPostVariant(ctx, workspaceID, variantID); err != nil {
 		return nil, err
 	}
-	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "unscheduled", nil, nil, "manual")
+	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, nil, "unscheduled", nil, nil, "manual")
 }
 
 func (s *Service) UpsertTentativePlan(ctx context.Context, principal *iam.Principal, workspaceID, variantID uuid.UUID, input SchedulePublicationInput) (*TentativePlan, error) {
@@ -756,7 +758,7 @@ func (s *Service) FinalizeTentativePlan(ctx context.Context, principal *iam.Prin
 	if len(variant.Readiness.ScheduleBlockers) > 0 {
 		return nil, fmt.Errorf("%w: variant is not ready to finalize scheduling", iam.ErrConflict)
 	}
-	record, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, "scheduled", &plan.PlannedAt, nil, plan.Source)
+	record, err := s.upsertPublicationState(ctx, principal, workspaceID, variantID, nil, "scheduled", &plan.PlannedAt, nil, plan.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -778,13 +780,14 @@ func (s *Service) RecordPublication(ctx context.Context, principal *iam.Principa
 		return nil, fmt.Errorf("%w: variant is not ready to record as published", iam.ErrConflict)
 	}
 	now := time.Now().UTC()
-	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, "published", nil, &now, "manual")
+	return s.upsertPublicationState(ctx, principal, workspaceID, variantID, nil, "published", nil, &now, "manual")
 }
 
 func (s *Service) upsertPublicationState(
 	ctx context.Context,
 	principal *iam.Principal,
 	workspaceID, variantID uuid.UUID,
+	socialTargetID *uuid.UUID,
 	publicationState string,
 	plannedAt *time.Time,
 	publishedAt *time.Time,
@@ -806,6 +809,7 @@ func (s *Service) upsertPublicationState(
 			ID:               uuid.New(),
 			WorkspaceID:      workspaceID,
 			VariantID:        variantID,
+			SocialTargetID:   socialTargetID,
 			PublicationState: publicationState,
 			PlannedAt:        plannedAt,
 			PublishedAt:      publishedAt,
@@ -822,6 +826,7 @@ func (s *Service) upsertPublicationState(
 		return mapPublicationPlan(*record), nil
 	}
 
+	record.SocialTargetID = socialTargetID
 	record.PublicationState = publicationState
 	record.PlannedAt = plannedAt
 	record.PublishedAt = publishedAt
@@ -831,7 +836,7 @@ func (s *Service) upsertPublicationState(
 	record.UpdatedByUserID = &principal.UserID
 	if _, err := s.db.NewUpdate().
 		Model(record).
-		Column("publication_state", "planned_at", "published_at", "source", "last_error", "updated_at", "updated_by_user_id").
+		Column("social_target_id", "publication_state", "planned_at", "published_at", "source", "last_error", "updated_at", "updated_by_user_id").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
@@ -2584,6 +2589,9 @@ func mapPublicationPlan(record database.PostVariantPublication) *PublicationPlan
 	}
 	if record.PlannedAt != nil {
 		item.PlannedAt = record.PlannedAt.Format(time.RFC3339)
+	}
+	if record.SocialTargetID != nil {
+		item.SocialTargetID = record.SocialTargetID.String()
 	}
 	if record.PublishedAt != nil {
 		item.PublishedAt = record.PublishedAt.Format(time.RFC3339)

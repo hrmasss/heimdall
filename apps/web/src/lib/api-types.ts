@@ -213,6 +213,7 @@ export type ReviewRecord = {
 export type PublicationPlan = {
 	id: string;
 	variantId: string;
+	socialTargetId?: string;
 	publicationState:
 		| "unscheduled"
 		| "scheduled"
@@ -229,6 +230,90 @@ export type PublicationPlan = {
 	metadata?: Record<string, unknown>;
 	createdAt: string;
 	updatedAt: string;
+};
+
+export type SocialProviderAvailability = {
+	provider: string;
+	label: string;
+	managedAvailable: boolean;
+	supportsByok: boolean;
+	connectionModes: string[];
+	managedStatus: string;
+	managedStatusText?: string;
+};
+
+export type SocialAppCredentialRecord = {
+	id: string;
+	workspaceId?: string;
+	provider: string;
+	source: "managed" | "byok";
+	status: string;
+	clientId: string;
+	clientIdMasked: string;
+	clientSecretHint?: string;
+	metadata?: Record<string, unknown>;
+	createdAt?: string;
+	updatedAt?: string;
+};
+
+export type SocialTargetRecord = {
+	id: string;
+	connectionId: string;
+	provider: string;
+	externalAccountId: string;
+	externalParentId?: string;
+	displayName: string;
+	username?: string;
+	targetType: string;
+	accountClassification: string;
+	status: string;
+	isSelected: boolean;
+	scopeSnapshot: string[];
+	capabilitySnapshot: Record<string, unknown>;
+	metadata?: Record<string, unknown>;
+	lastValidatedAt?: string;
+	lastValidationError?: string;
+};
+
+export type SocialConnectionRecord = {
+	id: string;
+	provider: string;
+	credentialSource: "managed" | "byok";
+	status: string;
+	healthStatus: string;
+	authSubjectId: string;
+	authSubjectName: string;
+	scopes: string[];
+	metadata?: Record<string, unknown>;
+	accessTokenExpiresAt?: string;
+	lastValidatedAt?: string;
+	lastValidationError?: string;
+	connectedAt: string;
+	createdAt: string;
+	updatedAt: string;
+	targets: SocialTargetRecord[];
+};
+
+export type SocialConnectionsResponse = {
+	connections: SocialConnectionRecord[];
+	targets: SocialTargetRecord[];
+};
+
+export type PublishabilityPreview = {
+	ready: boolean;
+	provider: string;
+	target?: SocialTargetRecord;
+	issues: ReadinessIssue[];
+	warnings: ReadinessIssue[];
+	capabilitySnapshot?: Record<string, unknown>;
+	publicationMetadata?: Record<string, unknown>;
+};
+
+export type SyncMetricsResult = {
+	publicationId: string;
+	variantId: string;
+	metrics: Record<string, number>;
+	syncedAt: string;
 };
 
 export type TentativePlan = {

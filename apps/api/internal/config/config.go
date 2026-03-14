@@ -13,6 +13,7 @@ type Config struct {
 	Database    DatabaseConfig
 	Auth        AuthConfig
 	Storage     StorageConfig
+	Social      SocialConfig
 	Bootstrap   BootstrapConfig
 }
 
@@ -48,6 +49,22 @@ type StorageConfig struct {
 	SignedURLTTL            time.Duration
 	SignedURLSecret         string
 	OptimizeImagesByDefault bool
+}
+
+// SocialConfig holds provider integration settings.
+type SocialConfig struct {
+	PublicAPIBaseURL     string
+	PublicAssetBaseURL   string
+	EncryptionKey        string
+	OAuthStateTTL        time.Duration
+	MetaAPIVersion       string
+	LinkedInVersion      string
+	MetaClientID         string
+	MetaClientSecret     string
+	LinkedInClientID     string
+	LinkedInClientSecret string
+	XClientID            string
+	XClientSecret        string
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -86,6 +103,20 @@ func Load() *Config {
 			SignedURLTTL:            getEnvDuration("STORAGE_SIGNED_URL_TTL", 15*time.Minute),
 			SignedURLSecret:         getEnv("STORAGE_SIGNED_URL_SECRET", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
 			OptimizeImagesByDefault: getEnvBool("STORAGE_OPTIMIZE_IMAGES_BY_DEFAULT", true),
+		},
+		Social: SocialConfig{
+			PublicAPIBaseURL:     getEnv("SOCIAL_PUBLIC_API_BASE_URL", "http://localhost:18080"),
+			PublicAssetBaseURL:   getEnv("SOCIAL_PUBLIC_ASSET_BASE_URL", ""),
+			EncryptionKey:        getEnv("SOCIAL_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
+			OAuthStateTTL:        getEnvDuration("SOCIAL_OAUTH_STATE_TTL", 15*time.Minute),
+			MetaAPIVersion:       getEnv("SOCIAL_META_API_VERSION", "v23.0"),
+			LinkedInVersion:      getEnv("SOCIAL_LINKEDIN_VERSION", "202505"),
+			MetaClientID:         getEnv("FACEBOOK_APP_ID", getEnv("INSTAGRAM_CLIENT_ID", "")),
+			MetaClientSecret:     getEnv("FACEBOOK_APP_SECRET", getEnv("INSTAGRAM_CLIENT_SECRET", "")),
+			LinkedInClientID:     getEnv("LINKEDIN_CLIENT_ID", ""),
+			LinkedInClientSecret: getEnv("LINKEDIN_CLIENT_SECRET", ""),
+			XClientID:            getEnv("X_CLIENT_ID", getEnv("TWITTER_API_KEY", "")),
+			XClientSecret:        getEnv("X_CLIENT_SECRET", getEnv("TWITTER_API_SECRET", "")),
 		},
 		Bootstrap: BootstrapConfig{
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),
