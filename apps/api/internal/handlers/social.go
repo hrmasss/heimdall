@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -87,6 +88,7 @@ func (h *AppHandler) startSocialOAuth(c fiber.Ctx) error {
 func (h *AppHandler) completeSocialOAuth(c fiber.Ctx) error {
 	result, err := h.socialService.CompleteOAuth(c.Context(), c.Params("provider"), c.Query("state"), c.Query("code"))
 	if err != nil {
+		log.Printf("social oauth callback failed provider=%s state=%s: %v", c.Params("provider"), c.Query("state"), err)
 		payload, _ := json.Marshal(map[string]any{
 			"type":    "heimdall-social-oauth",
 			"success": false,

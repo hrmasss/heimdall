@@ -2,6 +2,7 @@ package social
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,12 +52,14 @@ func (a *xAdapter) ExchangeCode(ctx context.Context, credential providerCredenti
 		"code":          []string{code},
 		"redirect_uri":  []string{redirectURI},
 		"client_id":     []string{credential.ClientID},
-		"client_secret": []string{credential.ClientSecret},
 	}
 	if state.CodeVerifier != nil {
 		values.Set("code_verifier", *state.CodeVerifier)
 	}
-	resp, err := postForm(ctx, "https://api.x.com/2/oauth2/token", values, nil)
+	headers := map[string]string{
+		"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte(credential.ClientID+":"+credential.ClientSecret)),
+	}
+	resp, err := postForm(ctx, "https://api.x.com/2/oauth2/token", values, headers)
 	if err != nil {
 		return nil, err
 	}
