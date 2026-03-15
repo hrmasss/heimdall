@@ -37,6 +37,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -44,16 +49,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
 	PostDetail,
-	PublishabilityPreview,
 	PostVariant,
+	PublishabilityPreview,
 	ReadinessIssue,
 	ReviewRecord,
 	SocialConnectionsResponse,
@@ -836,8 +836,8 @@ function TikTokPublishPanel({
 				<div>
 					<div className="text-sm font-medium">Publish to TikTok</div>
 					<div className="mt-1 text-sm text-muted-foreground">
-						Preview creator restrictions, choose privacy, then send this
-						variant through TikTok’s direct-post flow.
+						Preview creator restrictions, choose privacy, then send this variant
+						through TikTok’s direct-post flow.
 					</div>
 				</div>
 				<Button
@@ -870,8 +870,8 @@ function TikTokPublishPanel({
 				</div>
 			) : (
 				<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/40 p-4 text-sm text-muted-foreground">
-					Select a TikTok connection in workspace settings before publishing from
-					this page.
+					Select a TikTok connection in workspace settings before publishing
+					from this page.
 				</div>
 			)}
 
@@ -880,7 +880,9 @@ function TikTokPublishPanel({
 					<div className="space-y-2">
 						<Label>Privacy level</Label>
 						<Select
-							value={draft.privacyLevel ?? config.privacyLevels[0] ?? "SELF_ONLY"}
+							value={
+								draft.privacyLevel ?? config.privacyLevels[0] ?? "SELF_ONLY"
+							}
 							onValueChange={(value) => onChange({ privacyLevel: value })}
 						>
 							<SelectTrigger className="h-11 rounded-2xl px-4">
@@ -904,7 +906,9 @@ function TikTokPublishPanel({
 					<div className="space-y-2 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/50 p-4 text-sm">
 						<div className="font-medium">Creator info</div>
 						<div className="text-muted-foreground">
-							{config.creatorNickname ?? target?.displayName ?? "TikTok creator"}
+							{config.creatorNickname ??
+								target?.displayName ??
+								"TikTok creator"}
 							{config.creatorUsername ? ` (@${config.creatorUsername})` : ""}
 						</div>
 						<div className="text-muted-foreground">
@@ -943,7 +947,9 @@ function TikTokPublishPanel({
 							<div className="text-sm">Allow stitch</div>
 							<Switch
 								checked={draft.allowStitch ?? config.stitchAllowed}
-								onCheckedChange={(checked) => onChange({ allowStitch: checked })}
+								onCheckedChange={(checked) =>
+									onChange({ allowStitch: checked })
+								}
 								disabled={!config.stitchAllowed}
 							/>
 						</div>
@@ -1058,60 +1064,65 @@ export function DashboardPostDetailPage() {
 		Record<string, boolean>
 	>({});
 
-	const loadPost = useCallback(async () => {
-		if (!activeWorkspaceId) {
-			return;
-		}
-		setLoading(true);
-		setError(null);
-		try {
-			const [postResponse, socialResponse] = await Promise.all([
-				customerRequest<PostDetail>(`/posts/${id}`),
-				customerRequest<SocialConnectionsResponse>("/social/connections"),
-			]);
-			const normalized = normalizePostDetail(postResponse);
-			setPost(normalized.value);
-			setSocialTargets(socialResponse.targets);
-			setDataWarning(
-				normalized.coerced
-					? "Some post data was incomplete and has been safely normalized for display."
-					: null,
-			);
-			const requestedTab = searchParams.get("tab");
-			const defaultTab = normalized.value.variants[0]?.platform ?? "shared";
-			const nextTab =
-				(requestedTab === "shared" ||
-					normalized.value.variants.some(
-						(variant) => variant.platform === requestedTab,
-					)) &&
-				requestedTab
-					? requestedTab
-					: defaultTab;
-			setActiveTab(nextTab);
-		} catch (loadError) {
-			setError(
-				loadError instanceof Error
-					? loadError.message
-					: "Unable to load this post.",
-			);
-			setPost(null);
-			setSocialTargets([]);
-			setDataWarning(null);
-		} finally {
-			setLoading(false);
-		}
-	}, [activeWorkspaceId, customerRequest, id, searchParams]);
+	const loadPost = useCallback(
+		async (requestedTab?: string | null) => {
+			if (!activeWorkspaceId) {
+				return;
+			}
+			setLoading(true);
+			setError(null);
+			try {
+				const [postResponse, socialResponse] = await Promise.all([
+					customerRequest<PostDetail>(`/posts/${id}`),
+					customerRequest<SocialConnectionsResponse>("/social/connections"),
+				]);
+				const normalized = normalizePostDetail(postResponse);
+				setPost(normalized.value);
+				setSocialTargets(socialResponse.targets);
+				setDataWarning(
+					normalized.coerced
+						? "Some post data was incomplete and has been safely normalized for display."
+						: null,
+				);
+				const defaultTab = normalized.value.variants[0]?.platform ?? "shared";
+				const nextTab =
+					(requestedTab === "shared" ||
+						normalized.value.variants.some(
+							(variant) => variant.platform === requestedTab,
+						)) &&
+					requestedTab
+						? requestedTab
+						: defaultTab;
+				setActiveTab(nextTab);
+			} catch (loadError) {
+				setError(
+					loadError instanceof Error
+						? loadError.message
+						: "Unable to load this post.",
+				);
+				setPost(null);
+				setSocialTargets([]);
+				setDataWarning(null);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[activeWorkspaceId, customerRequest, id],
+	);
 
 	useEffect(() => {
-		void loadPost();
+		const requestedTab =
+			typeof window === "undefined"
+				? null
+				: new URLSearchParams(window.location.search).get("tab");
+		void loadPost(requestedTab);
 	}, [loadPost]);
 
 	useEffect(() => {
 		if (!post) {
 			return;
 		}
-		const currentTab =
-			searchParams.get("tab") ?? post.variants[0]?.platform ?? "shared";
+		const currentTab = searchParams.get("tab") ?? "shared";
 		if (currentTab === activeTab) {
 			return;
 		}
@@ -1216,9 +1227,9 @@ export function DashboardPostDetailPage() {
 				source: "social_api",
 			};
 			if (variant.platform === "tiktok") {
-				body.tiktok = tikTokDrafts[variant.id] ?? defaultTikTokDraftFromPreview(
-					socialPreviews[variant.id],
-				);
+				body.tiktok =
+					tikTokDrafts[variant.id] ??
+					defaultTikTokDraftFromPreview(socialPreviews[variant.id]);
 			}
 			await customerRequest(`/social/variants/${variant.id}/publish`, {
 				method: "POST",
@@ -1277,7 +1288,11 @@ export function DashboardPostDetailPage() {
 	}
 
 	useEffect(() => {
-		if (!activeVariant || activeVariant.platform !== "tiktok" || !activeSelectedTarget) {
+		if (
+			!activeVariant ||
+			activeVariant.platform !== "tiktok" ||
+			!activeSelectedTarget
+		) {
 			return;
 		}
 		const existing = socialPreviews[activeVariant.id];
@@ -1775,7 +1790,7 @@ export function DashboardPostDetailPage() {
 										selectedTargetForVariant(variant);
 									const variantSocialPreview =
 										variant.platform === "tiktok"
-											? socialPreviews[variant.id] ?? null
+											? (socialPreviews[variant.id] ?? null)
 											: null;
 									const tikTokDraft =
 										tikTokDrafts[variant.id] ??
@@ -1984,7 +1999,8 @@ export function DashboardPostDetailPage() {
 																			value={
 																				variant.latestPublication?.publishedAt
 																					? new Date(
-																							variant.latestPublication.publishedAt,
+																							variant.latestPublication
+																								.publishedAt,
 																						).toLocaleString()
 																					: "Recorded as published"
 																			}
@@ -1992,13 +2008,15 @@ export function DashboardPostDetailPage() {
 																		<SummaryStat
 																			label="Platform post id"
 																			value={
-																				variant.latestPublication?.externalPostId ??
+																				variant.latestPublication
+																					?.externalPostId ??
 																				"Waiting for provider id"
 																			}
 																		/>
 																	</div>
 																	<div className="flex flex-wrap gap-2">
-																		{variant.latestPublication?.externalPostUrl ? (
+																		{variant.latestPublication
+																			?.externalPostUrl ? (
 																			<Button
 																				variant="outline"
 																				className="rounded-full"
@@ -2006,14 +2024,17 @@ export function DashboardPostDetailPage() {
 																			>
 																				<a
 																					href={
-																						variant.latestPublication.externalPostUrl
+																						variant.latestPublication
+																							.externalPostUrl
 																					}
 																					target="_blank"
 																					rel="noreferrer"
 																				>
 																					<Globe2 className="size-4" />
 																					View on{" "}
-																					{formatPlatformLabel(variant.platform)}
+																					{formatPlatformLabel(
+																						variant.platform,
+																					)}
 																				</a>
 																			</Button>
 																		) : null}
@@ -2061,7 +2082,9 @@ export function DashboardPostDetailPage() {
 																										: "text-muted-foreground",
 																								)}
 																							>
-																								{formatPlannedDateLabel(plannedAt)}
+																								{formatPlannedDateLabel(
+																									plannedAt,
+																								)}
 																							</span>
 																						</span>
 																						<ChevronDown className="size-4 text-muted-foreground" />
@@ -2116,7 +2139,9 @@ export function DashboardPostDetailPage() {
 																								.slice(0, 2),
 																						})
 																					}
-																					onBlur={() => commitPlannedTime(variant)}
+																					onBlur={() =>
+																						commitPlannedTime(variant)
+																					}
 																					className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
 																					placeholder="09"
 																				/>
@@ -2135,7 +2160,9 @@ export function DashboardPostDetailPage() {
 																								.slice(0, 2),
 																						})
 																					}
-																					onBlur={() => commitPlannedTime(variant)}
+																					onBlur={() =>
+																						commitPlannedTime(variant)
+																					}
 																					className="h-auto w-8 border-0 bg-transparent px-0 text-center text-sm shadow-none focus-visible:ring-0"
 																					placeholder="00"
 																				/>
@@ -2146,7 +2173,8 @@ export function DashboardPostDetailPage() {
 																						size="sm"
 																						className={cn(
 																							"h-7 rounded-full px-2 text-xs",
-																							plannedTimeDraft.meridiem === "AM" &&
+																							plannedTimeDraft.meridiem ===
+																								"AM" &&
 																								"bg-background text-foreground shadow-sm",
 																						)}
 																						onClick={() => {
@@ -2166,7 +2194,8 @@ export function DashboardPostDetailPage() {
 																						size="sm"
 																						className={cn(
 																							"h-7 rounded-full px-2 text-xs",
-																							plannedTimeDraft.meridiem === "PM" &&
+																							plannedTimeDraft.meridiem ===
+																								"PM" &&
 																								"bg-background text-foreground shadow-sm",
 																						)}
 																						onClick={() => {
@@ -2208,7 +2237,10 @@ export function DashboardPostDetailPage() {
 																			variant="outline"
 																			className="h-10 rounded-full border-emerald-500/20 bg-emerald-500/10 px-4 text-emerald-800 hover:bg-emerald-500/15 hover:text-emerald-900 dark:text-emerald-100 dark:hover:text-emerald-50"
 																			onClick={() =>
-																				void runVariantAction(variant, "approved")
+																				void runVariantAction(
+																					variant,
+																					"approved",
+																				)
 																			}
 																			disabled={saving}
 																		>
@@ -2235,13 +2267,16 @@ export function DashboardPostDetailPage() {
 																			variant="outline"
 																			className="h-10 rounded-full border-indigo-500/20 bg-indigo-500/10 px-4 text-indigo-800 hover:bg-indigo-500/15 hover:text-indigo-900 dark:text-indigo-100 dark:hover:text-indigo-50"
 																			onClick={() =>
-																				void runVariantAction(variant, "schedule")
+																				void runVariantAction(
+																					variant,
+																					"schedule",
+																				)
 																			}
 																			disabled={
 																				saving ||
 																				!plannedAt ||
-																				variant.readiness.scheduleBlockers.length >
-																					0
+																				variant.readiness.scheduleBlockers
+																					.length > 0
 																			}
 																		>
 																			<Clock3 className="size-4" />
@@ -2252,7 +2287,10 @@ export function DashboardPostDetailPage() {
 																			variant="outline"
 																			className="h-10 rounded-full border-white/10 bg-white/5 px-4 text-foreground hover:bg-white/10"
 																			onClick={() =>
-																				void runVariantAction(variant, "unschedule")
+																				void runVariantAction(
+																					variant,
+																					"unschedule",
+																				)
 																			}
 																			disabled={saving}
 																		>
@@ -2264,12 +2302,15 @@ export function DashboardPostDetailPage() {
 																				variant="outline"
 																				className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
 																				onClick={() =>
-																					void runVariantAction(variant, "record")
+																					void runVariantAction(
+																						variant,
+																						"record",
+																					)
 																				}
 																				disabled={
 																					saving ||
-																					variant.readiness.publishBlockers.length >
-																						0
+																					variant.readiness.publishBlockers
+																						.length > 0
 																				}
 																			>
 																				Record as published

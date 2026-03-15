@@ -813,8 +813,6 @@ export function DashboardNewPost() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const isEditMode = Boolean(id);
 	const { activeWorkspaceId, customerRequest } = useAuth();
-	const requestedTab = searchParams.get("tab");
-
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [capabilities, setCapabilities] =
@@ -894,7 +892,7 @@ export function DashboardNewPost() {
 		!loading && baseline !== "" && baseline !== signature;
 
 	const loadEditor = useCallback(
-		async (nextId?: string | null) => {
+		async (nextId?: string | null, requestedTab?: string | null) => {
 			if (!activeWorkspaceId) {
 				return;
 			}
@@ -923,15 +921,57 @@ export function DashboardNewPost() {
 				setCapabilities(normalizedCapabilities);
 
 				if (!postResponse) {
+					const requestedPlatform =
+						requestedTab &&
+						requestedTab !== "shared" &&
+						uniquePlatforms(normalizedCapabilities).includes(requestedTab)
+							? requestedTab
+							: "";
+					const requestedSurface = requestedPlatform
+						? (surfaceOptions(normalizedCapabilities, requestedPlatform)[0]
+								?.surface ?? "feed_post")
+						: "";
+					const requestedRule =
+						requestedPlatform && requestedSurface
+							? findRule(
+									normalizedCapabilities,
+									requestedPlatform,
+									requestedSurface,
+								)
+							: undefined;
+					const emptySharedDraft = createDraftContent();
+					const defaultModes = preferredVariantModes(emptySharedDraft, []);
+					const seededVariants = requestedPlatform
+						? [
+								{
+									id: undefined,
+									platform: requestedPlatform,
+									surface: requestedSurface,
+									inheritSource: "shared",
+									contentMode: defaultModes.contentMode,
+									content: coerceDraftContentForRule(
+										createDraftContent(emptySharedDraft.kind),
+										requestedRule,
+									),
+									assetMode: defaultModes.assetMode,
+									assetIds: [],
+									removedInheritedResourceIds: [],
+									approvalState: "draft" as const,
+									reviewHistory: [],
+									latestPublication: undefined,
+									notes: "",
+								},
+							]
+						: [];
 					const emptyState = {
 						title: "",
 						notes: "",
 						requiresApproval: false,
 						startsFromPlatform: "",
 						startsFromSurface: "",
-						sharedDraft: createDraftContent(),
+						sharedDraft: emptySharedDraft,
 						rootAssetIds: [],
-						variants: [],
+						variants: seededVariants,
 						deletedVariantIds: [],
 					};
 					setPostId(null);
@@ -947,7 +987,7 @@ export function DashboardNewPost() {
 					setLegacyVariants([]);
 					setDeletedVariantIds([]);
 					setPlannedTimeDrafts({});
-					setActiveTab("shared");
+					setActiveTab(requestedPlatform || "shared");
 					setBaseline(JSON.stringify(emptyState));
 					setDataWarning(null);
 					return;
@@ -1032,7 +1072,7 @@ export function DashboardNewPost() {
 				setLoading(false);
 			}
 		},
-		[activeWorkspaceId, customerRequest, requestedTab],
+		[activeWorkspaceId, customerRequest],
 	);
 
 	useEffect(() => {
@@ -1056,7 +1096,11 @@ export function DashboardNewPost() {
 	}, [activeTab, loading, searchParams, setSearchParams]);
 
 	useEffect(() => {
-		void loadEditor(id ?? null);
+		const requestedTab =
+			typeof window === "undefined"
+				? null
+				: new URLSearchParams(window.location.search).get("tab");
+		void loadEditor(id ?? null, requestedTab);
 	}, [id, loadEditor]);
 
 	async function resolveResourceSetIds(resourceSetId: string) {

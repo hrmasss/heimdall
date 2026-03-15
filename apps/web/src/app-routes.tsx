@@ -105,6 +105,11 @@ const DashboardSettings = lazy(async () =>
 		default: module.DashboardSettings,
 	})),
 );
+const DashboardPlatformConnections = lazy(async () =>
+	import("@/pages/dashboard/platform-connections").then((module) => ({
+		default: module.DashboardPlatformConnectionsPage,
+	})),
+);
 const NotFoundPage = lazy(async () =>
 	import("@/pages/not-found").then((module) => ({
 		default: module.NotFoundPage,
@@ -276,6 +281,10 @@ export function AppRoutes() {
 						<Route path="library/:id/edit" element={<DashboardLibraryEdit />} />
 						<Route path="team" element={<DashboardTeam />} />
 						<Route path="settings" element={<DashboardSettings />} />
+						<Route
+							path="settings/platforms"
+							element={<DashboardPlatformConnections />}
+						/>
 					</Route>
 
 					<Route path="/admin/login" element={<AdminLoginPage />} />

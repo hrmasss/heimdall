@@ -60,6 +60,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
+import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summary";
 import type {
 	ApiListResponse,
 	CalendarBacklogItem,
@@ -966,6 +967,7 @@ function CalendarCard({
 
 export function DashboardCalendar() {
 	const { activeWorkspaceId, customerRequest } = useAuth();
+	const { summary } = useSocialConnectionSummary();
 	const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
 	const [capabilities, setCapabilities] =
 		useState<ResourceCapabilityMatrix | null>(null);
@@ -1054,7 +1056,9 @@ export function DashboardCalendar() {
 			dragState.startScrollLeft - (event.clientX - dragState.startClientX);
 	}
 
-	function handleWeekHeaderPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+	function handleWeekHeaderPointerUp(
+		event: React.PointerEvent<HTMLDivElement>,
+	) {
 		const dragState = weekHeaderDragRef.current;
 		if (!dragState || dragState.pointerId !== event.pointerId) {
 			return;
@@ -2147,6 +2151,7 @@ export function DashboardCalendar() {
 				: `${formatDayHeader(currentWeek[0])} - ${formatDayHeader(
 						currentWeek.at(-1) ?? currentWeek[0],
 					)}`;
+	const setupNeeded = !summary.hasHealthySelectedTarget;
 
 	return (
 		<div className="space-y-6">
@@ -2206,6 +2211,15 @@ export function DashboardCalendar() {
 							<Button
 								variant="outline"
 								className="rounded-full bg-background/80"
+								asChild
+							>
+								<Link to="/dashboard/settings/platforms">
+									{setupNeeded ? "Connect platforms" : "Manage platforms"}
+								</Link>
+							</Button>
+							<Button
+								variant="outline"
+								className="rounded-full bg-background/80"
 								onClick={() => {
 									startTransition(() => setAnchorDate(startOfDay(new Date())));
 								}}
@@ -2222,6 +2236,33 @@ export function DashboardCalendar() {
 							</Button>
 						</div>
 					</div>
+
+					{setupNeeded ? (
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),rgba(255,255,255,0.82)] p-4">
+							<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+								<div>
+									<div className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--brand-accent)]">
+										Recommended before scheduling
+									</div>
+									<div className="mt-2 text-lg font-medium">
+										Connect platforms so calendar actions can post into real
+										destinations.
+									</div>
+									<div className="mt-2 max-w-3xl text-sm text-muted-foreground">
+										The calendar still helps you plan coverage and spot gaps
+										without setup. Platform connections are what let Heimdall
+										schedule on behalf of the workspace, validate selected
+										targets, and streamline publishing.
+									</div>
+								</div>
+								<Button className="rounded-full" asChild>
+									<Link to="/dashboard/settings/platforms">
+										Connect platforms
+									</Link>
+								</Button>
+							</div>
+						</div>
+					) : null}
 
 					<div className="space-y-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 shadow-[0_22px_44px_-36px_rgba(15,23,42,0.56)]">
 						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">

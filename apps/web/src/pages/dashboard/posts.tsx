@@ -6,6 +6,7 @@ import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
+import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summary";
 import type { ApiListResponse, PostSummary } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { normalizePostSummaries } from "@/lib/post-models";
@@ -90,9 +91,11 @@ const columns: DataTableColumn<PostSummary>[] = [
 export function DashboardPosts() {
 	const navigate = useNavigate();
 	const { activeWorkspaceId, customerRequest } = useAuth();
+	const { summary } = useSocialConnectionSummary();
 	const [posts, setPosts] = useState<PostSummary[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const setupNeeded = !summary.hasHealthySelectedTarget;
 
 	useEffect(() => {
 		if (!activeWorkspaceId) {
@@ -136,17 +139,45 @@ export function DashboardPosts() {
 				title="Posts"
 				description="Track generic posts, platform variants, approval state, and planned publication timing from one queue."
 				actions={
-					<Button
-						className="rounded-full bg-gradient-brand text-white border-0"
-						asChild
-					>
-						<Link to="/dashboard/posts/new">
-							<FilePlus2 className="size-4" />
-							New post
-						</Link>
-					</Button>
+					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/settings/platforms">
+								{setupNeeded ? "Connect platforms" : "Manage platforms"}
+							</Link>
+						</Button>
+						<Button
+							className="rounded-full bg-gradient-brand text-white border-0"
+							asChild
+						>
+							<Link to="/dashboard/posts/new">
+								<FilePlus2 className="size-4" />
+								New post
+							</Link>
+						</Button>
+					</>
 				}
 			/>
+
+			{setupNeeded ? (
+				<SurfaceCard className="rounded-[28px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,255,255,0.76))] p-5">
+					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+						<div>
+							<div className="text-lg font-medium">
+								Connect platforms to turn drafts into real scheduled or
+								published posts.
+							</div>
+							<div className="mt-2 text-sm text-muted-foreground">
+								Your team can already write, review, and plan here. Connection
+								setup is what lets Heimdall post on behalf of the workspace and
+								monitor those destinations more directly.
+							</div>
+						</div>
+						<Button className="rounded-full" asChild>
+							<Link to="/dashboard/settings/platforms">Connect now</Link>
+						</Button>
+					</div>
+				</SurfaceCard>
+			) : null}
 
 			<SurfaceCard className="p-5 md:p-6">
 				<DataTable
@@ -193,7 +224,7 @@ export function DashboardPosts() {
 					emptyState={{
 						title: "No posts yet",
 						description:
-							"Create a generic post, then add platform variants and asset plans from the editor.",
+							"Create a generic post, then add platform variants and asset plans from the editor. Platform connections are recommended when you want Heimdall to publish or schedule on your behalf.",
 						actionLabel: "Create post",
 						onAction: () => navigate("/dashboard/posts/new"),
 					}}
