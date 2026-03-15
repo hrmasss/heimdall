@@ -53,6 +53,7 @@ func NewService(db *bun.DB, cfg config.SocialConfig, authorizer WorkspaceAuthori
 		newMetaAdapter(cfg),
 		newLinkedInAdapter(cfg),
 		newXAdapter(cfg),
+		newTikTokAdapter(cfg),
 	} {
 		service.adapters[adapter.Provider()] = adapter
 	}
@@ -64,7 +65,7 @@ func (s *Service) ListProviderAvailability(ctx context.Context, principal *iam.P
 		return nil, err
 	}
 
-	providers := []string{"meta", "linkedin", "x"}
+	providers := []string{"meta", "linkedin", "x", "tiktok"}
 	items := make([]ProviderAvailability, 0, len(providers))
 	for _, provider := range providers {
 		adapter, ok := s.adapters[provider]
@@ -97,7 +98,7 @@ func (s *Service) ListAppCredentials(ctx context.Context, principal *iam.Princip
 	}
 
 	records := make([]AppCredentialRecord, 0, 6)
-	for _, provider := range []string{"meta", "linkedin", "x"} {
+	for _, provider := range []string{"meta", "linkedin", "x", "tiktok"} {
 		if managed, ok := managedProviderCredential(s.cfg, provider); ok {
 			records = append(records, AppCredentialRecord{
 				ID:             fmt.Sprintf("managed:%s", provider),
@@ -464,6 +465,7 @@ func (s *Service) PreviewVariantPublishability(ctx context.Context, principal *i
 	targetRecord := mapSocialTarget(*target)
 	preview.Target = &targetRecord
 	preview.CapabilitySnapshot = parseJSONMap(target.CapabilitySnapshot)
+	content := buildPublishContent(*variant, PublishVariantInput{})
 	if !targetMatchesPlatform(*target, variant.Platform) {
 		preview.Issues = append(preview.Issues, posts.ReadinessIssue{
 			Code:    "target_platform_mismatch",
@@ -477,10 +479,35 @@ func (s *Service) PreviewVariantPublishability(ctx context.Context, principal *i
 		})
 	}
 	if !surfaceAllowed(preview.CapabilitySnapshot, variant.Surface) {
+		message := "This account cannot publish the selected surface with the current permissions."
+		if target.Provider == "tiktok" && variant.Surface == "photo_post" {
+			message = "TikTok photo posting requires Heimdall-managed app credentials in MVP."
+		}
 		preview.Issues = append(preview.Issues, posts.ReadinessIssue{
 			Code:    "surface_not_allowed",
-			Message: "This account cannot publish the selected surface with the current permissions.",
+			Message: message,
 		})
+	}
+	if builder, ok := s.adapters[target.Provider].(previewMetadataBuilder); ok {
+		connection, err := s.findConnection(ctx, workspaceID, target.ConnectionID)
+		if err != nil {
+			return nil, err
+		}
+		session, err := s.providerSessionFromConnection(*connection)
+		if err != nil {
+			return nil, err
+		}
+		assets, err := s.loadAssetBlobs(ctx, variant.EffectiveAssets)
+		if err != nil {
+			return nil, err
+		}
+		metadata, issues, warnings, err := builder.BuildPreviewMetadata(ctx, session, *target, content, assets)
+		if err != nil {
+			return nil, err
+		}
+		preview.PublicationMetadata = metadata
+		preview.Issues = append(preview.Issues, issues...)
+		preview.Warnings = append(preview.Warnings, warnings...)
 	}
 	preview.Ready = len(preview.Issues) == 0
 	return preview, nil
@@ -532,7 +559,7 @@ func (s *Service) PublishVariant(ctx context.Context, principal *iam.Principal, 
 	if err != nil {
 		return nil, err
 	}
-	content := buildPublishContent(*variant)
+	content := buildPublishContent(*variant, input)
 	assets, err := s.loadAssetBlobs(ctx, variant.EffectiveAssets)
 	if err != nil {
 		return nil, err
@@ -569,6 +596,19 @@ func (s *Service) PublishVariant(ctx context.Context, principal *iam.Principal, 
 	metadata := parseJSONMap(publication.Metadata)
 	metadata["publishResult"] = result.Metadata
 	metadata["capabilitySnapshot"] = preview.CapabilitySnapshot
+	if preview.PublicationMetadata != nil {
+		metadata["publicationMetadata"] = preview.PublicationMetadata
+	}
+	if input.TikTok != nil {
+		metadata["tiktokOptions"] = map[string]any{
+			"privacyLevel":   strings.TrimSpace(input.TikTok.PrivacyLevel),
+			"allowComment":   valueOrNil(input.TikTok.AllowComment),
+			"allowDuet":      valueOrNil(input.TikTok.AllowDuet),
+			"allowStitch":    valueOrNil(input.TikTok.AllowStitch),
+			"brandContent":   valueOrNil(input.TikTok.BrandContent),
+			"brandedContent": valueOrNil(input.TikTok.BrandedContent),
+		}
+	}
 	if externalPostURL := stringValue(result.Metadata["externalPostUrl"]); externalPostURL != "" {
 		metadata["externalPostUrl"] = externalPostURL
 	}
@@ -685,10 +725,13 @@ func (s *Service) SyncPublicationMetrics(ctx context.Context, principal *iam.Pri
 		metadata[key] = value
 	}
 	publication.Metadata = marshalMustJSON(metadata)
+	if externalPostID := stringValue(result.Metadata["externalPostId"]); externalPostID != "" {
+		publication.ExternalPostID = &externalPostID
+	}
 	publication.UpdatedAt = now
 	if _, err := s.db.NewUpdate().
 		Model(publication).
-		Column("metadata", "updated_at").
+		Column("external_post_id", "metadata", "updated_at").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
@@ -1117,7 +1160,7 @@ func (s *Service) ensureMetricDefinition(ctx context.Context, code, platform, su
 	return row, nil
 }
 
-func buildPublishContent(variant posts.PostVariant) publishContent {
+func buildPublishContent(variant posts.PostVariant, input PublishVariantInput) publishContent {
 	content := publishContent{
 		ContentKind: variant.ContentKind,
 		Content:     variant.ContentPayload,
@@ -1126,6 +1169,7 @@ func buildPublishContent(variant posts.PostVariant) publishContent {
 		Caption:     textBody(variant.ContentPayload),
 		Title:       stringValue(variant.ContentPayload["title"]),
 		Body:        textBody(variant.ContentPayload),
+		TikTok:      input.TikTok,
 	}
 	if parsed, err := uuid.Parse(variant.ID); err == nil {
 		content.VariantID = parsed
@@ -1283,6 +1327,21 @@ func parseJSONStringSlice(value string) []string {
 		return []string{}
 	}
 	return out
+}
+
+func parseJSONAnyMap(value any) map[string]any {
+	typed, ok := value.(map[string]any)
+	if !ok || typed == nil {
+		return map[string]any{}
+	}
+	return typed
+}
+
+func valueOrNil(value *bool) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func marshalJSON(value any) (string, error) {

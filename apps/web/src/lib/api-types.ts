@@ -310,6 +310,15 @@ export type PublishabilityPreview = {
 	publicationMetadata?: Record<string, unknown>;
 };
 
+export type TikTokPublishOptions = {
+	privacyLevel?: string;
+	allowComment?: boolean;
+	allowDuet?: boolean;
+	allowStitch?: boolean;
+	brandContent?: boolean;
+	brandedContent?: boolean;
+};
+
 export type SyncMetricsResult = {
 	publicationId: string;
 	variantId: string;

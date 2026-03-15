@@ -122,9 +122,19 @@ type PublishabilityPreview struct {
 	PublicationMetadata map[string]any         `json:"publicationMetadata,omitempty"`
 }
 
+type TikTokPublishOptions struct {
+	PrivacyLevel   string `json:"privacyLevel,omitempty"`
+	AllowComment   *bool  `json:"allowComment,omitempty"`
+	AllowDuet      *bool  `json:"allowDuet,omitempty"`
+	AllowStitch    *bool  `json:"allowStitch,omitempty"`
+	BrandContent   *bool  `json:"brandContent,omitempty"`
+	BrandedContent *bool  `json:"brandedContent,omitempty"`
+}
+
 type PublishVariantInput struct {
 	SocialTargetID *uuid.UUID
 	Source         string
+	TikTok         *TikTokPublishOptions
 }
 
 type SyncMetricsResult struct {
@@ -208,6 +218,7 @@ type publishContent struct {
 	ThreadItems []string
 	Title       string
 	Body        string
+	TikTok      *TikTokPublishOptions
 }
 
 type publishResult struct {
@@ -233,4 +244,8 @@ type providerAdapter interface {
 	ValidateTargetCapabilities(ctx context.Context, session providerSession, target database.SocialTarget) (*validateResult, error)
 	PublishPost(ctx context.Context, session providerSession, target database.SocialTarget, content publishContent, assets []assetBlob) (*publishResult, error)
 	GetPostMetrics(ctx context.Context, session providerSession, target database.SocialTarget, publication database.PostVariantPublication) (*metricResult, error)
+}
+
+type previewMetadataBuilder interface {
+	BuildPreviewMetadata(ctx context.Context, session providerSession, target database.SocialTarget, content publishContent, assets []assetBlob) (map[string]any, []posts.ReadinessIssue, []posts.ReadinessIssue, error)
 }

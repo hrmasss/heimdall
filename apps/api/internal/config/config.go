@@ -68,6 +68,8 @@ type SocialConfig struct {
 	LinkedInVersion      string
 	XClientID            string
 	XClientSecret        string
+	TikTokClientKey      string
+	TikTokClientSecret   string
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -122,6 +124,8 @@ func Load() *Config {
 			LinkedInVersion:      getEnv("LINKEDIN_VERSION", "202503"),
 			XClientID:            getEnv("X_CLIENT_ID", ""),
 			XClientSecret:        getEnv("X_CLIENT_SECRET", ""),
+			TikTokClientKey:      getEnv("TIKTOK_CLIENT_KEY", ""),
+			TikTokClientSecret:   getEnv("TIKTOK_CLIENT_SECRET", ""),
 		},
 		Bootstrap: BootstrapConfig{
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),

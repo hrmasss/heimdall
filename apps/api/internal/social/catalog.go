@@ -88,6 +88,16 @@ func managedProviderCredential(cfg config.SocialConfig, provider string) (provid
 			ClientID:     cfg.XClientID,
 			ClientSecret: cfg.XClientSecret,
 		}, true
+	case "tiktok":
+		if strings.TrimSpace(cfg.TikTokClientKey) == "" || strings.TrimSpace(cfg.TikTokClientSecret) == "" {
+			return providerCredential{}, false
+		}
+		return providerCredential{
+			Provider:     provider,
+			Source:       credentialSourceManaged,
+			ClientID:     cfg.TikTokClientKey,
+			ClientSecret: cfg.TikTokClientSecret,
+		}, true
 	default:
 		return providerCredential{}, false
 	}

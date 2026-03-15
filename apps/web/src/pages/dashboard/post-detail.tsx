@@ -19,6 +19,7 @@ import {
 	LoaderCircle,
 	PencilLine,
 	Plus,
+	RefreshCw,
 	Send,
 	Trash2,
 	XCircle,
@@ -36,6 +37,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
@@ -43,9 +52,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
 	PostDetail,
+	PublishabilityPreview,
 	PostVariant,
 	ReadinessIssue,
 	ReviewRecord,
+	SocialConnectionsResponse,
+	SocialTargetRecord,
+	TikTokPublishOptions,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { normalizePostDetail } from "@/lib/post-models";
@@ -64,6 +77,19 @@ type ResolvedContent = {
 	payload: Record<string, unknown>;
 	sourceLabel: string;
 	sourceTab: string;
+};
+
+type TikTokPreviewConfig = {
+	creatorAvatarUrl?: string;
+	creatorNickname?: string;
+	creatorUsername?: string;
+	privacyLevels: string[];
+	maxVideoDurationSec?: number;
+	commentAllowed: boolean;
+	duetAllowed: boolean;
+	stitchAllowed: boolean;
+	isSelfOnly: boolean;
+	credentialSource?: string;
 };
 
 const DEFAULT_HOUR = 9;
@@ -217,6 +243,83 @@ function parseDateTimeValue(value?: string) {
 	}
 	const date = new Date(value);
 	return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function targetMatchesVariantPlatform(
+	target: SocialTargetRecord,
+	platform: string,
+) {
+	if (target.provider === platform) {
+		return true;
+	}
+	if (target.provider !== "meta") {
+		return false;
+	}
+	if (platform === "facebook") {
+		return target.targetType === "facebook_page";
+	}
+	if (platform === "instagram") {
+		return target.targetType === "instagram_professional";
+	}
+	return false;
+}
+
+function extractTikTokPreviewConfig(
+	preview?: PublishabilityPreview | null,
+): TikTokPreviewConfig | null {
+	const payload = preview?.publicationMetadata?.tiktok;
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const source = payload as Record<string, unknown>;
+	return {
+		creatorAvatarUrl:
+			typeof source.creatorAvatarUrl === "string"
+				? source.creatorAvatarUrl
+				: undefined,
+		creatorNickname:
+			typeof source.creatorNickname === "string"
+				? source.creatorNickname
+				: undefined,
+		creatorUsername:
+			typeof source.creatorUsername === "string"
+				? source.creatorUsername
+				: undefined,
+		privacyLevels: Array.isArray(source.privacyLevels)
+			? source.privacyLevels.filter(
+					(value): value is string => typeof value === "string",
+				)
+			: [],
+		maxVideoDurationSec:
+			typeof source.maxVideoDurationSec === "number"
+				? source.maxVideoDurationSec
+				: undefined,
+		commentAllowed: source.commentAllowed !== false,
+		duetAllowed: source.duetAllowed !== false,
+		stitchAllowed: source.stitchAllowed !== false,
+		isSelfOnly: source.isSelfOnly === true,
+		credentialSource:
+			typeof source.credentialSource === "string"
+				? source.credentialSource
+				: undefined,
+	};
+}
+
+function defaultTikTokDraftFromPreview(
+	preview?: PublishabilityPreview | null,
+): TikTokPublishOptions {
+	const config = extractTikTokPreviewConfig(preview);
+	const defaultPrivacy = config?.privacyLevels.includes("SELF_ONLY")
+		? "SELF_ONLY"
+		: config?.privacyLevels[0];
+	return {
+		privacyLevel: defaultPrivacy,
+		allowComment: config?.commentAllowed ?? true,
+		allowDuet: config?.duetAllowed ?? true,
+		allowStitch: config?.stitchAllowed ?? true,
+		brandContent: false,
+		brandedContent: false,
+	};
 }
 
 function padNumber(value: number) {
@@ -694,6 +797,220 @@ function ActionBlockers({
 	);
 }
 
+function TikTokPublishPanel({
+	variant,
+	target,
+	preview,
+	draft,
+	busyKey,
+	saving,
+	onRefresh,
+	onPublish,
+	onChange,
+}: {
+	variant: PostVariant;
+	target: SocialTargetRecord | null;
+	preview: PublishabilityPreview | null;
+	draft: TikTokPublishOptions;
+	busyKey: string | null;
+	saving: boolean;
+	onRefresh: () => void;
+	onPublish: () => void;
+	onChange: (patch: Partial<TikTokPublishOptions>) => void;
+}) {
+	const config = extractTikTokPreviewConfig(preview);
+	const issues = summarizeIssues(preview?.issues ?? []);
+	const warnings = summarizeIssues(preview?.warnings ?? []);
+	const previewBusy = busyKey === `preview:${variant.id}`;
+	const publishBusy = busyKey === `publish:${variant.id}`;
+	const canPublish =
+		Boolean(target) &&
+		Boolean(preview?.ready) &&
+		!previewBusy &&
+		!publishBusy &&
+		!saving;
+
+	return (
+		<SurfaceCard tone="muted" className="space-y-4 p-5">
+			<div className="flex items-start justify-between gap-3">
+				<div>
+					<div className="text-sm font-medium">Publish to TikTok</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						Preview creator restrictions, choose privacy, then send this
+						variant through TikTok’s direct-post flow.
+					</div>
+				</div>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="rounded-full"
+					onClick={onRefresh}
+					disabled={!target || previewBusy || publishBusy}
+				>
+					{previewBusy ? (
+						<LoaderCircle className="size-4 animate-spin" />
+					) : (
+						<RefreshCw className="size-4" />
+					)}
+					Refresh checks
+				</Button>
+			</div>
+
+			{target ? (
+				<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+					<div className="font-medium">{target.displayName}</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						{target.username ? `@${target.username} • ` : ""}
+						{target.targetType.replaceAll("_", " ")}
+						{config?.credentialSource
+							? ` • ${config.credentialSource === "managed" ? "Managed app" : "Workspace BYOK"}`
+							: ""}
+					</div>
+				</div>
+			) : (
+				<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/40 p-4 text-sm text-muted-foreground">
+					Select a TikTok connection in workspace settings before publishing from
+					this page.
+				</div>
+			)}
+
+			{config ? (
+				<div className="grid gap-4 md:grid-cols-2">
+					<div className="space-y-2">
+						<Label>Privacy level</Label>
+						<Select
+							value={draft.privacyLevel ?? config.privacyLevels[0] ?? "SELF_ONLY"}
+							onValueChange={(value) => onChange({ privacyLevel: value })}
+						>
+							<SelectTrigger className="h-11 rounded-2xl px-4">
+								<SelectValue placeholder="Select privacy" />
+							</SelectTrigger>
+							<SelectContent>
+								{config.privacyLevels.map((value) => (
+									<SelectItem key={value} value={value}>
+										{value}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						{config.isSelfOnly ? (
+							<div className="text-xs text-muted-foreground">
+								This app is currently restricted to private `SELF_ONLY`
+								publishing.
+							</div>
+						) : null}
+					</div>
+					<div className="space-y-2 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/50 p-4 text-sm">
+						<div className="font-medium">Creator info</div>
+						<div className="text-muted-foreground">
+							{config.creatorNickname ?? target?.displayName ?? "TikTok creator"}
+							{config.creatorUsername ? ` (@${config.creatorUsername})` : ""}
+						</div>
+						<div className="text-muted-foreground">
+							Max video duration:{" "}
+							{config.maxVideoDurationSec
+								? `${config.maxVideoDurationSec} seconds`
+								: "Not reported"}
+						</div>
+					</div>
+				</div>
+			) : null}
+
+			{config ? (
+				<div className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/50 p-4">
+					<div className="text-sm font-medium">Post options</div>
+					<div className="flex items-center justify-between gap-3">
+						<div className="text-sm">Allow comments</div>
+						<Switch
+							checked={draft.allowComment ?? config.commentAllowed}
+							onCheckedChange={(checked) => onChange({ allowComment: checked })}
+							disabled={!config.commentAllowed}
+						/>
+					</div>
+					{variant.surface === "video_post" ? (
+						<div className="flex items-center justify-between gap-3">
+							<div className="text-sm">Allow duet</div>
+							<Switch
+								checked={draft.allowDuet ?? config.duetAllowed}
+								onCheckedChange={(checked) => onChange({ allowDuet: checked })}
+								disabled={!config.duetAllowed}
+							/>
+						</div>
+					) : null}
+					{variant.surface === "video_post" ? (
+						<div className="flex items-center justify-between gap-3">
+							<div className="text-sm">Allow stitch</div>
+							<Switch
+								checked={draft.allowStitch ?? config.stitchAllowed}
+								onCheckedChange={(checked) => onChange({ allowStitch: checked })}
+								disabled={!config.stitchAllowed}
+							/>
+						</div>
+					) : null}
+					<div className="flex items-center justify-between gap-3">
+						<div className="text-sm">Brand content</div>
+						<Switch
+							checked={draft.brandContent ?? false}
+							onCheckedChange={(checked) => onChange({ brandContent: checked })}
+						/>
+					</div>
+					<div className="flex items-center justify-between gap-3">
+						<div className="text-sm">Branded content</div>
+						<Switch
+							checked={draft.brandedContent ?? false}
+							onCheckedChange={(checked) =>
+								onChange({ brandedContent: checked })
+							}
+						/>
+					</div>
+				</div>
+			) : null}
+
+			{issues.length > 0 ? (
+				<div className="rounded-[20px] border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-200">
+					<div className="mb-2 font-medium">TikTok publish blockers</div>
+					<div className="space-y-2">
+						{issues.map((issue) => (
+							<div key={`${issue.code}:${issue.message}`}>{issue.message}</div>
+						))}
+					</div>
+				</div>
+			) : null}
+			{warnings.length > 0 ? (
+				<div className="rounded-[20px] border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-200">
+					<div className="mb-2 font-medium">TikTok notes</div>
+					<div className="space-y-2">
+						{warnings.map((issue) => (
+							<div key={`${issue.code}:${issue.message}`}>{issue.message}</div>
+						))}
+					</div>
+				</div>
+			) : null}
+
+			<div className="flex flex-wrap items-center gap-2">
+				<Button
+					type="button"
+					className="rounded-full"
+					onClick={onPublish}
+					disabled={!canPublish}
+				>
+					{publishBusy ? (
+						<LoaderCircle className="size-4 animate-spin" />
+					) : (
+						<Send className="size-4" />
+					)}
+					Publish to TikTok
+				</Button>
+				<div className="text-xs text-muted-foreground">
+					Accepted by TikTok first, then promoted to a public post link once
+					TikTok finishes processing and the post is publicly visible.
+				</div>
+			</div>
+		</SurfaceCard>
+	);
+}
+
 function ReviewTimeline({ reviews }: { reviews: ReviewRecord[] }) {
 	if (reviews.length === 0) {
 		return (
@@ -721,8 +1038,16 @@ export function DashboardPostDetailPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [post, setPost] = useState<PostDetail | null>(null);
+	const [socialTargets, setSocialTargets] = useState<SocialTargetRecord[]>([]);
+	const [socialPreviews, setSocialPreviews] = useState<
+		Record<string, PublishabilityPreview | null>
+	>({});
+	const [tikTokDrafts, setTikTokDrafts] = useState<
+		Record<string, TikTokPublishOptions>
+	>({});
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [socialBusyKey, setSocialBusyKey] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [dataWarning, setDataWarning] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState("shared");
@@ -740,9 +1065,13 @@ export function DashboardPostDetailPage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const response = await customerRequest<PostDetail>(`/posts/${id}`);
-			const normalized = normalizePostDetail(response);
+			const [postResponse, socialResponse] = await Promise.all([
+				customerRequest<PostDetail>(`/posts/${id}`),
+				customerRequest<SocialConnectionsResponse>("/social/connections"),
+			]);
+			const normalized = normalizePostDetail(postResponse);
 			setPost(normalized.value);
+			setSocialTargets(socialResponse.targets);
 			setDataWarning(
 				normalized.coerced
 					? "Some post data was incomplete and has been safely normalized for display."
@@ -766,6 +1095,7 @@ export function DashboardPostDetailPage() {
 					: "Unable to load this post.",
 			);
 			setPost(null);
+			setSocialTargets([]);
 			setDataWarning(null);
 		} finally {
 			setLoading(false);
@@ -812,11 +1142,103 @@ export function DashboardPostDetailPage() {
 			post?.variants.find((variant) => variant.platform === activeTab) ?? null,
 		[activeTab, post?.variants],
 	);
-
 	const currentEditHref =
 		activeTab === "shared"
 			? `/dashboard/posts/${id}/edit`
 			: `/dashboard/posts/${id}/edit?tab=${activeTab}`;
+	const selectedTargetForVariant = useCallback(
+		(variant: PostVariant) =>
+			socialTargets.find(
+				(target) =>
+					target.isSelected &&
+					targetMatchesVariantPlatform(target, variant.platform),
+			) ?? null,
+		[socialTargets],
+	);
+	const activeSelectedTarget = useMemo(
+		() => (activeVariant ? selectedTargetForVariant(activeVariant) : null),
+		[activeVariant, selectedTargetForVariant],
+	);
+
+	const updateTikTokDraft = useCallback(
+		(variantId: string, patch: Partial<TikTokPublishOptions>) => {
+			setTikTokDrafts((current) => ({
+				...current,
+				[variantId]: {
+					...(current[variantId] ?? {}),
+					...patch,
+				},
+			}));
+		},
+		[],
+	);
+
+	const loadSocialPreview = useCallback(
+		async (variant: PostVariant, target: SocialTargetRecord) => {
+			setSocialBusyKey(`preview:${variant.id}`);
+			try {
+				const preview = await customerRequest<PublishabilityPreview>(
+					`/social/variants/${variant.id}/preview`,
+					{
+						method: "POST",
+						body: { socialTargetId: target.id },
+					},
+				);
+				setSocialPreviews((current) => ({
+					...current,
+					[variant.id]: preview,
+				}));
+				setTikTokDrafts((current) => ({
+					...current,
+					[variant.id]: {
+						...defaultTikTokDraftFromPreview(preview),
+						...(current[variant.id] ?? {}),
+					},
+				}));
+				return preview;
+			} finally {
+				setSocialBusyKey(null);
+			}
+		},
+		[customerRequest],
+	);
+
+	async function publishVariantToSocial(
+		variant: PostVariant,
+		target: SocialTargetRecord,
+	) {
+		setSaving(true);
+		setError(null);
+		setSocialBusyKey(`publish:${variant.id}`);
+		try {
+			const body: Record<string, unknown> = {
+				socialTargetId: target.id,
+				source: "social_api",
+			};
+			if (variant.platform === "tiktok") {
+				body.tiktok = tikTokDrafts[variant.id] ?? defaultTikTokDraftFromPreview(
+					socialPreviews[variant.id],
+				);
+			}
+			await customerRequest(`/social/variants/${variant.id}/publish`, {
+				method: "POST",
+				body,
+			});
+			await loadPost();
+			if (variant.platform === "tiktok") {
+				await loadSocialPreview(variant, target);
+			}
+		} catch (publishError) {
+			setError(
+				publishError instanceof Error
+					? publishError.message
+					: "Unable to publish this variant to social.",
+			);
+		} finally {
+			setSocialBusyKey(null);
+			setSaving(false);
+		}
+	}
 
 	function updateVariantPlannedAt(variantId: string, plannedAt?: string) {
 		setPost((current) =>
@@ -853,6 +1275,17 @@ export function DashboardPostDetailPage() {
 				: current,
 		);
 	}
+
+	useEffect(() => {
+		if (!activeVariant || activeVariant.platform !== "tiktok" || !activeSelectedTarget) {
+			return;
+		}
+		const existing = socialPreviews[activeVariant.id];
+		if (existing?.target?.id === activeSelectedTarget.id) {
+			return;
+		}
+		void loadSocialPreview(activeVariant, activeSelectedTarget);
+	}, [activeSelectedTarget, activeVariant, loadSocialPreview, socialPreviews]);
 
 	function setPlannedAt(
 		variant: PostVariant,
@@ -1338,6 +1771,15 @@ export function DashboardPostDetailPage() {
 										resolvedContent.kind,
 										resolvedContent.payload,
 									).toLowerCase();
+									const selectedSocialTarget =
+										selectedTargetForVariant(variant);
+									const variantSocialPreview =
+										variant.platform === "tiktok"
+											? socialPreviews[variant.id] ?? null
+											: null;
+									const tikTokDraft =
+										tikTokDrafts[variant.id] ??
+										defaultTikTokDraftFromPreview(variantSocialPreview);
 									const sharedTagsPresent = sharedTags.filter((tag) =>
 										contentText.includes(formatTagLabel(tag).toLowerCase()),
 									);
@@ -1592,10 +2034,10 @@ export function DashboardPostDetailPage() {
 																		</Button>
 																	</div>
 																	<div className="text-xs text-muted-foreground">
-																		Published variants no longer need review or
-																		scheduling controls. Use the link above to
-																		inspect the live post and refresh KPIs after
-																		new interactions.
+																		{variant.platform === "tiktok" &&
+																		!variant.latestPublication?.externalPostUrl
+																			? "TikTok has accepted this publish request. A public link appears after processing finishes and the post becomes publicly visible."
+																			: "Published variants no longer need review or scheduling controls. Use the link above to inspect the live post and refresh KPIs after new interactions."}
 																	</div>
 																</div>
 															) : (
@@ -1816,21 +2258,23 @@ export function DashboardPostDetailPage() {
 																		>
 																			Unschedule
 																		</Button>
-																		<Button
-																			type="button"
-																			variant="outline"
-																			className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
-																			onClick={() =>
-																				void runVariantAction(variant, "record")
-																			}
-																			disabled={
-																				saving ||
-																				variant.readiness.publishBlockers.length >
-																					0
-																			}
-																		>
-																			Record as published
-																		</Button>
+																		{variant.platform !== "tiktok" ? (
+																			<Button
+																				type="button"
+																				variant="outline"
+																				className="h-10 rounded-full border-fuchsia-500/20 bg-fuchsia-500/10 px-4 text-fuchsia-800 hover:bg-fuchsia-500/15 hover:text-fuchsia-900 dark:text-fuchsia-100 dark:hover:text-fuchsia-50"
+																				onClick={() =>
+																					void runVariantAction(variant, "record")
+																				}
+																				disabled={
+																					saving ||
+																					variant.readiness.publishBlockers.length >
+																						0
+																				}
+																			>
+																				Record as published
+																			</Button>
+																		) : null}
 																	</div>
 
 																	<ActionBlockers
@@ -1841,6 +2285,37 @@ export function DashboardPostDetailPage() {
 																			variant.readiness.publishBlockers
 																		}
 																	/>
+																	{variant.platform === "tiktok" ? (
+																		<TikTokPublishPanel
+																			variant={variant}
+																			target={selectedSocialTarget}
+																			preview={variantSocialPreview}
+																			draft={tikTokDraft}
+																			busyKey={socialBusyKey}
+																			saving={saving}
+																			onRefresh={() => {
+																				if (!selectedSocialTarget) {
+																					return;
+																				}
+																				void loadSocialPreview(
+																					variant,
+																					selectedSocialTarget,
+																				);
+																			}}
+																			onPublish={() => {
+																				if (!selectedSocialTarget) {
+																					return;
+																				}
+																				void publishVariantToSocial(
+																					variant,
+																					selectedSocialTarget,
+																				);
+																			}}
+																			onChange={(patch) =>
+																				updateTikTokDraft(variant.id, patch)
+																			}
+																		/>
+																	) : null}
 																</>
 															)}
 														</SurfaceCard>

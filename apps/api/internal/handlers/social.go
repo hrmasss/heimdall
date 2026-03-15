@@ -219,13 +219,14 @@ func (h *AppHandler) publishSocialVariant(c fiber.Ctx) error {
 		return h.writeError(c, iam.ErrValidation)
 	}
 	var body struct {
-		SocialTargetID string `json:"socialTargetId"`
-		Source         string `json:"source"`
+		SocialTargetID string                       `json:"socialTargetId"`
+		Source         string                       `json:"source"`
+		TikTok         *social.TikTokPublishOptions `json:"tiktok"`
 	}
 	if err := c.Bind().JSON(&body); err != nil && !strings.Contains(err.Error(), "EOF") {
 		return h.writeError(c, iam.ErrValidation)
 	}
-	input := social.PublishVariantInput{Source: body.Source}
+	input := social.PublishVariantInput{Source: body.Source, TikTok: body.TikTok}
 	if strings.TrimSpace(body.SocialTargetID) != "" {
 		parsed, err := uuid.Parse(body.SocialTargetID)
 		if err != nil {

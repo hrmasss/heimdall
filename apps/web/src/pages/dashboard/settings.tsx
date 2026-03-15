@@ -389,7 +389,7 @@ export function DashboardSettings() {
 
 			<DashboardPanel
 				title="Social connections"
-				description="Connect Meta, LinkedIn, and X using Heimdall-managed OAuth or workspace-level BYOK credentials. Targets stay validated and can be rechecked on demand."
+				description="Connect Meta, LinkedIn, TikTok, and X using Heimdall-managed OAuth or workspace-level BYOK credentials. Targets stay validated and can be rechecked on demand."
 			>
 				<div className="grid gap-4 xl:grid-cols-3">
 					{providers.map((provider) => {
@@ -469,7 +469,9 @@ export function DashboardSettings() {
 									<div className="mt-3 grid gap-3">
 										<div className="space-y-2">
 											<Label htmlFor={`${provider.provider}-client-id`}>
-												Client ID
+												{provider.provider === "tiktok"
+													? "Client key"
+													: "Client ID"}
 											</Label>
 											<Input
 												id={`${provider.provider}-client-id`}
