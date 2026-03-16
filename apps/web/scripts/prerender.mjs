@@ -48,7 +48,7 @@ function buildHeadTags(seo, siteUrl) {
 
 function getOutputPath(routePath) {
 	if (routePath === "/") {
-		return path.join(distDir, "index.html");
+		return path.join(distDir, "home", "index.html");
 	}
 
 	return path.join(distDir, routePath.slice(1), "index.html");

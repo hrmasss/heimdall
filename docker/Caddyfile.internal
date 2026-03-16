@@ -29,7 +29,12 @@ http://heimdall.social, http://www.heimdall.social {
 	}
 	redir @marketing_to_app https://app.heimdall.social{uri} 302
 
+	@marketing_home {
+		path /
+	}
+
 	root * /srv/heimdall/web/dist
+	rewrite @marketing_home /home/
 	try_files {path} {path}/ /index.html
 	file_server
 }
