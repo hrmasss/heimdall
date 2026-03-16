@@ -431,7 +431,7 @@ export function DashboardPlatformConnectionsPage() {
 								key={provider.provider}
 								className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] p-0"
 							>
-								<div className="border-b border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,255,255,0.66))] p-5">
+								<div className="border-b border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,255,255,0.66))] p-5 dark:bg-[linear-gradient(180deg,rgba(41,30,23,0.94),rgba(28,21,17,0.82))]">
 									<div className="flex items-start justify-between gap-4">
 										<div className="space-y-2">
 											<div className="flex items-center gap-3 text-lg font-medium">

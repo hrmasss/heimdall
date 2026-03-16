@@ -33,11 +33,31 @@ import type {
 import { useAuth } from "@/lib/auth-context";
 
 const paidChannelOptions = [
-	"meta_ads",
-	"google_ads",
-	"linkedin_ads",
-	"tiktok_ads",
-	"other",
+	{
+		value: "meta_ads",
+		label: "Meta Ads",
+		description: "Facebook and Instagram campaigns",
+	},
+	{
+		value: "google_ads",
+		label: "Google Ads",
+		description: "Search, display, and YouTube campaigns",
+	},
+	{
+		value: "linkedin_ads",
+		label: "LinkedIn Ads",
+		description: "Sponsored posts and B2B campaigns",
+	},
+	{
+		value: "tiktok_ads",
+		label: "TikTok Ads",
+		description: "Short-form video promotions",
+	},
+	{
+		value: "other",
+		label: "Other",
+		description: "Any paid channel not listed above",
+	},
 ] as const;
 
 function formatMoneyInput(value?: number) {
@@ -433,14 +453,20 @@ export function DashboardCampaignFormPage() {
 						<Label>Paid channels</Label>
 						<div className="grid gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 md:grid-cols-2">
 							{paidChannelOptions.map((channel) => (
-								<div key={channel} className="flex items-center gap-3">
+								<div key={channel.value} className="flex items-start gap-3">
 									<Checkbox
-										checked={paidChannels.includes(channel)}
+										checked={paidChannels.includes(channel.value)}
 										onCheckedChange={(checked) =>
-											togglePaidChannel(channel, Boolean(checked))
+											togglePaidChannel(channel.value, Boolean(checked))
 										}
+										className="mt-0.5"
 									/>
-									<span className="text-sm font-medium">{channel}</span>
+									<div className="space-y-1">
+										<div className="text-sm font-medium">{channel.label}</div>
+										<div className="text-xs text-muted-foreground">
+											{channel.description}
+										</div>
+									</div>
 								</div>
 							))}
 						</div>
