@@ -299,7 +299,7 @@ type CampaignLink struct {
 	Name      string `json:"name"`
 	Status    string `json:"status"`
 	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
+	EndDate   string `json:"endDate,omitempty"`
 }
 
 type CalendarCampaignEntry struct {
@@ -307,7 +307,7 @@ type CalendarCampaignEntry struct {
 	Name      string `json:"name"`
 	Status    string `json:"status"`
 	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
+	EndDate   string `json:"endDate,omitempty"`
 	PostCount int    `json:"postCount"`
 }
 
@@ -1661,7 +1661,7 @@ func (s *Service) loadCampaignLinksByID(ctx context.Context, workspaceID uuid.UU
 			Name:      record.Name,
 			Status:    record.Status,
 			StartDate: formatDate(record.StartDate),
-			EndDate:   formatDate(record.EndDate),
+			EndDate:   formatDatePtr(record.EndDate),
 		}
 	}
 	return result, nil
@@ -1675,7 +1675,9 @@ func (s *Service) loadCampaignsOverlappingRange(ctx context.Context, workspaceID
 		Model(&records).
 		Where("workspace_id = ?", workspaceID).
 		Where("start_date <= ?", endDate).
-		Where("end_date >= ?", startDate).
+		WhereGroup(" AND ", func(query *bun.SelectQuery) *bun.SelectQuery {
+			return query.Where("end_date IS NULL").WhereOr("end_date >= ?", startDate)
+		}).
 		OrderExpr("start_date ASC, end_date ASC, name ASC").
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -2584,7 +2586,7 @@ func buildCalendarCampaignEntries(campaigns []database.Campaign, details []PostD
 			Name:      campaign.Name,
 			Status:    campaign.Status,
 			StartDate: formatDate(campaign.StartDate),
-			EndDate:   formatDate(campaign.EndDate),
+			EndDate:   formatDatePtr(campaign.EndDate),
 			PostCount: postCounts[campaign.ID.String()],
 		})
 	}
@@ -2675,6 +2677,13 @@ func normalizeDate(value time.Time) time.Time {
 
 func formatDate(value time.Time) string {
 	return normalizeDate(value).Format("2006-01-02")
+}
+
+func formatDatePtr(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return ""
+	}
+	return formatDate(*value)
 }
 
 func calendarExcerpt(

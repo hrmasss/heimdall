@@ -34,6 +34,7 @@ import { ResourceChipList } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCampaignWindowLabel } from "@/lib/campaigns";
 import {
 	HoverCard,
 	HoverCardContent,
@@ -437,7 +438,7 @@ function CalendarCampaignStrip({
 							campaignBadgeClassName(campaign.status),
 						)}
 					>
-						{campaign.name} · {campaign.startDate} to {campaign.endDate}
+						{campaign.name} · {formatCampaignWindowLabel(campaign)}
 					</Link>
 				))}
 			</div>

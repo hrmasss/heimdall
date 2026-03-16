@@ -1513,8 +1513,149 @@ components:
           type: string
           format: date
         endDate:
-          type: string
+          type:
+            - string
+            - "null"
           format: date
+    CampaignDeliveryTarget:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        socialTargetId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        displayName:
+          type: string
+        username:
+          type: string
+        targetType:
+          type: string
+        status:
+          type: string
+        isSelected:
+          type: boolean
+    CampaignScheduleRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        socialTargetId:
+          type: string
+          format: uuid
+        enabled:
+          type: boolean
+        cadenceType:
+          type: string
+          enum:
+            - daily_interval
+            - weekly
+        interval:
+          type: integer
+          minimum: 1
+        weekdays:
+          type: array
+          items:
+            type: string
+            enum:
+              - mon
+              - tue
+              - wed
+              - thu
+              - fri
+              - sat
+              - sun
+        timesLocal:
+          type: array
+          items:
+            type: string
+            pattern: ^(?:[01]\d|2[0-3]):[0-5]\d$
+        startDate:
+          type:
+            - string
+            - "null"
+          format: date
+        endDate:
+          type:
+            - string
+            - "null"
+          format: date
+        summary:
+          type: string
+    CampaignAutomationReadiness:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        issues:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    CampaignDeliveryTargetInput:
+      type: object
+      properties:
+        socialTargetId:
+          type: string
+          format: uuid
+      required:
+        - socialTargetId
+    CampaignScheduleRuleInput:
+      type: object
+      properties:
+        socialTargetId:
+          type: string
+          format: uuid
+        enabled:
+          type: boolean
+        cadenceType:
+          type: string
+          enum:
+            - daily_interval
+            - weekly
+        interval:
+          type: integer
+          minimum: 1
+        weekdays:
+          type: array
+          items:
+            type: string
+            enum:
+              - mon
+              - tue
+              - wed
+              - thu
+              - fri
+              - sat
+              - sun
+        timesLocal:
+          type: array
+          items:
+            type: string
+            pattern: ^(?:[01]\d|2[0-3]):[0-5]\d$
+        startDate:
+          type:
+            - string
+            - "null"
+          format: date
+        endDate:
+          type:
+            - string
+            - "null"
+          format: date
+      required:
+        - socialTargetId
+        - cadenceType
+        - interval
+        - weekdays
+        - timesLocal
     CampaignSummary:
       type: object
       properties:
@@ -1538,8 +1679,12 @@ components:
           type: string
           format: date
         endDate:
-          type: string
+          type:
+            - string
+            - "null"
           format: date
+        defaultTimezone:
+          type: string
         notes:
           type: string
         primaryMetricLabel:
@@ -1564,6 +1709,12 @@ components:
           type: string
         postCount:
           type: integer
+        deliveryTargetCount:
+          type: integer
+        scheduleRuleCount:
+          type: integer
+        automationReadiness:
+          $ref: "#/components/schemas/CampaignAutomationReadiness"
         createdAt:
           type: string
           format: date-time
@@ -1575,6 +1726,14 @@ components:
         - $ref: "#/components/schemas/CampaignSummary"
         - type: object
           properties:
+            deliveryTargets:
+              type: array
+              items:
+                $ref: "#/components/schemas/CampaignDeliveryTarget"
+            scheduleRules:
+              type: array
+              items:
+                $ref: "#/components/schemas/CampaignScheduleRule"
             linkedPosts:
               type: array
               items:
@@ -1585,6 +1744,9 @@ components:
                 $ref: "#/components/schemas/MetricSnapshotItem"
     CampaignUpsert:
       type: object
+      required:
+        - name
+        - startDate
       properties:
         status:
           type: string
@@ -1600,8 +1762,12 @@ components:
           type: string
           format: date
         endDate:
-          type: string
+          type:
+            - string
+            - "null"
           format: date
+        defaultTimezone:
+          type: string
         notes:
           type: string
         primaryMetricLabel:
@@ -1629,6 +1795,14 @@ components:
           items:
             type: string
             format: uuid
+        deliveryTargets:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignDeliveryTargetInput"
+        scheduleRules:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignScheduleRuleInput"
     CampaignListResponse:
       type: object
       properties:

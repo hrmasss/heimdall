@@ -1,7 +1,9 @@
 import {
+	AlertTriangle,
 	ArrowLeft,
 	BadgeDollarSign,
 	CalendarRange,
+	Clock3,
 	Link2,
 	Megaphone,
 	PencilLine,
@@ -17,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CampaignDetail } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { formatCampaignWindowLabel } from "@/lib/campaigns";
+import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
 
 function formatCurrency(campaign: CampaignDetail, cents?: number) {
 	if (cents === undefined) {
@@ -45,6 +49,33 @@ function statusClassName(value: CampaignDetail["status"]) {
 		default:
 			return "pill pill-info";
 	}
+}
+
+function formatMetricTarget(campaign: CampaignDetail) {
+	if (!campaign.primaryMetricLabel) {
+		return "Not set";
+	}
+	const pieces = [campaign.primaryMetricLabel];
+	if (campaign.primaryMetricTarget !== undefined) {
+		pieces.push(campaign.primaryMetricTarget.toLocaleString());
+	}
+	if (campaign.primaryMetricUnit) {
+		pieces.push(campaign.primaryMetricUnit);
+	}
+	return pieces.join(" · ");
+}
+
+function formatRuleWindow(rule: Pick<CampaignDetail["scheduleRules"][number], "startDate" | "endDate">) {
+	if (rule.startDate && rule.endDate) {
+		return `${rule.startDate} to ${rule.endDate}`;
+	}
+	if (rule.startDate) {
+		return `Starts ${rule.startDate}`;
+	}
+	if (rule.endDate) {
+		return `Until ${rule.endDate}`;
+	}
+	return "Uses campaign window";
 }
 
 function SummaryCard({
@@ -90,9 +121,7 @@ export function DashboardCampaignDetailPage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const response = await customerRequest<CampaignDetail>(
-				`/campaigns/${id}`,
-			);
+			const response = await customerRequest<CampaignDetail>(`/campaigns/${id}`);
 			setCampaign(response);
 		} catch (loadError) {
 			setError(
@@ -134,7 +163,7 @@ export function DashboardCampaignDetailPage() {
 			<DashboardPageHeader
 				eyebrow="Campaign planning"
 				title={campaign?.name ?? "Campaign detail"}
-				description="Inspect the campaign brief, timing, linked post work, and manual paid-tracking context in one place."
+				description="Inspect the brief, delivery setup, cadence intent, linked post work, and paid-tracking context in one place."
 				actions={
 					<>
 						<Button variant="outline" className="rounded-full" asChild>
@@ -189,7 +218,20 @@ export function DashboardCampaignDetailPage() {
 										{campaign.postCount} linked posts
 									</Badge>
 									<Badge variant="outline" className="rounded-full">
-										{campaign.startDate} to {campaign.endDate}
+										{campaign.deliveryTargetCount} delivery target
+										{campaign.deliveryTargetCount === 1 ? "" : "s"}
+									</Badge>
+									<Badge variant="outline" className="rounded-full">
+										{campaign.scheduleRuleCount} cadence rule
+										{campaign.scheduleRuleCount === 1 ? "" : "s"}
+									</Badge>
+									<Badge variant="outline" className="rounded-full">
+										{formatCampaignWindowLabel(campaign)}
+									</Badge>
+									<Badge variant="outline" className="rounded-full">
+										{campaign.automationReadiness.ready
+											? "Automation ready"
+											: "Automation needs setup"}
 									</Badge>
 								</div>
 								<div className="max-w-3xl text-sm text-muted-foreground">
@@ -244,11 +286,114 @@ export function DashboardCampaignDetailPage() {
 							<SurfaceCard className="p-5 md:p-6">
 								<div className="space-y-1">
 									<h2 className="text-lg font-semibold tracking-tight">
+										Delivery targets
+									</h2>
+									<p className="text-sm text-muted-foreground">
+										These exact connected targets are attached to the campaign
+										for future workflow-based automation.
+									</p>
+								</div>
+								<div className="mt-5 space-y-3">
+									{campaign.deliveryTargets.length === 0 ? (
+										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+											No delivery targets configured yet.
+										</div>
+									) : (
+										campaign.deliveryTargets.map((target) => (
+											<div
+												key={target.id}
+												className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+											>
+												<div className="flex flex-wrap items-center justify-between gap-3">
+													<div className="flex min-w-0 items-center gap-3">
+														{platformIcon(target.provider)}
+														<div className="min-w-0">
+															<div className="font-medium">
+																{target.displayName}
+															</div>
+															<div className="mt-1 text-sm text-muted-foreground">
+																{formatPlatformLabel(target.provider)} ·{" "}
+																{target.targetType.replaceAll("_", " ")}
+																{target.username ? ` · @${target.username}` : ""}
+															</div>
+														</div>
+													</div>
+													<div className="flex flex-wrap gap-2">
+														<Badge variant="outline" className="rounded-full">
+															{target.status}
+														</Badge>
+														<Badge variant="outline" className="rounded-full">
+															{target.isSelected
+																? "Active target"
+																: "Not selected"}
+														</Badge>
+													</div>
+												</div>
+											</div>
+										))
+									)}
+								</div>
+							</SurfaceCard>
+
+							<SurfaceCard className="p-5 md:p-6">
+								<div className="space-y-1">
+									<h2 className="text-lg font-semibold tracking-tight">
+										Posting cadence
+									</h2>
+									<p className="text-sm text-muted-foreground">
+										Structured campaign-level schedule intent that future
+										automation can consume without changing current post-level
+										scheduling.
+									</p>
+								</div>
+								<div className="mt-5 space-y-3">
+									{campaign.scheduleRules.length === 0 ? (
+										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+											No cadence rules configured yet.
+										</div>
+									) : (
+										campaign.scheduleRules.map((rule) => {
+											const target = campaign.deliveryTargets.find(
+												(item) => item.socialTargetId === rule.socialTargetId,
+											);
+											return (
+												<div
+													key={rule.id}
+													className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+												>
+													<div className="flex flex-wrap items-start justify-between gap-3">
+														<div>
+															<div className="font-medium">
+																{target?.displayName ?? "Attached target"}
+															</div>
+															<div className="mt-1 text-sm text-muted-foreground">
+																{rule.summary}
+															</div>
+														</div>
+														<div className="flex flex-wrap gap-2">
+															<Badge variant="outline" className="rounded-full">
+																{rule.enabled ? "Enabled" : "Disabled"}
+															</Badge>
+															<Badge variant="outline" className="rounded-full">
+																{formatRuleWindow(rule)}
+															</Badge>
+														</div>
+													</div>
+												</div>
+											);
+										})
+									)}
+								</div>
+							</SurfaceCard>
+
+							<SurfaceCard className="p-5 md:p-6">
+								<div className="space-y-1">
+									<h2 className="text-lg font-semibold tracking-tight">
 										Linked posts
 									</h2>
 									<p className="text-sm text-muted-foreground">
-										These posts point back to this campaign and inherit the
-										backlink shown in post and calendar surfaces.
+										Optional manual posts already associated with this campaign.
+										Their existing scheduling behavior remains unchanged.
 									</p>
 								</div>
 								<div className="mt-5 space-y-3">
@@ -307,23 +452,22 @@ export function DashboardCampaignDetailPage() {
 							<SurfaceCard className="p-5">
 								<div className="flex items-center gap-2">
 									<CalendarRange className="size-4 text-primary" />
-									<div className="text-lg font-semibold">
-										Timing and targets
-									</div>
+									<div className="text-lg font-semibold">Timing and setup</div>
 								</div>
 								<div className="mt-4 space-y-3">
 									<SummaryCard
 										label="Window"
-										value={`${campaign.startDate} to ${campaign.endDate}`}
+										value={formatCampaignWindowLabel(campaign)}
 										icon={CalendarRange}
 									/>
 									<SummaryCard
+										label="Campaign timezone"
+										value={campaign.defaultTimezone}
+										icon={Clock3}
+									/>
+									<SummaryCard
 										label="Primary metric"
-										value={
-											campaign.primaryMetricLabel
-												? `${campaign.primaryMetricLabel}${campaign.primaryMetricTarget !== undefined ? ` · ${campaign.primaryMetricTarget.toLocaleString()}` : ""}${campaign.primaryMetricUnit ? ` ${campaign.primaryMetricUnit}` : ""}`
-												: "Not set"
-										}
+										value={formatMetricTarget(campaign)}
 										icon={Target}
 									/>
 									<SummaryCard
@@ -331,6 +475,50 @@ export function DashboardCampaignDetailPage() {
 										value={campaign.utmCampaign || "Not set"}
 										icon={Link2}
 									/>
+								</div>
+							</SurfaceCard>
+
+							<SurfaceCard className="p-5">
+								<div className="flex items-center gap-2">
+									<AlertTriangle className="size-4 text-primary" />
+									<div className="text-lg font-semibold">
+										Automation readiness
+									</div>
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									This checks whether the campaign has the core target and
+									cadence setup future workflows will expect.
+								</div>
+								<div className="mt-4 space-y-3">
+									<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm">
+										<span className={statusClassName(campaign.status)}>
+											{campaign.automationReadiness.ready
+												? "Ready"
+												: "Needs setup"}
+										</span>
+									</div>
+									{campaign.automationReadiness.issues.length === 0 ? (
+										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+											No blocking issues detected.
+										</div>
+									) : (
+										campaign.automationReadiness.issues.map((issue) => (
+											<div
+												key={issue}
+												className="rounded-[24px] border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900"
+											>
+												{issue}
+											</div>
+										))
+									)}
+									{campaign.automationReadiness.warnings.map((warning) => (
+										<div
+											key={warning}
+											className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground"
+										>
+											{warning}
+										</div>
+									))}
 								</div>
 							</SurfaceCard>
 

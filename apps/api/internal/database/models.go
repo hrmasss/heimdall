@@ -241,7 +241,8 @@ type Campaign struct {
 	TargetAudience         string     `bun:"target_audience,notnull"`
 	MessageTheme           string     `bun:"message_theme,notnull"`
 	StartDate              time.Time  `bun:"start_date,notnull,type:date"`
-	EndDate                time.Time  `bun:"end_date,notnull,type:date"`
+	EndDate                *time.Time `bun:"end_date,type:date"`
+	DefaultTimezone        string     `bun:"default_timezone,notnull"`
 	Notes                  string     `bun:"notes,notnull"`
 	PrimaryMetricLabel     string     `bun:"primary_metric_label,notnull"`
 	PrimaryMetricTarget    *float64   `bun:"primary_metric_target"`
@@ -256,6 +257,37 @@ type Campaign struct {
 	UpdatedByUserID        *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
 	CreatedAt              time.Time  `bun:"created_at,notnull"`
 	UpdatedAt              time.Time  `bun:"updated_at,notnull"`
+}
+
+type CampaignDeliveryTarget struct {
+	bun.BaseModel `bun:"table:campaign_delivery_targets"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	CampaignID      uuid.UUID  `bun:"campaign_id,notnull,type:uuid"`
+	SocialTargetID  uuid.UUID  `bun:"social_target_id,notnull,type:uuid"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type CampaignScheduleRule struct {
+	bun.BaseModel `bun:"table:campaign_schedule_rules"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	CampaignID      uuid.UUID  `bun:"campaign_id,notnull,type:uuid"`
+	SocialTargetID  uuid.UUID  `bun:"social_target_id,notnull,type:uuid"`
+	Enabled         bool       `bun:"enabled,notnull"`
+	CadenceType     string     `bun:"cadence_type,notnull"`
+	Interval        int        `bun:"interval,notnull"`
+	Weekdays        string     `bun:"weekdays,notnull"`
+	TimesLocal      string     `bun:"times_local,notnull"`
+	StartDate       *time.Time `bun:"start_date,type:date"`
+	EndDate         *time.Time `bun:"end_date,type:date"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
 }
 
 type Post struct {

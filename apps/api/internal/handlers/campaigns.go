@@ -119,6 +119,7 @@ func bindCampaignInput(c fiber.Ctx) (campaigns.UpsertCampaignInput, error) {
 		MessageTheme           string   `json:"messageTheme"`
 		StartDate              string   `json:"startDate"`
 		EndDate                string   `json:"endDate"`
+		DefaultTimezone        string   `json:"defaultTimezone"`
 		Notes                  string   `json:"notes"`
 		PrimaryMetricLabel     string   `json:"primaryMetricLabel"`
 		PrimaryMetricTarget    *float64 `json:"primaryMetricTarget"`
@@ -130,6 +131,19 @@ func bindCampaignInput(c fiber.Ctx) (campaigns.UpsertCampaignInput, error) {
 		UTMCampaign            string   `json:"utmCampaign"`
 		ExternalDashboardURL   string   `json:"externalDashboardUrl"`
 		PostIDs                []string `json:"postIds"`
+		DeliveryTargets        []struct {
+			SocialTargetID string `json:"socialTargetId"`
+		} `json:"deliveryTargets"`
+		ScheduleRules []struct {
+			SocialTargetID string   `json:"socialTargetId"`
+			Enabled        *bool    `json:"enabled"`
+			CadenceType    string   `json:"cadenceType"`
+			Interval       int      `json:"interval"`
+			Weekdays       []string `json:"weekdays"`
+			TimesLocal     []string `json:"timesLocal"`
+			StartDate      string   `json:"startDate"`
+			EndDate        string   `json:"endDate"`
+		} `json:"scheduleRules"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
 		return campaigns.UpsertCampaignInput{}, iam.ErrValidation
@@ -139,13 +153,54 @@ func bindCampaignInput(c fiber.Ctx) (campaigns.UpsertCampaignInput, error) {
 	if err != nil {
 		return campaigns.UpsertCampaignInput{}, err
 	}
-	endDate, err := parseDate(body.EndDate)
+	endDate, err := parseOptionalDate(body.EndDate)
 	if err != nil {
 		return campaigns.UpsertCampaignInput{}, err
 	}
 	postIDs, err := parseUUIDList(body.PostIDs)
 	if err != nil {
 		return campaigns.UpsertCampaignInput{}, err
+	}
+	deliveryTargets := make([]campaigns.CampaignDeliveryTargetInput, 0, len(body.DeliveryTargets))
+	for _, target := range body.DeliveryTargets {
+		if strings.TrimSpace(target.SocialTargetID) == "" {
+			return campaigns.UpsertCampaignInput{}, iam.ErrValidation
+		}
+		targetID, err := uuid.Parse(target.SocialTargetID)
+		if err != nil {
+			return campaigns.UpsertCampaignInput{}, iam.ErrValidation
+		}
+		deliveryTargets = append(deliveryTargets, campaigns.CampaignDeliveryTargetInput{
+			SocialTargetID: targetID,
+		})
+	}
+	scheduleRules := make([]campaigns.CampaignScheduleRuleInput, 0, len(body.ScheduleRules))
+	for _, rule := range body.ScheduleRules {
+		if strings.TrimSpace(rule.SocialTargetID) == "" {
+			return campaigns.UpsertCampaignInput{}, iam.ErrValidation
+		}
+		targetID, err := uuid.Parse(rule.SocialTargetID)
+		if err != nil {
+			return campaigns.UpsertCampaignInput{}, iam.ErrValidation
+		}
+		ruleStartDate, err := parseOptionalDate(rule.StartDate)
+		if err != nil {
+			return campaigns.UpsertCampaignInput{}, err
+		}
+		ruleEndDate, err := parseOptionalDate(rule.EndDate)
+		if err != nil {
+			return campaigns.UpsertCampaignInput{}, err
+		}
+		scheduleRules = append(scheduleRules, campaigns.CampaignScheduleRuleInput{
+			SocialTargetID: targetID,
+			Enabled:        rule.Enabled,
+			CadenceType:    rule.CadenceType,
+			Interval:       rule.Interval,
+			Weekdays:       rule.Weekdays,
+			TimesLocal:     rule.TimesLocal,
+			StartDate:      ruleStartDate,
+			EndDate:        ruleEndDate,
+		})
 	}
 
 	return campaigns.UpsertCampaignInput{
@@ -156,6 +211,7 @@ func bindCampaignInput(c fiber.Ctx) (campaigns.UpsertCampaignInput, error) {
 		MessageTheme:           body.MessageTheme,
 		StartDate:              startDate,
 		EndDate:                endDate,
+		DefaultTimezone:        body.DefaultTimezone,
 		Notes:                  body.Notes,
 		PrimaryMetricLabel:     body.PrimaryMetricLabel,
 		PrimaryMetricTarget:    body.PrimaryMetricTarget,
@@ -167,6 +223,8 @@ func bindCampaignInput(c fiber.Ctx) (campaigns.UpsertCampaignInput, error) {
 		UTMCampaign:            body.UTMCampaign,
 		ExternalDashboardURL:   body.ExternalDashboardURL,
 		PostIDs:                postIDs,
+		DeliveryTargets:        deliveryTargets,
+		ScheduleRules:          scheduleRules,
 	}, nil
 }
 
@@ -180,4 +238,16 @@ func parseDate(value string) (time.Time, error) {
 		return time.Time{}, iam.ErrValidation
 	}
 	return parsed, nil
+}
+
+func parseOptionalDate(value string) (*time.Time, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+	parsed, err := parseDate(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
 }

@@ -205,7 +205,37 @@ export type CampaignLink = {
 	name: string;
 	status: "draft" | "planned" | "active" | "completed" | "archived";
 	startDate: string;
-	endDate: string;
+	endDate?: string;
+};
+
+export type CampaignDeliveryTarget = {
+	id: string;
+	socialTargetId: string;
+	provider: string;
+	displayName: string;
+	username?: string;
+	targetType: string;
+	status: string;
+	isSelected: boolean;
+};
+
+export type CampaignScheduleRule = {
+	id: string;
+	socialTargetId: string;
+	enabled: boolean;
+	cadenceType: "daily_interval" | "weekly";
+	interval: number;
+	weekdays: string[];
+	timesLocal: string[];
+	startDate?: string;
+	endDate?: string;
+	summary: string;
+};
+
+export type CampaignAutomationReadiness = {
+	ready: boolean;
+	issues: string[];
+	warnings: string[];
 };
 
 export type CampaignSummary = {
@@ -217,7 +247,8 @@ export type CampaignSummary = {
 	targetAudience?: string;
 	messageTheme?: string;
 	startDate: string;
-	endDate: string;
+	endDate?: string;
+	defaultTimezone: string;
 	notes?: string;
 	primaryMetricLabel?: string;
 	primaryMetricTarget?: number;
@@ -229,11 +260,16 @@ export type CampaignSummary = {
 	utmCampaign?: string;
 	externalDashboardUrl?: string;
 	postCount: number;
+	deliveryTargetCount: number;
+	scheduleRuleCount: number;
+	automationReadiness: CampaignAutomationReadiness;
 	createdAt: string;
 	updatedAt: string;
 };
 
 export type CampaignDetail = CampaignSummary & {
+	deliveryTargets: CampaignDeliveryTarget[];
+	scheduleRules: CampaignScheduleRule[];
 	linkedPosts: PostSummary[];
 	metricSnapshot: MetricSnapshotItem[];
 };
@@ -243,7 +279,7 @@ export type CalendarCampaignEntry = {
 	name: string;
 	status: CampaignLink["status"];
 	startDate: string;
-	endDate: string;
+	endDate?: string;
 	postCount: number;
 };
 

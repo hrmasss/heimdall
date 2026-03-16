@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ApiListResponse, CampaignSummary } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { formatCampaignWindowLabel } from "@/lib/campaigns";
 
 function statusClassName(value: CampaignSummary["status"]) {
 	switch (value) {
@@ -25,7 +26,7 @@ function statusClassName(value: CampaignSummary["status"]) {
 }
 
 function formatDateRange(campaign: CampaignSummary) {
-	return `${campaign.startDate} - ${campaign.endDate}`;
+	return formatCampaignWindowLabel(campaign);
 }
 
 function formatMetricTarget(campaign: CampaignSummary) {
@@ -54,6 +55,17 @@ function formatPaidSummary(campaign: CampaignSummary) {
 		);
 	}
 	return parts.length > 0 ? parts.join(" · ") : "No paid tracking";
+}
+
+function formatSetupSummary(campaign: CampaignSummary) {
+	const parts = [
+		`${campaign.deliveryTargetCount} target${campaign.deliveryTargetCount === 1 ? "" : "s"}`,
+		`${campaign.scheduleRuleCount} rule${campaign.scheduleRuleCount === 1 ? "" : "s"}`,
+	];
+	if (!campaign.automationReadiness.ready && campaign.automationReadiness.issues.length > 0) {
+		parts.push("Needs setup");
+	}
+	return parts.join(" · ");
 }
 
 const columns: DataTableColumn<CampaignSummary>[] = [
@@ -93,6 +105,13 @@ const columns: DataTableColumn<CampaignSummary>[] = [
 		width: 140,
 		accessor: (row) => row.postCount.toLocaleString(),
 		getSortValue: (row) => row.postCount,
+	},
+	{
+		id: "setup",
+		label: "Automation setup",
+		width: 220,
+		accessor: (row) => formatSetupSummary(row),
+		getSortValue: (row) => row.scheduleRuleCount,
 	},
 	{
 		id: "metric",
@@ -239,13 +258,16 @@ export function DashboardCampaigns() {
 									{row.postCount} posts
 								</Badge>
 							</div>
-							<div className="text-sm text-muted-foreground">
-								{formatDateRange(row)}
-							</div>
-							<div className="text-sm text-muted-foreground">
-								{formatPaidSummary(row)}
-							</div>
-						</div>
+				<div className="text-sm text-muted-foreground">
+					{formatDateRange(row)}
+				</div>
+				<div className="text-sm text-muted-foreground">
+					{formatSetupSummary(row)}
+				</div>
+				<div className="text-sm text-muted-foreground">
+					{formatPaidSummary(row)}
+				</div>
+			</div>
 					)}
 				/>
 			</SurfaceCard>
