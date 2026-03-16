@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import {
 	Tooltip,
@@ -9,10 +9,16 @@ import {
 export function SidebarTooltip({
 	disabled,
 	label,
+	side = "right",
+	align = "center",
+	sideOffset = 12,
 	children,
 }: {
 	disabled?: boolean;
 	label: ReactNode;
+	side?: ComponentProps<typeof TooltipContent>["side"];
+	align?: ComponentProps<typeof TooltipContent>["align"];
+	sideOffset?: number;
 	children: ReactNode;
 }) {
 	if (disabled) {
@@ -22,7 +28,7 @@ export function SidebarTooltip({
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>{children}</TooltipTrigger>
-			<TooltipContent side="right" align="center" sideOffset={12}>
+			<TooltipContent side={side} align={align} sideOffset={sideOffset}>
 				{label}
 			</TooltipContent>
 		</Tooltip>

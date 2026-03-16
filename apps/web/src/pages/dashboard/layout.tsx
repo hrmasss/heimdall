@@ -24,6 +24,7 @@ import { AlertInbox } from "@/components/app/alert-inbox";
 import { getDashboardBreadcrumbs } from "@/components/app/dashboard-context";
 import { MiraAssistant } from "@/components/app/mira-assistant";
 import { SearchCommand } from "@/components/app/search-command";
+import { SidebarTooltip } from "@/components/app/sidebar-tooltip";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import {
@@ -42,6 +43,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +61,7 @@ const navigation = [
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
+const dashboardSidebarStorageKey = "dashboard-sidebar-collapsed";
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
 	return (
@@ -144,7 +147,16 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 						sidebarTransitionClass,
 						compact && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 					)}
-					aria-label={compact ? activeWorkspace.workspaceName : undefined}
+					aria-label={
+						compact
+							? `Switch workspace: ${activeWorkspace.workspaceName}`
+							: undefined
+					}
+					title={
+						compact
+							? `Switch workspace: ${activeWorkspace.workspaceName}`
+							: undefined
+					}
 				>
 					<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 						{activeWorkspace.workspaceName[0]}
@@ -269,29 +281,34 @@ function Sidebar({
 									: location.pathname.startsWith(item.href);
 
 							return (
-								<Link
+								<SidebarTooltip
 									key={item.href}
-									to={item.href}
-									onClick={onClose}
-									aria-label={collapsed ? item.label : undefined}
-									className={cn(
-										"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
-										sidebarTransitionClass,
-										active
-											? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
-											: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-										collapsed &&
-											"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-									)}
+									disabled={!collapsed}
+									label={item.label}
 								>
-									<item.icon className="size-5 shrink-0" />
-									<SidebarCopy
-										collapsed={collapsed}
-										className="whitespace-nowrap"
+									<Link
+										to={item.href}
+										onClick={onClose}
+										aria-label={collapsed ? item.label : undefined}
+										className={cn(
+											"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+											sidebarTransitionClass,
+											active
+												? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
+												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+											collapsed &&
+												"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+										)}
 									>
-										<span>{item.label}</span>
-									</SidebarCopy>
-								</Link>
+										<item.icon className="size-5 shrink-0" />
+										<SidebarCopy
+											collapsed={collapsed}
+											className="whitespace-nowrap"
+										>
+											<span>{item.label}</span>
+										</SidebarCopy>
+									</Link>
+								</SidebarTooltip>
 							);
 						})}
 					</nav>
@@ -308,6 +325,7 @@ function Sidebar({
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
 									aria-label={collapsed ? currentUser.fullName : undefined}
+									title={collapsed ? currentUser.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
 										{currentUser.fullName
@@ -420,6 +438,7 @@ function TopBar({
 						className="lg:hidden"
 						onClick={onOpenMobile}
 						aria-label="Open sidebar"
+						title="Open sidebar"
 					>
 						<Menu className="size-4" />
 					</Button>
@@ -429,6 +448,7 @@ function TopBar({
 						className="hidden lg:inline-flex"
 						onClick={onToggleSidebar}
 						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
 						{collapsed ? (
 							<PanelLeftOpen className="size-4" />
@@ -518,7 +538,10 @@ function TopBar({
 }
 
 export function DashboardLayout() {
-	const [collapsed, setCollapsed] = useState(false);
+	const [collapsed, setCollapsed] = useLocalStorageState<boolean>(
+		dashboardSidebarStorageKey,
+		true,
+	);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();

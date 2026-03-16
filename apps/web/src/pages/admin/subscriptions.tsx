@@ -284,6 +284,7 @@ export function AdminSubscriptions() {
         <DataTable
           title="Subscription ledger"
           description="Filter by status or plan, sort commercial risk, and switch between billing list and customer cards."
+          storageKey="admin-subscriptions-table"
           rows={subscriptions}
           columns={columns}
           getRowId={(sub) => sub.id}

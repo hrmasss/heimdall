@@ -423,6 +423,7 @@ export function AdminUsers() {
         <DataTable
           title="All users"
           description="Review platform staff, client users, workspace footprint, and account state from one directory."
+          storageKey="admin-users-table"
           rows={users}
           columns={columns}
           getRowId={(record) => record.user.id}

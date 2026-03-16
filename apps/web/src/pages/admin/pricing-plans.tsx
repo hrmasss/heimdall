@@ -376,6 +376,7 @@ export function AdminPricingPlans() {
         <DataTable
           title="Plan catalog"
           description="Search plans, compare price and adoption, and move between operator list mode and storefront-style plan cards."
+          storageKey="admin-pricing-plans-table"
           rows={pricingPlans}
           columns={columns}
           getRowId={(plan) => plan.id}

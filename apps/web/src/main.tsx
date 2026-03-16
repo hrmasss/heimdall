@@ -3,6 +3,7 @@ import { hydrateRoot, createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 
 import { AppRoutes } from "@/app-routes";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 
 import "./index.css";
@@ -15,11 +16,13 @@ if (!root) {
 
 const app = (
   <StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <TooltipProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </TooltipProvider>
   </StrictMode>
 );
 

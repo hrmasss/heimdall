@@ -175,30 +175,53 @@ export function DataTable<T>({
 	gridCardClassName?: string;
 	onRowClick?: (row: T) => void;
 }) {
-	const [searchQuery, setSearchQuery] = useState("");
+	const defaultPageSize = pageSizeOptions[0] ?? 6;
 	const defaultSortColumn =
 		columns.find((column) => column.getSortValue)?.id ?? columns[0]?.id ?? "";
+	const defaultColumnOrder = columns.map((column) => column.id);
+	const defaultColumnWidths = Object.fromEntries(
+		columns.map((column) => [column.id, column.width ?? 180]),
+	);
+	const defaultFilterValues = Object.fromEntries(
+		filters.map((filter) => [filter.id, "all"]),
+	);
+	const [searchQuery, setSearchQuery] = useLocalStorageState(
+		storageKey ? `${storageKey}:search` : null,
+		"",
+	);
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const [activeView, setActiveView] = useLocalStorageState<"list" | "grid">(
 		storageKey ? `${storageKey}:view` : null,
 		initialView,
 	);
-	const [pageSize, setPageSize] = useState(pageSizeOptions[0] ?? 6);
+	const [pageSize, setPageSize] = useLocalStorageState<number>(
+		storageKey ? `${storageKey}:page-size` : null,
+		defaultPageSize,
+	);
 	const [currentPage, setCurrentPage] = useState(1);
-	const [sortColumnId, setSortColumnId] = useState(defaultSortColumn);
-	const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-	const [columnOrder, setColumnOrder] = useState(
-		columns.map((column) => column.id),
+	const [sortState, setSortState] = useLocalStorageState<{
+		columnId: string;
+		direction: "asc" | "desc";
+	}>(storageKey ? `${storageKey}:sort` : null, {
+		columnId: defaultSortColumn,
+		direction: "asc",
+	});
+	const [columnOrder, setColumnOrder] = useLocalStorageState<string[]>(
+		storageKey ? `${storageKey}:column-order` : null,
+		defaultColumnOrder,
 	);
 	const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
-	const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
-		Object.fromEntries(
-			columns.map((column) => [column.id, column.width ?? 180]),
-		),
+	const [columnWidths, setColumnWidths] = useLocalStorageState<
+		Record<string, number>
+	>(storageKey ? `${storageKey}:column-widths` : null, defaultColumnWidths);
+	const [filterValues, setFilterValues] = useLocalStorageState<
+		Record<string, string>
+	>(
+		storageKey ? `${storageKey}:filters` : null,
+		defaultFilterValues,
 	);
-	const [filterValues, setFilterValues] = useState<Record<string, string>>(
-		Object.fromEntries(filters.map((filter) => [filter.id, "all"])),
-	);
+	const sortColumnId = sortState.columnId;
+	const sortDirection = sortState.direction;
 
 	const resolvedSearchQuery = deferredSearchQuery.trim().toLowerCase();
 	const orderedColumns = columnOrder
@@ -258,6 +281,79 @@ export function DataTable<T>({
 	}, [currentPage, totalPages]);
 
 	useEffect(() => {
+		if (!pageSizeOptions.includes(pageSize)) {
+			setPageSize(defaultPageSize);
+		}
+	}, [defaultPageSize, pageSize, pageSizeOptions, setPageSize]);
+
+	useEffect(() => {
+		const hasValidSortColumn = columns.some(
+			(column) =>
+				column.id === sortColumnId &&
+				(Boolean(column.getSortValue) || column.id === defaultSortColumn),
+		);
+		if (!hasValidSortColumn) {
+			setSortState({ columnId: defaultSortColumn, direction: "asc" });
+		}
+	}, [columns, defaultSortColumn, setSortState, sortColumnId]);
+
+	useEffect(() => {
+		setColumnOrder((current) => {
+			const deduped = current.filter(
+				(columnId, index) => current.indexOf(columnId) === index,
+			);
+			const known = deduped.filter((columnId) =>
+				defaultColumnOrder.includes(columnId),
+			);
+			const missing = defaultColumnOrder.filter(
+				(columnId) => !known.includes(columnId),
+			);
+			if (
+				known.length === current.length &&
+				missing.length === 0 &&
+				known.every((columnId, index) => columnId === current[index])
+			) {
+				return current;
+			}
+			return [...known, ...missing];
+		});
+	}, [defaultColumnOrder, setColumnOrder]);
+
+	useEffect(() => {
+		setColumnWidths((current) => {
+			const next = Object.fromEntries(
+				columns.map((column) => [
+					column.id,
+					current[column.id] ?? column.width ?? 180,
+				]),
+			);
+			const changed =
+				Object.keys(current).length !== Object.keys(next).length ||
+				Object.entries(next).some(([columnId, width]) => current[columnId] !== width);
+			return changed ? next : current;
+		});
+	}, [columns, setColumnWidths]);
+
+	useEffect(() => {
+		setFilterValues((current) => {
+			const next = Object.fromEntries(
+				filters.map((filter) => {
+					const value = current[filter.id];
+					const isValidValue =
+						value === undefined ||
+						value === "all" ||
+						filter.options.some((option) => option.value === value);
+					return [filter.id, isValidValue ? (value ?? "all") : "all"];
+				}),
+			);
+			const changed =
+				Object.keys(current).length !== Object.keys(next).length ||
+				Object.entries(next).some(([filterId, value]) => current[filterId] !== value);
+			return changed ? next : current;
+		});
+	}, [filters, setFilterValues]);
+
+	useEffect(() => {
 		if (
 			typeof window === "undefined" ||
 			!window.matchMedia("(max-width: 767px)").matches
@@ -280,12 +376,14 @@ export function DataTable<T>({
 		}
 
 		if (sortColumnId === columnId) {
-			setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+			setSortState((current) => ({
+				...current,
+				direction: current.direction === "asc" ? "desc" : "asc",
+			}));
 			return;
 		}
 
-		setSortColumnId(columnId);
-		setSortDirection("asc");
+		setSortState({ columnId, direction: "asc" });
 	}
 
 	function reorderColumns(targetColumnId: string) {
@@ -340,13 +438,13 @@ export function DataTable<T>({
 
 	function resetControls() {
 		setSearchQuery("");
-		setFilterValues(
-			Object.fromEntries(filters.map((filter) => [filter.id, "all"])),
-		);
-		setSortColumnId(defaultSortColumn);
-		setSortDirection("asc");
+		setFilterValues(defaultFilterValues);
+		setSortState({ columnId: defaultSortColumn, direction: "asc" });
 		setCurrentPage(1);
 		setActiveView(initialView);
+		setPageSize(defaultPageSize);
+		setColumnOrder(defaultColumnOrder);
+		setColumnWidths(defaultColumnWidths);
 	}
 
 	function PaginationBar() {
@@ -360,10 +458,10 @@ export function DataTable<T>({
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<span>Rows</span>
-						<Select
-							value={String(pageSize)}
-							onValueChange={(value) => {
-								setPageSize(Number(value));
+							<Select
+								value={String(pageSize)}
+								onValueChange={(value) => {
+									setPageSize(Number(value));
 								setCurrentPage(1);
 							}}
 						>
@@ -491,8 +589,10 @@ export function DataTable<T>({
 									options={sortOptions}
 									onValueChange={(nextValue) => {
 										const [columnId, direction] = nextValue.split(":");
-										setSortColumnId(columnId);
-										setSortDirection(direction as "asc" | "desc");
+										setSortState({
+											columnId,
+											direction: direction as "asc" | "desc",
+										});
 									}}
 								/>
 							) : null}
@@ -514,6 +614,7 @@ export function DataTable<T>({
 								size="sm"
 								className="rounded-full"
 								onClick={() => setActiveView("list")}
+								title="Switch to list view"
 							>
 								<List className="size-4" />
 								List
@@ -523,6 +624,7 @@ export function DataTable<T>({
 								size="sm"
 								className="rounded-full"
 								onClick={() => setActiveView("grid")}
+								title="Switch to grid view"
 							>
 								<LayoutGrid className="size-4" />
 								Grid

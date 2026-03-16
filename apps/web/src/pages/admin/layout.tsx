@@ -25,6 +25,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { AlertInbox } from "@/components/app/alert-inbox";
 import { MiraAssistant } from "@/components/app/mira-assistant";
 import { SearchCommand } from "@/components/app/search-command";
+import { SidebarTooltip } from "@/components/app/sidebar-tooltip";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Logo } from "@/components/logo";
 import {
@@ -43,6 +44,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +61,7 @@ const adminNavigation = [
 
 const sidebarTransitionClass =
 	"duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-0";
+const adminSidebarStorageKey = "admin-sidebar-collapsed";
 
 function AdminSidebarBrand({ collapsed }: { collapsed: boolean }) {
 	return (
@@ -206,6 +209,7 @@ function AdminSidebar({
 								sidebarTransitionClass,
 								collapsed && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 							)}
+							title={collapsed ? "Admin Portal" : undefined}
 						>
 							<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-sm font-semibold text-white">
 								<ShieldCheck className="size-5" />
@@ -232,29 +236,34 @@ function AdminSidebar({
 									: location.pathname.startsWith(item.href);
 
 							return (
-								<Link
+								<SidebarTooltip
 									key={item.href}
-									to={item.href}
-									onClick={onClose}
-									aria-label={collapsed ? item.label : undefined}
-									className={cn(
-										"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
-										sidebarTransitionClass,
-										active
-											? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_14px_30px_-18px_rgba(245,158,11,0.5)]"
-											: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-										collapsed &&
-											"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-									)}
+									disabled={!collapsed}
+									label={item.label}
 								>
-									<item.icon className="size-5 shrink-0" />
-									<SidebarCopy
-										collapsed={collapsed}
-										className="whitespace-nowrap"
+									<Link
+										to={item.href}
+										onClick={onClose}
+										aria-label={collapsed ? item.label : undefined}
+										className={cn(
+											"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+											sidebarTransitionClass,
+											active
+												? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_14px_30px_-18px_rgba(245,158,11,0.5)]"
+												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+											collapsed &&
+												"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+										)}
 									>
-										<span>{item.label}</span>
-									</SidebarCopy>
-								</Link>
+										<item.icon className="size-5 shrink-0" />
+										<SidebarCopy
+											collapsed={collapsed}
+											className="whitespace-nowrap"
+										>
+											<span>{item.label}</span>
+										</SidebarCopy>
+									</Link>
+								</SidebarTooltip>
 							);
 						})}
 					</nav>
@@ -291,6 +300,7 @@ function AdminSidebar({
 											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
 									)}
 									aria-label={collapsed ? currentAdmin.fullName : undefined}
+									title={collapsed ? currentAdmin.fullName : undefined}
 								>
 									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-sm font-semibold text-white">
 										{currentAdmin.fullName
@@ -435,6 +445,7 @@ function AdminTopBar({
 						className="lg:hidden"
 						onClick={onOpenMobile}
 						aria-label="Open sidebar"
+						title="Open sidebar"
 					>
 						<Menu className="size-4" />
 					</Button>
@@ -444,6 +455,7 @@ function AdminTopBar({
 						className="hidden lg:inline-flex"
 						onClick={onToggleSidebar}
 						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+						title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
 						{collapsed ? (
 							<PanelLeftOpen className="size-4" />
@@ -533,7 +545,10 @@ function AdminTopBar({
 }
 
 export function AdminLayout() {
-	const [collapsed, setCollapsed] = useState(false);
+	const [collapsed, setCollapsed] = useLocalStorageState<boolean>(
+		adminSidebarStorageKey,
+		true,
+	);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const location = useLocation();
