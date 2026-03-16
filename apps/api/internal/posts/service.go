@@ -47,6 +47,7 @@ type UpsertPostInput struct {
 	ContentPayload   map[string]any
 	OriginPlatform   string
 	OriginSurface    string
+	CampaignID       *uuid.UUID
 	RequiresApproval bool
 	Notes            string
 }
@@ -200,6 +201,7 @@ type PostSummary struct {
 	WorkspaceID               string               `json:"workspaceId"`
 	Title                     string               `json:"title"`
 	ContentKind               string               `json:"contentKind"`
+	Campaign                  *CampaignLink        `json:"campaign,omitempty"`
 	OriginPlatform            string               `json:"originPlatform,omitempty"`
 	OriginSurface             string               `json:"originSurface,omitempty"`
 	RequiresApproval          bool                 `json:"requiresApproval"`
@@ -245,6 +247,7 @@ type CalendarEntry struct {
 	VariantID        string           `json:"variantId"`
 	PostID           string           `json:"postId"`
 	Title            string           `json:"title"`
+	Campaign         *CampaignLink    `json:"campaign,omitempty"`
 	Platform         string           `json:"platform"`
 	Surface          string           `json:"surface"`
 	PlannedAt        string           `json:"plannedAt"`
@@ -266,6 +269,7 @@ type CalendarBacklogItem struct {
 	VariantID        string           `json:"variantId"`
 	PostID           string           `json:"postId"`
 	Title            string           `json:"title"`
+	Campaign         *CampaignLink    `json:"campaign,omitempty"`
 	Platform         string           `json:"platform"`
 	Surface          string           `json:"surface"`
 	PlanningState    string           `json:"planningState"`
@@ -283,10 +287,28 @@ type CalendarBacklogItem struct {
 }
 
 type CalendarResponse struct {
-	Entries   []CalendarEntry        `json:"entries"`
-	Backlog   []CalendarBacklogItem  `json:"backlog"`
-	Platforms []CalendarPlatformLane `json:"platforms"`
-	Range     CalendarRange          `json:"range"`
+	Entries   []CalendarEntry         `json:"entries"`
+	Backlog   []CalendarBacklogItem   `json:"backlog"`
+	Campaigns []CalendarCampaignEntry `json:"campaigns"`
+	Platforms []CalendarPlatformLane  `json:"platforms"`
+	Range     CalendarRange           `json:"range"`
+}
+
+type CampaignLink struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
+type CalendarCampaignEntry struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+	PostCount int    `json:"postCount"`
 }
 
 type metricSnapshotAccumulator struct {
@@ -377,6 +399,10 @@ func (s *Service) ListCalendar(ctx context.Context, principal *iam.Principal, wo
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
+	campaignRecords, err := s.loadCampaignsOverlappingRange(ctx, workspaceID, input.Start, input.End)
+	if err != nil {
+		return nil, err
+	}
 
 	workspaceRequiresApproval, err := s.workspaceRequiresPostApproval(ctx, workspaceID)
 	if err != nil {
@@ -389,6 +415,7 @@ func (s *Service) ListCalendar(ctx context.Context, principal *iam.Principal, wo
 
 	response := buildCalendarResponse(
 		details,
+		campaignRecords,
 		s.resources.Capabilities(),
 		input,
 		workspaceRequiresApproval,
@@ -422,10 +449,15 @@ func (s *Service) CreatePost(ctx context.Context, principal *iam.Principal, work
 	if err != nil {
 		return nil, err
 	}
+	campaignID, err := s.validateCampaignOwnership(ctx, workspaceID, input.CampaignID)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now().UTC()
 	record := &database.Post{
 		ID:               uuid.New(),
 		WorkspaceID:      workspaceID,
+		CampaignID:       campaignID,
 		Title:            strings.TrimSpace(input.Title),
 		ContentKind:      contentKind,
 		ContentPayload:   payload,
@@ -456,7 +488,12 @@ func (s *Service) UpdatePost(ctx context.Context, principal *iam.Principal, work
 	if err != nil {
 		return nil, err
 	}
+	campaignID, err := s.validateCampaignOwnership(ctx, workspaceID, input.CampaignID)
+	if err != nil {
+		return nil, err
+	}
 	record.Title = strings.TrimSpace(input.Title)
+	record.CampaignID = campaignID
 	record.ContentKind = contentKind
 	record.ContentPayload = payload
 	record.OriginPlatform = originPlatform
@@ -467,7 +504,7 @@ func (s *Service) UpdatePost(ctx context.Context, principal *iam.Principal, work
 	record.UpdatedByUserID = &principal.UserID
 	if _, err := s.db.NewUpdate().
 		Model(record).
-		Column("title", "content_kind", "content_payload", "origin_platform", "origin_surface", "requires_approval", "notes", "updated_at", "updated_by_user_id").
+		Column("campaign_id", "title", "content_kind", "content_payload", "origin_platform", "origin_surface", "requires_approval", "notes", "updated_at", "updated_by_user_id").
 		WherePK().
 		Exec(ctx); err != nil {
 		return nil, err
@@ -1186,8 +1223,20 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	}
 
 	postIDs := make([]uuid.UUID, 0, len(posts))
+	campaignIDs := make([]uuid.UUID, 0, len(posts))
+	seenCampaignIDs := map[uuid.UUID]struct{}{}
 	for _, record := range posts {
 		postIDs = append(postIDs, record.ID)
+		if record.CampaignID != nil {
+			if _, exists := seenCampaignIDs[*record.CampaignID]; !exists {
+				seenCampaignIDs[*record.CampaignID] = struct{}{}
+				campaignIDs = append(campaignIDs, *record.CampaignID)
+			}
+		}
+	}
+	campaignsByID, err := s.loadCampaignLinksByID(ctx, workspaceID, campaignIDs)
+	if err != nil {
+		return nil, err
 	}
 	rootAssetIDs, err := s.loadReferenceResourceIDs(ctx, workspaceID, postEntityType, uuidStrings(postIDs), postAssetSlot)
 	if err != nil {
@@ -1316,6 +1365,9 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		}
 		if record.OriginPlatform != nil {
 			summary.OriginPlatform = *record.OriginPlatform
+		}
+		if record.CampaignID != nil {
+			summary.Campaign = campaignsByID[record.CampaignID.String()]
 		}
 		if record.OriginSurface != nil {
 			summary.OriginSurface = *record.OriginSurface
@@ -1568,6 +1620,67 @@ func (s *Service) findPost(ctx context.Context, workspaceID, postID uuid.UUID) (
 		return nil, err
 	}
 	return record, nil
+}
+
+func (s *Service) validateCampaignOwnership(ctx context.Context, workspaceID uuid.UUID, campaignID *uuid.UUID) (*uuid.UUID, error) {
+	if campaignID == nil || *campaignID == uuid.Nil {
+		return nil, nil
+	}
+	record := new(database.Campaign)
+	if err := s.db.NewSelect().
+		Model(record).
+		Where("workspace_id = ?", workspaceID).
+		Where("id = ?", *campaignID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: campaign not found", iam.ErrValidation)
+		}
+		return nil, err
+	}
+	return campaignID, nil
+}
+
+func (s *Service) loadCampaignLinksByID(ctx context.Context, workspaceID uuid.UUID, campaignIDs []uuid.UUID) (map[string]*CampaignLink, error) {
+	result := map[string]*CampaignLink{}
+	if len(campaignIDs) == 0 {
+		return result, nil
+	}
+
+	var records []database.Campaign
+	if err := s.db.NewSelect().
+		Model(&records).
+		Where("workspace_id = ?", workspaceID).
+		Where("id IN (?)", bun.In(campaignIDs)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, record := range records {
+		result[record.ID.String()] = &CampaignLink{
+			ID:        record.ID.String(),
+			Name:      record.Name,
+			Status:    record.Status,
+			StartDate: formatDate(record.StartDate),
+			EndDate:   formatDate(record.EndDate),
+		}
+	}
+	return result, nil
+}
+
+func (s *Service) loadCampaignsOverlappingRange(ctx context.Context, workspaceID uuid.UUID, start, end time.Time) ([]database.Campaign, error) {
+	var records []database.Campaign
+	startDate := normalizeDate(start)
+	endDate := normalizeDate(end)
+	if err := s.db.NewSelect().
+		Model(&records).
+		Where("workspace_id = ?", workspaceID).
+		Where("start_date <= ?", endDate).
+		Where("end_date >= ?", startDate).
+		OrderExpr("start_date ASC, end_date ASC, name ASC").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	return records, nil
 }
 
 func (s *Service) findPostVariant(ctx context.Context, workspaceID, variantID uuid.UUID) (*database.PostVariant, error) {
@@ -2299,6 +2412,7 @@ func isCalendarPublicationEntry(publicationState string) bool {
 
 func buildCalendarResponse(
 	details []PostDetail,
+	campaigns []database.Campaign,
 	capabilities resources.CapabilityMatrix,
 	input CalendarQueryInput,
 	workspaceRequiresApproval bool,
@@ -2347,6 +2461,7 @@ func buildCalendarResponse(
 							VariantID:        variant.ID,
 							PostID:           detail.ID,
 							Title:            detail.Title,
+							Campaign:         detail.Campaign,
 							Platform:         variant.Platform,
 							Surface:          variant.Surface,
 							PlannedAt:        plannedAt,
@@ -2379,6 +2494,7 @@ func buildCalendarResponse(
 				VariantID:        variant.ID,
 				PostID:           detail.ID,
 				Title:            detail.Title,
+				Campaign:         detail.Campaign,
 				Platform:         variant.Platform,
 				Surface:          variant.Surface,
 				PlanningState:    planningState,
@@ -2442,6 +2558,7 @@ func buildCalendarResponse(
 	return CalendarResponse{
 		Entries:   entries,
 		Backlog:   backlog,
+		Campaigns: buildCalendarCampaignEntries(campaigns, details),
 		Platforms: buildCalendarPlatformLanes(entries, backlog, capabilities, platformFilter),
 		Range: CalendarRange{
 			Start:    input.Start.Format(time.RFC3339),
@@ -2449,6 +2566,38 @@ func buildCalendarResponse(
 			Timezone: timezone,
 		},
 	}
+}
+
+func buildCalendarCampaignEntries(campaigns []database.Campaign, details []PostDetail) []CalendarCampaignEntry {
+	postCounts := map[string]int{}
+	for _, detail := range details {
+		if detail.Campaign == nil {
+			continue
+		}
+		postCounts[detail.Campaign.ID]++
+	}
+
+	items := make([]CalendarCampaignEntry, 0, len(campaigns))
+	for _, campaign := range campaigns {
+		items = append(items, CalendarCampaignEntry{
+			ID:        campaign.ID.String(),
+			Name:      campaign.Name,
+			Status:    campaign.Status,
+			StartDate: formatDate(campaign.StartDate),
+			EndDate:   formatDate(campaign.EndDate),
+			PostCount: postCounts[campaign.ID.String()],
+		})
+	}
+	slices.SortFunc(items, func(left, right CalendarCampaignEntry) int {
+		if left.StartDate != right.StartDate {
+			return strings.Compare(left.StartDate, right.StartDate)
+		}
+		if left.EndDate != right.EndDate {
+			return strings.Compare(left.EndDate, right.EndDate)
+		}
+		return strings.Compare(left.Name, right.Name)
+	})
+	return items
 }
 
 func buildCalendarPlatformLanes(
@@ -2518,6 +2667,14 @@ func mergedCalendarVariants(detail PostDetail) []PostVariant {
 	variants = append(variants, detail.Variants...)
 	variants = append(variants, detail.LegacyVariants...)
 	return variants
+}
+
+func normalizeDate(value time.Time) time.Time {
+	return time.Date(value.UTC().Year(), value.UTC().Month(), value.UTC().Day(), 0, 0, 0, 0, time.UTC)
+}
+
+func formatDate(value time.Time) string {
+	return normalizeDate(value).Format("2006-01-02")
 }
 
 func calendarExcerpt(

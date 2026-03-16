@@ -97,3 +97,93 @@ func TestBindSchedulePublicationInputParsesPlannedAt(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", fiber.StatusNoContent, resp.StatusCode)
 	}
 }
+
+func TestBindPostInputParsesCampaignID(t *testing.T) {
+	t.Parallel()
+
+	campaignID := "55f9f657-5e7c-4d3a-8e4f-4a85d228eafb"
+	app := fiber.New()
+	app.Post("/posts", func(c fiber.Ctx) error {
+		input, err := bindPostInput(c)
+		if err != nil {
+			return err
+		}
+		if input.CampaignID == nil || input.CampaignID.String() != campaignID {
+			t.Fatalf("expected campaign id to parse, got %#v", input.CampaignID)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(
+		"POST",
+		"/posts",
+		bytes.NewBufferString(`{"title":"Launch","campaignId":"`+campaignID+`"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", fiber.StatusNoContent, resp.StatusCode)
+	}
+}
+
+func TestBindCampaignInputParsesDatesAndPostIDs(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New()
+	app.Post("/campaigns", func(c fiber.Ctx) error {
+		input, err := bindCampaignInput(c)
+		if err != nil {
+			return err
+		}
+		if input.StartDate.Format("2006-01-02") != "2026-03-16" {
+			t.Fatalf("expected start date to parse, got %s", input.StartDate)
+		}
+		if len(input.PostIDs) != 1 {
+			t.Fatalf("expected one post id, got %#v", input.PostIDs)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	req := httptest.NewRequest(
+		"POST",
+		"/campaigns",
+		bytes.NewBufferString(`{"name":"Launch","startDate":"2026-03-16","endDate":"2026-03-20","postIds":["55f9f657-5e7c-4d3a-8e4f-4a85d228eafb"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", fiber.StatusNoContent, resp.StatusCode)
+	}
+}
+
+func TestBindCampaignInputRejectsInvalidDates(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New()
+	app.Post("/campaigns", func(c fiber.Ctx) error {
+		if _, err := bindCampaignInput(c); err == nil {
+			t.Fatalf("expected invalid date to fail")
+		}
+		return c.SendStatus(fiber.StatusBadRequest)
+	})
+
+	req := httptest.NewRequest(
+		"POST",
+		"/campaigns",
+		bytes.NewBufferString(`{"name":"Launch","startDate":"bad-date","endDate":"2026-03-20"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test returned error: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", fiber.StatusBadRequest, resp.StatusCode)
+	}
+}

@@ -507,13 +507,31 @@ func bindPostInput(c fiber.Ctx) (posts.UpsertPostInput, error) {
 		ContentPayload   map[string]any `json:"contentPayload"`
 		OriginPlatform   string         `json:"originPlatform"`
 		OriginSurface    string         `json:"originSurface"`
+		CampaignID       string         `json:"campaignId"`
 		RequiresApproval bool           `json:"requiresApproval"`
 		Notes            string         `json:"notes"`
 	}
 	if err := c.Bind().JSON(&body); err != nil {
 		return posts.UpsertPostInput{}, iam.ErrValidation
 	}
-	return posts.UpsertPostInput(body), nil
+	var campaignID *uuid.UUID
+	if trimmed := strings.TrimSpace(body.CampaignID); trimmed != "" {
+		parsed, err := uuid.Parse(trimmed)
+		if err != nil {
+			return posts.UpsertPostInput{}, iam.ErrValidation
+		}
+		campaignID = &parsed
+	}
+	return posts.UpsertPostInput{
+		Title:            body.Title,
+		ContentKind:      body.ContentKind,
+		ContentPayload:   body.ContentPayload,
+		OriginPlatform:   body.OriginPlatform,
+		OriginSurface:    body.OriginSurface,
+		CampaignID:       campaignID,
+		RequiresApproval: body.RequiresApproval,
+		Notes:            body.Notes,
+	}, nil
 }
 
 func bindVariantInput(c fiber.Ctx) (posts.UpsertVariantInput, error) {

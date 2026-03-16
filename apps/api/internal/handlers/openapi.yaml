@@ -37,6 +37,8 @@ tags:
     description: Multi-tenant workspace management
   - name: Resources
     description: Workspace-scoped reusable media and capability registry
+  - name: Campaigns
+    description: Goal-based campaign planning and tracking
   - name: Posts
     description: Social media post management
   - name: Scheduling
@@ -374,6 +376,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResourceSetDetail"
+  /api/v1/campaigns:
+    get:
+      operationId: listCampaigns
+      summary: List Campaigns
+      tags:
+        - Campaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceHeader"
+      responses:
+        "200":
+          description: Workspace campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignListResponse"
+    post:
+      operationId: createCampaign
+      summary: Create Campaign
+      tags:
+        - Campaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpsert"
+      responses:
+        "201":
+          description: Created campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+  /api/v1/campaigns/{id}:
+    get:
+      operationId: getCampaign
+      summary: Get Campaign
+      tags:
+        - Campaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Campaign detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+    patch:
+      operationId: updateCampaign
+      summary: Update Campaign
+      tags:
+        - Campaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignUpsert"
+      responses:
+        "200":
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+    delete:
+      operationId: deleteCampaign
+      summary: Delete Campaign
+      tags:
+        - Campaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceHeader"
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Campaign deleted
   /api/v1/posts:
     get:
       operationId: listPosts
@@ -1254,6 +1349,8 @@ components:
           format: uuid
         title:
           type: string
+        campaign:
+          $ref: "#/components/schemas/CampaignLink"
         contentKind:
           type: string
           enum: [text, article, thread]
@@ -1303,6 +1400,9 @@ components:
       properties:
         title:
           type: string
+        campaignId:
+          type: string
+          format: uuid
         contentKind:
           type: string
           enum: [text, article, thread]
@@ -1399,6 +1499,143 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PostSummary"
+    CampaignLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+    CampaignSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        name:
+          type: string
+        objective:
+          type: string
+        targetAudience:
+          type: string
+        messageTheme:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+        primaryMetricLabel:
+          type: string
+        primaryMetricTarget:
+          type: number
+        primaryMetricUnit:
+          type: string
+        paidChannels:
+          type: array
+          items:
+            type: string
+        budgetAmountCents:
+          type: integer
+        actualSpendAmountCents:
+          type: integer
+        currencyCode:
+          type: string
+        utmCampaign:
+          type: string
+        externalDashboardUrl:
+          type: string
+        postCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CampaignDetail:
+      allOf:
+        - $ref: "#/components/schemas/CampaignSummary"
+        - type: object
+          properties:
+            linkedPosts:
+              type: array
+              items:
+                $ref: "#/components/schemas/PostSummary"
+            metricSnapshot:
+              type: array
+              items:
+                $ref: "#/components/schemas/MetricSnapshotItem"
+    CampaignUpsert:
+      type: object
+      properties:
+        status:
+          type: string
+        name:
+          type: string
+        objective:
+          type: string
+        targetAudience:
+          type: string
+        messageTheme:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+        primaryMetricLabel:
+          type: string
+        primaryMetricTarget:
+          type: number
+        primaryMetricUnit:
+          type: string
+        paidChannels:
+          type: array
+          items:
+            type: string
+        budgetAmountCents:
+          type: integer
+        actualSpendAmountCents:
+          type: integer
+        currencyCode:
+          type: string
+        utmCampaign:
+          type: string
+        externalDashboardUrl:
+          type: string
+        postIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    CampaignListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignSummary"
     MetricDefinition:
       type: object
       properties:

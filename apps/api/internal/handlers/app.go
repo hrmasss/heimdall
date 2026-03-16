@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/heimdall/api/internal/auth"
+	"github.com/heimdall/api/internal/campaigns"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/iam"
 	"github.com/heimdall/api/internal/posts"
@@ -22,14 +23,15 @@ import (
 type AppHandler struct {
 	service         *iam.Service
 	resourceService *resources.Service
+	campaignService *campaigns.Service
 	postService     *posts.Service
 	socialService   *social.Service
 	blobServer      resources.SignedBlobServer
 	cfg             *config.Config
 }
 
-func NewAppHandler(service *iam.Service, resourceService *resources.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, resourceService: resourceService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
+func NewAppHandler(service *iam.Service, resourceService *resources.Service, campaignService *campaigns.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, resourceService: resourceService, campaignService: campaignService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -79,6 +81,11 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Patch("/resource-sets/:id", h.requireAuth, h.updateResourceSet)
 	api.Put("/resource-sets/:id/items", h.requireAuth, h.replaceResourceSetItems)
 	api.Delete("/resource-sets/:id", h.requireAuth, h.deleteResourceSet)
+	api.Get("/campaigns", h.requireAuth, h.listCampaigns)
+	api.Post("/campaigns", h.requireAuth, h.createCampaign)
+	api.Get("/campaigns/:id", h.requireAuth, h.getCampaign)
+	api.Patch("/campaigns/:id", h.requireAuth, h.updateCampaign)
+	api.Delete("/campaigns/:id", h.requireAuth, h.deleteCampaign)
 	api.Get("/calendar", h.requireAuth, h.listCalendar)
 	api.Get("/posts", h.requireAuth, h.listPosts)
 	api.Post("/posts", h.requireAuth, h.createPost)

@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type {
 	ApiListResponse,
+	CampaignSummary,
 	PostDetail,
 	PostVariant,
 	PublicationPlan,
@@ -813,6 +814,7 @@ export function DashboardNewPost() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const isEditMode = Boolean(id);
 	const { activeWorkspaceId, customerRequest } = useAuth();
+	const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
 	const [capabilities, setCapabilities] =
@@ -830,6 +832,7 @@ export function DashboardNewPost() {
 
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
+	const [campaignId, setCampaignId] = useState("");
 	const [requiresApproval, setRequiresApproval] = useState(false);
 	const [startsFromPlatform, setStartsFromPlatform] = useState("");
 	const [startsFromSurface, setStartsFromSurface] = useState("");
@@ -880,6 +883,7 @@ export function DashboardNewPost() {
 	const signature = JSON.stringify({
 		title,
 		notes,
+		campaignId,
 		requiresApproval,
 		startsFromPlatform,
 		startsFromSurface,
@@ -900,11 +904,13 @@ export function DashboardNewPost() {
 			setError(null);
 			try {
 				const [
+					campaignResponse,
 					resourceResponse,
 					setResponse,
 					capabilityResponse,
 					postResponse,
 				] = await Promise.all([
+					customerRequest<ApiListResponse<CampaignSummary>>("/campaigns"),
 					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
 					customerRequest<ApiListResponse<ResourceSetSummary>>(
 						"/resource-sets",
@@ -916,6 +922,7 @@ export function DashboardNewPost() {
 				]);
 				const normalizedCapabilities =
 					normalizeCapabilities(capabilityResponse);
+				setCampaigns(campaignResponse.items);
 				setResources(resourceResponse.items);
 				setResourceSets(setResponse.items);
 				setCapabilities(normalizedCapabilities);
@@ -966,6 +973,7 @@ export function DashboardNewPost() {
 					const emptyState = {
 						title: "",
 						notes: "",
+						campaignId: "",
 						requiresApproval: false,
 						startsFromPlatform: "",
 						startsFromSurface: "",
@@ -977,6 +985,7 @@ export function DashboardNewPost() {
 					setPostId(null);
 					setTitle(emptyState.title);
 					setNotes(emptyState.notes);
+					setCampaignId(emptyState.campaignId);
 					setRequiresApproval(emptyState.requiresApproval);
 					setStartsFromPlatform(emptyState.startsFromPlatform);
 					setStartsFromSurface(emptyState.startsFromSurface);
@@ -1019,6 +1028,7 @@ export function DashboardNewPost() {
 				const nextState = {
 					title: post.title,
 					notes: post.notes ?? "",
+					campaignId: post.campaign?.id ?? "",
 					requiresApproval: post.requiresApproval,
 					startsFromPlatform: post.originPlatform ?? "",
 					startsFromSurface: post.originSurface ?? "",
@@ -1033,6 +1043,7 @@ export function DashboardNewPost() {
 				setPostId(post.id);
 				setTitle(nextState.title);
 				setNotes(nextState.notes);
+				setCampaignId(nextState.campaignId);
 				setRequiresApproval(nextState.requiresApproval);
 				setStartsFromPlatform(nextState.startsFromPlatform);
 				setStartsFromSurface(nextState.startsFromSurface);
@@ -1240,6 +1251,7 @@ export function DashboardNewPost() {
 				contentPayload: buildContentPayload(sharedDraft),
 				originPlatform: primaryVariant?.platform ?? "",
 				originSurface: primaryVariant?.surface ?? "",
+				campaignId,
 				requiresApproval,
 				notes,
 			};
@@ -1665,6 +1677,30 @@ export function DashboardNewPost() {
 								className={adminInputClassName}
 								placeholder="Q2 product launch story"
 							/>
+						</AdminFormField>
+						<AdminFormField className="md:col-span-2">
+							<Label htmlFor="post-campaign">Campaign</Label>
+							<Select
+								value={campaignId || "__none"}
+								onValueChange={(value) =>
+									setCampaignId(value === "__none" ? "" : value)
+								}
+							>
+								<SelectTrigger
+									id="post-campaign"
+									className={adminSelectTriggerClassName}
+								>
+									<SelectValue placeholder="No campaign" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="__none">No campaign</SelectItem>
+									{campaigns.map((campaign) => (
+										<SelectItem key={campaign.id} value={campaign.id}>
+											{campaign.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</AdminFormField>
 					</AdminFormGrid>
 					<div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">

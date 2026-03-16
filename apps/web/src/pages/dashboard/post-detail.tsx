@@ -1597,6 +1597,29 @@ export function DashboardPostDetailPage() {
 								value={new Date(post.updatedAt).toLocaleString()}
 							/>
 						</div>
+						{post.campaign ? (
+							<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+											Campaign
+										</div>
+										<div className="mt-2 text-lg font-semibold">
+											{post.campaign.name}
+										</div>
+										<div className="mt-1 text-sm text-muted-foreground">
+											{post.campaign.startDate} to {post.campaign.endDate} ·{" "}
+											{post.campaign.status}
+										</div>
+									</div>
+									<Button variant="outline" className="rounded-full" asChild>
+										<Link to={`/dashboard/campaigns/${post.campaign.id}`}>
+											Open campaign
+										</Link>
+									</Button>
+								</div>
+							</div>
+						) : null}
 					</>
 				)}
 			</SurfaceCard>

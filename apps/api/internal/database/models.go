@@ -230,11 +230,40 @@ type ResourceCleanupJob struct {
 	UpdatedAt      time.Time `bun:"updated_at,notnull"`
 }
 
+type Campaign struct {
+	bun.BaseModel `bun:"table:campaigns"`
+
+	ID                     uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID            uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status                 string     `bun:"status,notnull"`
+	Name                   string     `bun:"name,notnull"`
+	Objective              string     `bun:"objective,notnull"`
+	TargetAudience         string     `bun:"target_audience,notnull"`
+	MessageTheme           string     `bun:"message_theme,notnull"`
+	StartDate              time.Time  `bun:"start_date,notnull,type:date"`
+	EndDate                time.Time  `bun:"end_date,notnull,type:date"`
+	Notes                  string     `bun:"notes,notnull"`
+	PrimaryMetricLabel     string     `bun:"primary_metric_label,notnull"`
+	PrimaryMetricTarget    *float64   `bun:"primary_metric_target"`
+	PrimaryMetricUnit      string     `bun:"primary_metric_unit,notnull"`
+	PaidChannels           string     `bun:"paid_channels,notnull"`
+	BudgetAmountCents      *int64     `bun:"budget_amount_cents"`
+	ActualSpendAmountCents *int64     `bun:"actual_spend_amount_cents"`
+	CurrencyCode           string     `bun:"currency_code,notnull"`
+	UTMCampaign            string     `bun:"utm_campaign,notnull"`
+	ExternalDashboardURL   string     `bun:"external_dashboard_url,notnull"`
+	CreatedByUserID        *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID        *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt              time.Time  `bun:"created_at,notnull"`
+	UpdatedAt              time.Time  `bun:"updated_at,notnull"`
+}
+
 type Post struct {
 	bun.BaseModel `bun:"table:posts"`
 
 	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
 	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	CampaignID       *uuid.UUID `bun:"campaign_id,type:uuid"`
 	Title            string     `bun:"title,notnull"`
 	ContentKind      string     `bun:"content_kind,notnull"`
 	ContentPayload   string     `bun:"content_payload,notnull"`

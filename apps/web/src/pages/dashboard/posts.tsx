@@ -45,6 +45,24 @@ const columns: DataTableColumn<PostSummary>[] = [
 		getSortValue: (row) => row.title,
 	},
 	{
+		id: "campaign",
+		label: "Campaign",
+		width: 220,
+		accessor: (row) =>
+			row.campaign ? (
+				<Link
+					to={`/dashboard/campaigns/${row.campaign.id}`}
+					className="text-primary underline-offset-4 hover:underline"
+					onClick={(event) => event.stopPropagation()}
+				>
+					{row.campaign.name}
+				</Link>
+			) : (
+				"None"
+			),
+		getSortValue: (row) => row.campaign?.name ?? "",
+	},
+	{
 		id: "approval",
 		label: "Approval",
 		width: 150,
@@ -190,6 +208,7 @@ export function DashboardPosts() {
 					getSearchText={(row) =>
 						[
 							row.title,
+							row.campaign?.name,
 							row.contentKind,
 							row.aggregateApprovalState,
 							row.aggregatePublicationState,
@@ -239,6 +258,11 @@ export function DashboardPosts() {
 									{row.contentKind} · {row.variantCount} variant
 									{row.variantCount === 1 ? "" : "s"}
 								</div>
+								{row.campaign ? (
+									<div className="mt-2 text-sm text-muted-foreground">
+										Campaign: {row.campaign.name}
+									</div>
+								) : null}
 							</div>
 							<div className="flex flex-wrap gap-2">
 								<span className={statusClassName(row.aggregateApprovalState)}>

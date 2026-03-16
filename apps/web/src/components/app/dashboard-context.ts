@@ -1,6 +1,8 @@
 const dashboardLabels: Record<string, string> = {
 	"/dashboard": "Overview",
 	"/dashboard/onboarding": "Create workspace",
+	"/dashboard/campaigns": "Campaigns",
+	"/dashboard/campaigns/new": "Create campaign",
 	"/dashboard/posts": "Posts",
 	"/dashboard/posts/new": "Create post",
 	"/dashboard/calendar": "Calendar",
@@ -37,6 +39,12 @@ export function getDashboardContextLabel(pathname: string) {
 function resolveDashboardLabel(pathname: string) {
 	if (/^\/dashboard\/library\/sets\/new$/.test(pathname)) {
 		return "Create asset set";
+	}
+	if (/^\/dashboard\/campaigns\/[^/]+\/edit$/.test(pathname)) {
+		return "Edit campaign";
+	}
+	if (/^\/dashboard\/campaigns\/[^/]+$/.test(pathname)) {
+		return "Campaign detail";
 	}
 	if (/^\/dashboard\/library\/sets\/[^/]+\/edit$/.test(pathname)) {
 		return "Edit asset set";

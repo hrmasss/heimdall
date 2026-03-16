@@ -200,6 +200,53 @@ export type MetricSnapshotItem = {
 	observedAt: string;
 };
 
+export type CampaignLink = {
+	id: string;
+	name: string;
+	status: "draft" | "planned" | "active" | "completed" | "archived";
+	startDate: string;
+	endDate: string;
+};
+
+export type CampaignSummary = {
+	id: string;
+	workspaceId: string;
+	status: CampaignLink["status"];
+	name: string;
+	objective?: string;
+	targetAudience?: string;
+	messageTheme?: string;
+	startDate: string;
+	endDate: string;
+	notes?: string;
+	primaryMetricLabel?: string;
+	primaryMetricTarget?: number;
+	primaryMetricUnit?: string;
+	paidChannels: string[];
+	budgetAmountCents?: number;
+	actualSpendAmountCents?: number;
+	currencyCode?: string;
+	utmCampaign?: string;
+	externalDashboardUrl?: string;
+	postCount: number;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type CampaignDetail = CampaignSummary & {
+	linkedPosts: PostSummary[];
+	metricSnapshot: MetricSnapshotItem[];
+};
+
+export type CalendarCampaignEntry = {
+	id: string;
+	name: string;
+	status: CampaignLink["status"];
+	startDate: string;
+	endDate: string;
+	postCount: number;
+};
+
 export type ReviewRecord = {
 	id: string;
 	variantId: string;
@@ -399,6 +446,7 @@ export type PostSummary = {
 	workspaceId: string;
 	title: string;
 	contentKind: "text" | "article" | "thread";
+	campaign?: CampaignLink;
 	originPlatform?: string;
 	originSurface?: string;
 	requiresApproval: boolean;
@@ -446,6 +494,7 @@ export type CalendarEntry = {
 	variantId: string;
 	postId: string;
 	title: string;
+	campaign?: CampaignLink;
 	platform: string;
 	surface: string;
 	plannedAt: string;
@@ -480,6 +529,7 @@ export type CalendarBacklogItem = {
 	variantId: string;
 	postId: string;
 	title: string;
+	campaign?: CampaignLink;
 	platform: string;
 	surface: string;
 	planningState:
@@ -512,6 +562,7 @@ export type CalendarBacklogItem = {
 export type CalendarResponse = {
 	entries: CalendarEntry[];
 	backlog: CalendarBacklogItem[];
+	campaigns: CalendarCampaignEntry[];
 	platforms: CalendarPlatformLane[];
 	range: CalendarRange;
 };

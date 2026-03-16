@@ -5,6 +5,7 @@ import {
 	FolderKanban,
 	Home,
 	LineChart,
+	Megaphone,
 	Search,
 	Settings,
 	Users2,
@@ -96,6 +97,15 @@ export function SearchCommand({
 			onSelect: () => navigateTo("/dashboard"),
 		},
 		{
+			id: "nav-campaigns",
+			icon: Megaphone,
+			label: "Campaigns",
+			subtitle: "Browse briefs, launch windows, and linked posts.",
+			keywords: ["campaigns", "launches", "briefs", "planning"],
+			section: "navigate",
+			onSelect: () => navigateTo("/dashboard/campaigns"),
+		},
+		{
 			id: "nav-posts",
 			icon: FileStack,
 			label: "Posts",
@@ -156,8 +166,8 @@ export function SearchCommand({
 			subtitle: "Jump into posts and campaign-related work.",
 			keywords: ["search campaigns", "campaign", "launch", "posts"],
 			section: "search",
-			onSelect: () => navigateTo("/dashboard/posts"),
-			shortcut: "Posts",
+			onSelect: () => navigateTo("/dashboard/campaigns"),
+			shortcut: "Campaigns",
 		},
 		{
 			id: "search-assets",
@@ -319,6 +329,8 @@ function getPath(entryId: string) {
 	switch (entryId) {
 		case "nav-overview":
 			return "/dashboard";
+		case "nav-campaigns":
+			return "/dashboard/campaigns";
 		case "nav-posts":
 			return "/dashboard/posts";
 		case "nav-calendar":

@@ -64,6 +64,7 @@ import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summar
 import type {
 	ApiListResponse,
 	CalendarBacklogItem,
+	CalendarCampaignEntry,
 	CalendarEntry,
 	CalendarResponse,
 	PostDetail,
@@ -376,6 +377,7 @@ function matchesStatusFilter(
 function itemSearchText(item: CalendarEntry | CalendarBacklogItem) {
 	return [
 		item.title,
+		item.campaign?.name ?? "",
 		item.excerpt,
 		item.platform,
 		item.surface,
@@ -384,6 +386,63 @@ function itemSearchText(item: CalendarEntry | CalendarBacklogItem) {
 		item.publicationState,
 		item.notes ?? "",
 	].join(" ");
+}
+
+function campaignBadgeClassName(status: string) {
+	switch (status) {
+		case "completed":
+			return "border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100";
+		case "active":
+		case "planned":
+			return "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-100";
+		case "archived":
+			return "border-slate-500/20 bg-slate-500/10 text-slate-700 dark:text-slate-200";
+		default:
+			return "border-sky-500/20 bg-sky-500/10 text-sky-800 dark:text-sky-100";
+	}
+}
+
+function CalendarCampaignStrip({
+	campaigns,
+}: {
+	campaigns: CalendarCampaignEntry[];
+}) {
+	if (campaigns.length === 0) {
+		return null;
+	}
+
+	return (
+		<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+						Campaign windows
+					</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						Active range chips stay above the platform lanes so campaign context
+						is visible without duplicating it inside each lane.
+					</div>
+				</div>
+				<Badge variant="outline" className="rounded-full">
+					{campaigns.length} campaign{campaigns.length === 1 ? "" : "s"}
+				</Badge>
+			</div>
+			<div className="mt-4 flex flex-wrap gap-2">
+				{campaigns.map((campaign) => (
+					<Link
+						key={campaign.id}
+						to={`/dashboard/campaigns/${campaign.id}`}
+						className={cn(
+							"rounded-full border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent/35",
+							campaignBadgeClassName(campaign.status),
+						)}
+					>
+						{campaign.name} · {campaign.startDate} to {campaign.endDate}
+					</Link>
+				))}
+			</div>
+		</div>
+	);
 }
 
 function statusClassName(value: string) {
@@ -845,6 +904,18 @@ function CalendarCard({
 									<div className="truncate text-[0.8rem] font-semibold leading-5">
 										{item.title}
 									</div>
+									{item.campaign ? (
+										<div className="mt-1">
+											<span
+												className={cn(
+													"inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none",
+													campaignBadgeClassName(item.campaign.status),
+												)}
+											>
+												{item.campaign.name}
+											</span>
+										</div>
+									) : null}
 									<div className="mt-1 flex items-center gap-1.5 overflow-hidden text-[10.5px] text-muted-foreground">
 										<span className="truncate">
 											{surfaceLabel(item.surface)}
@@ -879,6 +950,18 @@ function CalendarCard({
 										<div className="truncate text-[0.78rem] font-semibold leading-5">
 											{item.title}
 										</div>
+										{item.campaign ? (
+											<div className="mt-1">
+												<span
+													className={cn(
+														"inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none",
+														campaignBadgeClassName(item.campaign.status),
+													)}
+												>
+													{item.campaign.name}
+												</span>
+											</div>
+										) : null}
 										<div className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-[10.5px] text-muted-foreground">
 											<span className="truncate">
 												{surfaceLabel(item.surface)}
@@ -935,6 +1018,17 @@ function CalendarCard({
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
+						{item.campaign ? (
+							<Link
+								to={`/dashboard/campaigns/${item.campaign.id}`}
+								className={cn(
+									"rounded-full border px-2 py-1 text-[11px] font-medium leading-none transition-colors hover:bg-accent/35",
+									campaignBadgeClassName(item.campaign.status),
+								)}
+							>
+								{item.campaign.name}
+							</Link>
+						) : null}
 						<span className={statusClassName(item.approvalState)}>
 							{item.approvalState}
 						</span>
@@ -2265,6 +2359,7 @@ export function DashboardCalendar() {
 					) : null}
 
 					<div className="space-y-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 shadow-[0_22px_44px_-36px_rgba(15,23,42,0.56)]">
+						<CalendarCampaignStrip campaigns={calendar?.campaigns ?? []} />
 						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 							<div className="flex flex-wrap items-center gap-3">
 								<Button
@@ -3954,6 +4049,16 @@ export function DashboardCalendar() {
 
 						{panelState.mode === "entry" || panelState.mode === "backlog" ? (
 							<div className="flex flex-wrap gap-2">
+								{panelState.item.campaign ? (
+									<Button variant="outline" className="rounded-full" asChild>
+										<Link
+											to={`/dashboard/campaigns/${panelState.item.campaign.id}`}
+										>
+											Campaign
+											<ArrowUpRight className="size-4" />
+										</Link>
+									</Button>
+								) : null}
 								<Button variant="outline" className="rounded-full" asChild>
 									<Link to={`/dashboard/posts/${panelState.item.postId}`}>
 										Open detail

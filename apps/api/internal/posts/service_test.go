@@ -467,6 +467,7 @@ func TestBuildCalendarResponseSeparatesEntriesAndBacklog(t *testing.T) {
 				},
 			},
 		},
+		nil,
 		resources.CapabilityMatrix{
 			Rules: []resources.CapabilityRule{
 				{Platform: "linkedin", Surface: "feed_post"},

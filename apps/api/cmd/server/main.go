@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/joho/godotenv"
 
+	"github.com/heimdall/api/internal/campaigns"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/handlers"
@@ -115,7 +116,7 @@ func runServe(rootDir string) error {
 		AllowCredentials: true,
 	}))
 
-	handlers.NewAppHandler(deps.service, deps.resourceService, deps.postService, deps.socialService, deps.storage, cfg).Register(app)
+	handlers.NewAppHandler(deps.service, deps.resourceService, deps.campaignService, deps.postService, deps.socialService, deps.storage, cfg).Register(app)
 
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)
 	log.Printf("Heimdall API starting on http://%s", addr)
@@ -180,6 +181,7 @@ func runHealthcheck(rootDir string) error {
 type appDependencies struct {
 	service         *iam.Service
 	resourceService *resources.Service
+	campaignService *campaigns.Service
 	postService     *posts.Service
 	socialService   *social.Service
 	storage         *resources.LocalStorage
@@ -205,6 +207,7 @@ func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, err
 	}
 	resourceService := resources.NewService(db, cfg.Storage, storage, service)
 	postService := posts.NewService(db, service, resourceService)
+	campaignService := campaigns.NewService(db, service, postService)
 	socialService := social.NewService(db, cfg.Social, service, postService, storage)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -216,6 +219,7 @@ func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, err
 	return &appDependencies{
 		service:         service,
 		resourceService: resourceService,
+		campaignService: campaignService,
 		postService:     postService,
 		socialService:   socialService,
 		storage:         storage,

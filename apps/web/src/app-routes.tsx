@@ -45,6 +45,21 @@ const DashboardPosts = lazy(async () =>
 		default: module.DashboardPosts,
 	})),
 );
+const DashboardCampaigns = lazy(async () =>
+	import("@/pages/dashboard/campaigns").then((module) => ({
+		default: module.DashboardCampaigns,
+	})),
+);
+const DashboardCampaignForm = lazy(async () =>
+	import("@/pages/dashboard/campaign-form").then((module) => ({
+		default: module.DashboardCampaignFormPage,
+	})),
+);
+const DashboardCampaignDetail = lazy(async () =>
+	import("@/pages/dashboard/campaign-detail").then((module) => ({
+		default: module.DashboardCampaignDetailPage,
+	})),
+);
 const DashboardNewPost = lazy(async () =>
 	import("@/pages/dashboard/new-post").then((module) => ({
 		default: module.DashboardNewPost,
@@ -257,6 +272,13 @@ export function AppRoutes() {
 					>
 						<Route index element={<DashboardOverview />} />
 						<Route path="onboarding" element={<DashboardOnboarding />} />
+						<Route path="campaigns" element={<DashboardCampaigns />} />
+						<Route path="campaigns/new" element={<DashboardCampaignForm />} />
+						<Route path="campaigns/:id" element={<DashboardCampaignDetail />} />
+						<Route
+							path="campaigns/:id/edit"
+							element={<DashboardCampaignForm />}
+						/>
 						<Route path="posts" element={<DashboardPosts />} />
 						<Route path="posts/new" element={<DashboardNewPost />} />
 						<Route path="posts/:id" element={<DashboardPostDetail />} />
