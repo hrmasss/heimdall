@@ -502,3 +502,100 @@ type SocialTarget struct {
 	CreatedAt             time.Time  `bun:"created_at,notnull"`
 	UpdatedAt             time.Time  `bun:"updated_at,notnull"`
 }
+
+type WorkspaceBusinessContext struct {
+	bun.BaseModel `bun:"table:workspace_business_contexts"`
+
+	WorkspaceID        uuid.UUID `bun:"workspace_id,pk,type:uuid"`
+	Narrative          string    `bun:"narrative,notnull"`
+	Summary            string    `bun:"summary,notnull"`
+	UnderstandingScore int       `bun:"understanding_score,notnull"`
+	MissingGaps        string    `bun:"missing_gaps,notnull"`
+	DecisionFacts      string    `bun:"decision_facts,notnull"`
+	ExtractorVersion   string    `bun:"extractor_version,notnull"`
+	SourceHash         string    `bun:"source_hash,notnull"`
+	CreatedAt          time.Time `bun:"created_at,notnull"`
+	UpdatedAt          time.Time `bun:"updated_at,notnull"`
+}
+
+type WorkspaceBrandContext struct {
+	bun.BaseModel `bun:"table:workspace_brand_contexts"`
+
+	WorkspaceID         uuid.UUID  `bun:"workspace_id,pk,type:uuid"`
+	Narrative           string     `bun:"narrative,notnull"`
+	Summary             string     `bun:"summary,notnull"`
+	DesignTokens        string     `bun:"design_tokens,notnull"`
+	VisualGuardrails    string     `bun:"visual_guardrails,notnull"`
+	MissingGaps         string     `bun:"missing_gaps,notnull"`
+	ReferenceResourceID *uuid.UUID `bun:"reference_resource_id,type:uuid"`
+	ProcessingStatus    string     `bun:"processing_status,notnull"`
+	ExtractorVersion    string     `bun:"extractor_version,notnull"`
+	SourceHash          string     `bun:"source_hash,notnull"`
+	CreatedAt           time.Time  `bun:"created_at,notnull"`
+	UpdatedAt           time.Time  `bun:"updated_at,notnull"`
+}
+
+type WorkspaceContextCache struct {
+	bun.BaseModel `bun:"table:workspace_context_caches"`
+
+	WorkspaceID       uuid.UUID `bun:"workspace_id,pk,type:uuid"`
+	UseCase           string    `bun:"use_case,pk"`
+	Payload           string    `bun:"payload,notnull"`
+	SourceFingerprint string    `bun:"source_fingerprint,notnull"`
+	UpdatedAt         time.Time `bun:"updated_at,notnull"`
+}
+
+type WorkspaceAISettings struct {
+	bun.BaseModel `bun:"table:workspace_ai_settings"`
+
+	WorkspaceID         uuid.UUID `bun:"workspace_id,pk,type:uuid"`
+	DefaultMode         string    `bun:"default_mode,notnull"`
+	CapabilityDefaults  string    `bun:"capability_defaults,notnull"`
+	FallbackPoolEnabled bool      `bun:"fallback_pool_enabled,notnull"`
+	UsagePolicy         string    `bun:"usage_policy,notnull"`
+	CreatedAt           time.Time `bun:"created_at,notnull"`
+	UpdatedAt           time.Time `bun:"updated_at,notnull"`
+}
+
+type WorkspaceAICredential struct {
+	bun.BaseModel `bun:"table:workspace_ai_credentials"`
+
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider         string     `bun:"provider,notnull"`
+	Position         int        `bun:"position,notnull"`
+	Status           string     `bun:"status,notnull"`
+	APIKeyCiphertext string     `bun:"api_key_ciphertext,notnull"`
+	APIKeyHint       string     `bun:"api_key_hint,notnull"`
+	AllowedModels    string     `bun:"allowed_models,notnull"`
+	Metadata         string     `bun:"metadata,notnull"`
+	CreatedByUserID  *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID  *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
+}
+
+type AIRunEvent struct {
+	bun.BaseModel `bun:"table:ai_run_events"`
+
+	ID                  uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID         uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	UseCase             string     `bun:"use_case,notnull"`
+	Provider            string     `bun:"provider,notnull"`
+	Model               string     `bun:"model,notnull"`
+	CredentialMode      string     `bun:"credential_mode,notnull"`
+	CredentialID        *uuid.UUID `bun:"credential_id,type:uuid"`
+	ContextFingerprint  string     `bun:"context_fingerprint,notnull"`
+	SourceEntityType    string     `bun:"source_entity_type,notnull"`
+	SourceEntityID      string     `bun:"source_entity_id,notnull"`
+	Status              string     `bun:"status,notnull"`
+	PromptTokens        *int       `bun:"prompt_tokens"`
+	CompletionTokens    *int       `bun:"completion_tokens"`
+	TotalTokens         *int       `bun:"total_tokens"`
+	EstimatedCostMicros *int64     `bun:"estimated_cost_micros"`
+	RequestPayload      string     `bun:"request_payload,notnull"`
+	ResponsePayload     string     `bun:"response_payload,notnull"`
+	ErrorText           *string    `bun:"error_text"`
+	CreatedByUserID     *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	CreatedAt           time.Time  `bun:"created_at,notnull"`
+}

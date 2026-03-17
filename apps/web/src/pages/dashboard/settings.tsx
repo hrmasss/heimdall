@@ -170,6 +170,69 @@ export function DashboardSettings() {
 			</DashboardPanel>
 
 			<DashboardPanel
+				title="Workspace intelligence"
+				description="Business context, brand identity, and AI access now live in one dedicated setup area so prompts stay concise and decision-relevant."
+				action={
+					<Button className="rounded-full" asChild>
+						<Link to="/dashboard/settings/intelligence">
+							Open intelligence
+							<ArrowRight className="size-4" />
+						</Link>
+					</Button>
+				}
+			>
+				<div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+					<SurfaceCard className="rounded-[28px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(216,163,91,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.78))] p-5">
+						<div className="flex items-start gap-4">
+							<div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+								<Sparkles className="size-5" />
+							</div>
+							<div className="space-y-3">
+								<div className="text-lg font-medium">
+									Give AI only what should change the result.
+								</div>
+								<div className="text-sm text-muted-foreground">
+									Instead of generic tone sliders, Heimdall now lets each
+									workspace define business context, visual rules, and access
+									preferences that can be selectively injected into post, campaign,
+									image, and reel workflows.
+								</div>
+								<div className="flex flex-wrap gap-2">
+									<Badge variant="outline" className="rounded-full">
+										Business context
+									</Badge>
+									<Badge variant="outline" className="rounded-full">
+										Brand system
+									</Badge>
+									<Badge variant="outline" className="rounded-full">
+										AI access
+									</Badge>
+								</div>
+							</div>
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard tone="muted" className="space-y-4 p-5">
+						<div className="text-sm font-medium">What’s inside</div>
+						<div className="space-y-3">
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-3 text-sm text-muted-foreground">
+								Describe the business in plain language and edit the extracted
+								facts that truly matter.
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-3 text-sm text-muted-foreground">
+								Store design tokens, visual guardrails, and an optional reference
+								image for future image and reel generation.
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-3 text-sm text-muted-foreground">
+								Choose platform-native AI or approved GPT/Gemini BYOK access for
+								the workspace.
+							</div>
+						</div>
+					</SurfaceCard>
+				</div>
+			</DashboardPanel>
+
+			<DashboardPanel
 				title="Platform connections"
 				description="Publishing, scheduling, target validation, and streamlined social operations live in a dedicated guided setup page now."
 				action={

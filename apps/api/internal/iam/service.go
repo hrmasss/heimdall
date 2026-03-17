@@ -198,6 +198,10 @@ func (s *Service) RequireWorkspacePermission(ctx context.Context, principal *Pri
 	return s.requireWorkspaceAccess(ctx, principal, workspaceID, requiredPermission)
 }
 
+func (s *Service) RequirePlatformPermission(ctx context.Context, principal *Principal, requiredPermission string) ([]APIPermission, error) {
+	return s.requirePlatformAccess(ctx, principal, requiredPermission)
+}
+
 func (s *Service) ResolveWorkspaceID(principal *Principal, requestedWorkspaceID string) (uuid.UUID, error) {
 	requestedWorkspaceID = strings.TrimSpace(requestedWorkspaceID)
 	if requestedWorkspaceID != "" {

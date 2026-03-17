@@ -18,7 +18,7 @@ func TestServeResourceBlobStreamsBody(t *testing.T) {
 	const payload = "blob-payload"
 
 	app := fiber.New()
-	handler := NewAppHandler(nil, nil, nil, nil, nil, stubSignedBlobServer{
+	handler := NewAppHandler(nil, nil, nil, nil, nil, nil, stubSignedBlobServer{
 		blob: &resources.SignedBlob{
 			Filename:    "sample.txt",
 			ContentType: "text/plain",

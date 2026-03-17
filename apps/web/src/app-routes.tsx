@@ -120,6 +120,11 @@ const DashboardSettings = lazy(async () =>
 		default: module.DashboardSettings,
 	})),
 );
+const DashboardSettingsIntelligence = lazy(async () =>
+	import("@/pages/dashboard/settings-intelligence").then((module) => ({
+		default: module.DashboardSettingsIntelligencePage,
+	})),
+);
 const DashboardPlatformConnections = lazy(async () =>
 	import("@/pages/dashboard/platform-connections").then((module) => ({
 		default: module.DashboardPlatformConnectionsPage,
@@ -303,6 +308,10 @@ export function AppRoutes() {
 						<Route path="library/:id/edit" element={<DashboardLibraryEdit />} />
 						<Route path="team" element={<DashboardTeam />} />
 						<Route path="settings" element={<DashboardSettings />} />
+						<Route
+							path="settings/intelligence"
+							element={<DashboardSettingsIntelligence />}
+						/>
 						<Route
 							path="settings/platforms"
 							element={<DashboardPlatformConnections />}

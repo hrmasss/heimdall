@@ -63,7 +63,9 @@ export function DashboardOnboardingPage() {
 				workspaceId: null,
 			});
 			await reloadCustomerSession();
-			navigate("/dashboard", { replace: true });
+			navigate("/dashboard/settings/intelligence?onboarding=1", {
+				replace: true,
+			});
 		} catch (submitError) {
 			setError(
 				submitError instanceof Error

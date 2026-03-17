@@ -1,82 +1,105 @@
-import { CheckCircle2, Clock3, PlayCircle, WandSparkles } from "lucide-react";
+import {
+	ArrowRight,
+	BrainCircuit,
+	CheckCircle2,
+	Clock3,
+	Sparkles,
+	WandSparkles,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { WorkspaceContextResponse } from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 
-const rules = [
+const readinessCards = [
 	{
-		name: "Approval reminder cadence",
-		status: "Healthy",
+		icon: BrainCircuit,
+		title: "Business context",
 		description:
-			"Nudges reviewers every four hours once a launch enters the review state.",
+			"Compact facts about the business, audience, offers, differentiators, and hard guardrails.",
 	},
 	{
-		name: "Asset naming validation",
-		status: "Healthy",
+		icon: Sparkles,
+		title: "Brand system",
 		description:
-			"Checks attachments against campaign taxonomy before a post can be scheduled.",
+			"Design tokens, visual guardrails, and optional reference imagery for future asset generation.",
 	},
 	{
-		name: "Blocked post escalation",
-		status: "Needs attention",
+		icon: Clock3,
+		title: "Historical signals",
 		description:
-			"Escalates to the channel lead if a post remains blocked for more than eight hours.",
+			"Generation and workflow telemetry can accumulate quietly now, then power better campaign automation later.",
 	},
-];
-
-const runtimeStats = [
-	{
-		icon: CheckCircle2,
-		value: "96%",
-		label: "Successful automations this week",
-	},
-	{ icon: Clock3, value: "4m", label: "Median time to trigger" },
-	{ icon: WandSparkles, value: "18", label: "Rules currently active" },
 ];
 
 export function DashboardAutomations() {
+	const { activeWorkspaceId, customerRequest } = useAuth();
+	const [context, setContext] = useState<WorkspaceContextResponse | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function load() {
+			if (!activeWorkspaceId) {
+				return;
+			}
+			try {
+				const response = await customerRequest<WorkspaceContextResponse>(
+					`/workspaces/${activeWorkspaceId}/ai/context`,
+				);
+				if (!cancelled) {
+					setContext(response);
+				}
+			} catch {
+				if (!cancelled) {
+					setContext(null);
+				}
+			}
+		}
+
+		void load();
+		return () => {
+			cancelled = true;
+		};
+	}, [activeWorkspaceId, customerRequest]);
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
 				eyebrow="Automation"
 				title="Automations"
-				description="Workflow rules now sit inside the same warm, restrained system as the rest of the dashboard."
+				description="The runtime is staying intentionally light for now. First we make sure AI workflows have the right workspace context, access rules, and future-ready telemetry."
 				actions={
-					<Button className="rounded-full bg-gradient-brand text-white border-0">
-						<WandSparkles className="size-4" />
-						New rule
+					<Button className="rounded-full bg-gradient-brand text-white border-0" asChild>
+						<Link to="/dashboard/settings/intelligence">
+							<WandSparkles className="size-4" />
+							Open intelligence
+						</Link>
 					</Button>
 				}
 			/>
 
 			<DashboardPanel
-				title="Rule set"
-				description="The current workspace uses a compact, readable card model for automation routines."
+				title="Automation readiness"
+				description="Campaign AI, dynamic improvement, image generation, and reel generation will all build on this foundation instead of guessing."
 			>
 				<div className="grid gap-4 lg:grid-cols-3">
-					{rules.map((rule) => (
-						<SurfaceCard key={rule.name} className="p-5">
-							<div className="flex items-start justify-between gap-4">
-								<div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-									<PlayCircle className="size-5" />
-								</div>
-								<span
-									className={
-										rule.status === "Healthy"
-											? "pill pill-success"
-											: "pill pill-warning"
-									}
-								>
-									{rule.status}
-								</span>
+					{readinessCards.map((item) => (
+						<SurfaceCard key={item.title} className="p-5">
+							<div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+								<item.icon className="size-5" />
 							</div>
-							<div className="mt-5 text-lg font-medium">{rule.name}</div>
+							<div className="mt-5 text-lg font-medium">{item.title}</div>
 							<p className="mt-2 text-sm leading-6 text-muted-foreground">
-								{rule.description}
+								{item.description}
 							</p>
 						</SurfaceCard>
 					))}
@@ -84,23 +107,63 @@ export function DashboardAutomations() {
 			</DashboardPanel>
 
 			<DashboardPanel
-				title="Runtime details"
-				description="Automation surfaces are simple, but they no longer feel like placeholders."
+				title="Current workspace status"
+				description="This page does not pretend there is a full automation runtime yet. It shows whether the workspace is ready for the AI-driven layer we are introducing."
 			>
 				<div className="grid gap-4 md:grid-cols-3">
-					{runtimeStats.map((item) => (
-						<SurfaceCard key={item.label} tone="muted" className="p-5">
-							<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-								<item.icon className="size-4" />
-							</div>
-							<div className="mt-4 text-3xl font-semibold tracking-tight">
-								{item.value}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								{item.label}
-							</div>
-						</SurfaceCard>
+					<SurfaceCard tone="muted" className="p-5">
+						<div className="flex items-center gap-2 text-sm font-medium">
+							<CheckCircle2 className="size-4 text-emerald-600" />
+							Business context
+						</div>
+						<div className="mt-4 text-3xl font-semibold tracking-tight">
+							{context?.readiness.hasBusinessContext ? "Ready" : "Missing"}
+						</div>
+						<div className="mt-2 text-sm text-muted-foreground">
+							Automation quality depends heavily on whether Heimdall understands
+							what the workspace actually does.
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard tone="muted" className="p-5">
+						<div className="flex items-center gap-2 text-sm font-medium">
+							<CheckCircle2 className="size-4 text-emerald-600" />
+							AI access
+						</div>
+						<div className="mt-4 text-3xl font-semibold tracking-tight">
+							{context?.readiness.hasAiAccess ? "Ready" : "Missing"}
+						</div>
+						<div className="mt-2 text-sm text-muted-foreground">
+							Native or BYOK access must exist before any AI-backed automation
+							can actually run.
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard tone="muted" className="p-5">
+						<div className="flex items-center gap-2 text-sm font-medium">
+							<CheckCircle2 className="size-4 text-emerald-600" />
+							Brand system
+						</div>
+						<div className="mt-4 text-3xl font-semibold tracking-tight">
+							{context?.readiness.hasBrandContext ? "Ready" : "Optional"}
+						</div>
+						<div className="mt-2 text-sm text-muted-foreground">
+							Especially useful once image and reel generation are live.
+						</div>
+					</SurfaceCard>
+				</div>
+				<div className="mt-5 flex flex-wrap gap-2">
+					{context?.readiness.missing.map((item) => (
+						<Badge key={item} variant="outline" className="rounded-full">
+							{item}
+						</Badge>
 					))}
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/settings/intelligence">
+							Review intelligence setup
+							<ArrowRight className="size-4" />
+						</Link>
+					</Button>
 				</div>
 			</DashboardPanel>
 		</div>

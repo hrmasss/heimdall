@@ -11,6 +11,8 @@ const dashboardLabels: Record<string, string> = {
 	"/dashboard/library": "Library",
 	"/dashboard/team": "Team",
 	"/dashboard/settings": "Settings",
+	"/dashboard/settings/intelligence": "Intelligence",
+	"/dashboard/settings/platforms": "Platform setup",
 };
 
 export function formatBreadcrumbLabel(segment: string) {

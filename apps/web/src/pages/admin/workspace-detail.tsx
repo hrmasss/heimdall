@@ -1,6 +1,14 @@
-import { ArrowRight, Building2, PencilLine, Shield, Users } from "lucide-react";
+import {
+	ArrowRight,
+	Building2,
+	KeyRound,
+	PencilLine,
+	Shield,
+	Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { toast } from "sonner";
 
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
@@ -11,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import type {
 	ApiListResponse,
 	PlatformWorkspaceRecord,
+	WorkspaceAISettings,
 	WorkspaceMemberRecord,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
@@ -44,7 +53,9 @@ export function AdminWorkspaceDetailPage() {
 		null,
 	);
 	const [members, setMembers] = useState<WorkspaceMemberRecord[]>([]);
+	const [aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [savingAI, setSavingAI] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -54,19 +65,26 @@ export function AdminWorkspaceDetailPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const [workspaceResponse, membersResponse] = await Promise.all([
+				const [workspaceResponse, membersResponse, aiSettingsResponse] =
+					await Promise.all([
 					platformRequest<PlatformWorkspaceRecord>(
 						`/platform/workspaces/${id}`,
 					),
 					platformRequest<ApiListResponse<WorkspaceMemberRecord>>(
 						`/platform/workspaces/${id}/members`,
 					),
-				]);
+					hasPlatformPermission("platform.workspaces.manage")
+						? platformRequest<WorkspaceAISettings>(
+								`/platform/workspaces/${id}/ai/settings`,
+						  )
+						: Promise.resolve(null),
+					]);
 				if (cancelled) {
 					return;
 				}
 				setWorkspace(workspaceResponse);
 				setMembers(membersResponse.items);
+				setAISettings(aiSettingsResponse);
 			} catch (loadError) {
 				if (!cancelled) {
 					setError(
@@ -86,7 +104,34 @@ export function AdminWorkspaceDetailPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [id, platformRequest]);
+	}, [hasPlatformPermission, id, platformRequest]);
+
+	async function toggleFallbackPoolEnabled(nextValue: boolean) {
+		setSavingAI(true);
+		try {
+			const response = await platformRequest<WorkspaceAISettings>(
+				`/platform/workspaces/${id}/ai/settings`,
+				{
+					method: "PATCH",
+					body: { fallbackPoolEnabled: nextValue },
+				},
+			);
+			setAISettings(response);
+			toast.success(
+				nextValue
+					? "Fallback key pools enabled for this workspace."
+					: "Fallback key pools disabled for this workspace.",
+			);
+		} catch (toggleError) {
+			setError(
+				toggleError instanceof Error
+					? toggleError.message
+					: "Unable to update workspace AI settings.",
+			);
+		} finally {
+			setSavingAI(false);
+		}
+	}
 
 	async function assumeWorkspace() {
 		await platformRequest(`/platform/workspaces/${id}/assume-access`, {
@@ -223,6 +268,60 @@ export function AdminWorkspaceDetailPage() {
 					</div>
 				</SurfaceCard>
 			</div>
+
+			<SurfaceCard className="p-5">
+				<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+					<div className="max-w-2xl space-y-2">
+						<div className="flex items-center gap-2 text-sm font-medium">
+							<KeyRound className="size-4 text-primary" />
+							AI workspace controls
+						</div>
+						<div className="text-sm text-muted-foreground">
+							Fallback key arrays stay hidden from the customer UI unless staff
+							explicitly enable them for the workspace. This is meant for
+							high-usage workspaces that need multiple provider keys to recover
+							from rate or credit limits.
+						</div>
+					</div>
+					<Button
+						variant={
+							aiSettings?.fallbackPoolEnabled ? "outline" : "default"
+						}
+						className={
+							aiSettings?.fallbackPoolEnabled
+								? "rounded-full"
+								: "rounded-full border-0 bg-gradient-brand text-white"
+						}
+						disabled={
+							!hasPlatformPermission("platform.workspaces.manage") || savingAI
+						}
+						onClick={() =>
+							void toggleFallbackPoolEnabled(
+								!(aiSettings?.fallbackPoolEnabled ?? false),
+							)
+						}
+					>
+						{savingAI
+							? "Saving..."
+							: aiSettings?.fallbackPoolEnabled
+								? "Disable fallback key pools"
+								: "Enable fallback key pools"}
+					</Button>
+				</div>
+				<div className="mt-4 flex flex-wrap gap-2">
+					<Badge variant="outline" className="rounded-full">
+						Default mode: {aiSettings?.defaultMode ?? "native"}
+					</Badge>
+					<Badge variant="outline" className="rounded-full">
+						Fallback pools{" "}
+						{aiSettings?.fallbackPoolEnabled ? "enabled" : "disabled"}
+					</Badge>
+					<Badge variant="outline" className="rounded-full">
+						{aiSettings?.credentials.length ?? 0} saved AI credential
+						{(aiSettings?.credentials.length ?? 0) === 1 ? "" : "s"}
+					</Badge>
+				</div>
+			</SurfaceCard>
 
 			<SurfaceCard className="p-5 md:p-6">
 				<DataTable

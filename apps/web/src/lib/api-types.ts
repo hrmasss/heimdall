@@ -602,3 +602,110 @@ export type CalendarResponse = {
 	platforms: CalendarPlatformLane[];
 	range: CalendarRange;
 };
+
+export type ContextFact = {
+	key: string;
+	label: string;
+	value: string;
+	appliesTo: string[];
+	importance: "low" | "medium" | "high";
+};
+
+export type WorkspaceBusinessContext = {
+	narrative: string;
+	summary: string;
+	understandingScore: number;
+	missingGaps: string[];
+	facts: ContextFact[];
+	extractorVersion: string;
+	sourceHash: string;
+	updatedAt?: string;
+};
+
+export type WorkspaceBrandContext = {
+	narrative: string;
+	summary: string;
+	designTokens: Record<string, unknown>;
+	visualGuardrails: string[];
+	missingGaps: string[];
+	referenceResourceId?: string;
+	processingStatus: string;
+	extractorVersion: string;
+	sourceHash: string;
+	updatedAt?: string;
+};
+
+export type WorkspaceIntelligenceReadiness = {
+	hasBusinessContext: boolean;
+	hasBrandContext: boolean;
+	hasAiAccess: boolean;
+	complete: boolean;
+	missing: string[];
+};
+
+export type WorkspaceContextResponse = {
+	business: WorkspaceBusinessContext;
+	brand: WorkspaceBrandContext;
+	readiness: WorkspaceIntelligenceReadiness;
+};
+
+export type AIModelSelection = {
+	provider: string;
+	model: string;
+};
+
+export type AIProviderCredentialRecord = {
+	id: string;
+	provider: string;
+	position: number;
+	status: string;
+	keyHint: string;
+	allowedModels: string[];
+	updatedAt?: string;
+};
+
+export type WorkspaceAISettings = {
+	defaultMode: "native" | "byok";
+	capabilityDefaults: Record<string, AIModelSelection>;
+	fallbackPoolEnabled: boolean;
+	usagePolicy: Record<string, unknown>;
+	credentials: AIProviderCredentialRecord[];
+};
+
+export type AIProviderCatalogEntry = {
+	provider: string;
+	label: string;
+	approvedModels: string[];
+	defaultModel: string;
+	nativeAvailable: boolean;
+	configuredCredentialCount: number;
+	supportsByok: boolean;
+	supportsImages: boolean;
+};
+
+export type AIProviderCatalog = {
+	providers: AIProviderCatalogEntry[];
+};
+
+export type AIRunEventSummary = {
+	id: string;
+	useCase: string;
+	provider: string;
+	model: string;
+	credentialMode: string;
+	contextFingerprint: string;
+	status: string;
+	createdAt: string;
+};
+
+export type AIGeneratedPostDraft = {
+	title: string;
+	contentKind: "text" | "article" | "thread";
+	contentPayload: Record<string, unknown>;
+	provider: string;
+	model: string;
+	credentialMode: "native" | "byok";
+	contextFingerprint: string;
+	warnings: string[];
+	runEvent?: AIRunEventSummary;
+};

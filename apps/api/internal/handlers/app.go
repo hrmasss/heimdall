@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
+	"github.com/heimdall/api/internal/ai"
 	"github.com/heimdall/api/internal/auth"
 	"github.com/heimdall/api/internal/campaigns"
 	"github.com/heimdall/api/internal/config"
@@ -22,6 +23,7 @@ import (
 
 type AppHandler struct {
 	service         *iam.Service
+	aiService       *ai.Service
 	resourceService *resources.Service
 	campaignService *campaigns.Service
 	postService     *posts.Service
@@ -30,8 +32,8 @@ type AppHandler struct {
 	cfg             *config.Config
 }
 
-func NewAppHandler(service *iam.Service, resourceService *resources.Service, campaignService *campaigns.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, resourceService: resourceService, campaignService: campaignService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
+func NewAppHandler(service *iam.Service, aiService *ai.Service, resourceService *resources.Service, campaignService *campaigns.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, aiService: aiService, resourceService: resourceService, campaignService: campaignService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -59,6 +61,13 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/workspaces", h.requireAuth, h.createWorkspace)
 	api.Get("/workspaces/:id", h.requireAuth, h.getWorkspace)
 	api.Patch("/workspaces/:id", h.requireAuth, h.updateWorkspace)
+	api.Get("/workspaces/:id/ai/context", h.requireAuth, h.getWorkspaceAIContext)
+	api.Patch("/workspaces/:id/ai/context/business", h.requireAuth, h.updateWorkspaceAIBusinessContext)
+	api.Patch("/workspaces/:id/ai/context/brand", h.requireAuth, h.updateWorkspaceAIBrandContext)
+	api.Get("/workspaces/:id/ai/settings", h.requireAuth, h.getWorkspaceAISettings)
+	api.Patch("/workspaces/:id/ai/settings", h.requireAuth, h.updateWorkspaceAISettings)
+	api.Get("/workspaces/:id/ai/catalog", h.requireAuth, h.getWorkspaceAICatalog)
+	api.Post("/workspaces/:id/ai/post-drafts", h.requireAuth, h.generateWorkspaceAIPostDraft)
 	api.Get("/workspaces/:id/members", h.requireAuth, h.listWorkspaceMembers)
 	api.Patch("/workspaces/:id/members/:membershipId", h.requireAuth, h.updateWorkspaceMember)
 	api.Get("/workspaces/:id/roles", h.requireAuth, h.listWorkspaceRoles)
@@ -131,6 +140,8 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/platform/workspaces", h.requireAuth, h.createPlatformWorkspace)
 	api.Get("/platform/workspaces/:id", h.requireAuth, h.getPlatformWorkspace)
 	api.Patch("/platform/workspaces/:id", h.requireAuth, h.updatePlatformWorkspace)
+	api.Get("/platform/workspaces/:id/ai/settings", h.requireAuth, h.getPlatformWorkspaceAISettings)
+	api.Patch("/platform/workspaces/:id/ai/settings", h.requireAuth, h.updatePlatformWorkspaceAISettings)
 	api.Get("/platform/workspaces/:id/members", h.requireAuth, h.listPlatformWorkspaceMembers)
 	api.Post("/platform/workspaces/:id/members", h.requireAuth, h.createPlatformWorkspaceMember)
 	api.Patch("/platform/workspaces/:id/members/:membershipId", h.requireAuth, h.updatePlatformWorkspaceMember)

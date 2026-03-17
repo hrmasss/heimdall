@@ -13,10 +13,12 @@ import {
 	Save,
 	Send,
 	Trash2,
+	WandSparkles,
 	XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { toast } from "sonner";
 
 import {
 	AdminFormField,
@@ -50,6 +52,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type {
+	AIGeneratedPostDraft,
+	AIProviderCatalog,
 	ApiListResponse,
 	CampaignSummary,
 	PostDetail,
@@ -63,6 +67,8 @@ import type {
 	ResourceSetSummary,
 	ReviewRecord,
 	VariantReadiness,
+	WorkspaceAISettings,
+	WorkspaceContextResponse,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
@@ -842,10 +848,25 @@ export function DashboardNewPost() {
 	const [variants, setVariants] = useState<DraftVariant[]>([]);
 	const [legacyVariants, setLegacyVariants] = useState<PostVariant[]>([]);
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
+	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
+	const [aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(null);
+	const [aiContext, setAIContext] = useState<WorkspaceContextResponse | null>(null);
+	const [aiPrompt, setAIPrompt] = useState("");
+	const [aiMode, setAIMode] = useState<"native" | "byok">("native");
+	const [aiProvider, setAIProvider] = useState("");
+	const [aiModel, setAIModel] = useState("");
+	const [aiGenerating, setAIGenerating] = useState(false);
+	const [aiWarnings, setAIWarnings] = useState<string[]>([]);
+	const [lastAIDraft, setLastAIDraft] = useState<AIGeneratedPostDraft | null>(null);
 
 	const platformOptions = useMemo(
 		() => uniquePlatforms(capabilities),
 		[capabilities],
+	);
+	const aiProviders = aiCatalog?.providers ?? [];
+	const activeAIProviderConfig = useMemo(
+		() => aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
+		[aiProvider, aiProviders],
 	);
 	const resourcesById = useMemo(() => resourceMap(resources), [resources]);
 	const rootAssets = useMemo(
@@ -908,6 +929,9 @@ export function DashboardNewPost() {
 					resourceResponse,
 					setResponse,
 					capabilityResponse,
+					aiCatalogResponse,
+					aiSettingsResponse,
+					aiContextResponse,
 					postResponse,
 				] = await Promise.all([
 					customerRequest<ApiListResponse<CampaignSummary>>("/campaigns"),
@@ -916,6 +940,15 @@ export function DashboardNewPost() {
 						"/resource-sets",
 					),
 					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
+					customerRequest<AIProviderCatalog>(
+						`/workspaces/${activeWorkspaceId}/ai/catalog`,
+					).catch(() => null),
+					customerRequest<WorkspaceAISettings>(
+						`/workspaces/${activeWorkspaceId}/ai/settings`,
+					).catch(() => null),
+					customerRequest<WorkspaceContextResponse>(
+						`/workspaces/${activeWorkspaceId}/ai/context`,
+					).catch(() => null),
 					nextId
 						? customerRequest<PostDetail>(`/posts/${nextId}`)
 						: Promise.resolve(null),
@@ -926,6 +959,23 @@ export function DashboardNewPost() {
 				setResources(resourceResponse.items);
 				setResourceSets(setResponse.items);
 				setCapabilities(normalizedCapabilities);
+				setAICatalog(aiCatalogResponse);
+				setAISettings(aiSettingsResponse);
+				setAIContext(aiContextResponse);
+				setAIMode(aiSettingsResponse?.defaultMode ?? "native");
+				const defaultAISelection =
+					aiSettingsResponse?.capabilityDefaults.post_generation ??
+					(aiCatalogResponse?.providers[0]
+						? {
+								provider: aiCatalogResponse.providers[0].provider,
+								model:
+									aiCatalogResponse.providers[0].defaultModel ??
+									aiCatalogResponse.providers[0].approvedModels[0] ??
+									"",
+						  }
+						: { provider: "", model: "" });
+				setAIProvider(defaultAISelection.provider);
+				setAIModel(defaultAISelection.model);
 
 				if (!postResponse) {
 					const requestedPlatform =
@@ -1114,6 +1164,23 @@ export function DashboardNewPost() {
 		void loadEditor(id ?? null, requestedTab);
 	}, [id, loadEditor]);
 
+	useEffect(() => {
+		if (!activeAIProviderConfig) {
+			return;
+		}
+		if (
+			aiModel &&
+			activeAIProviderConfig.approvedModels.includes(aiModel)
+		) {
+			return;
+		}
+		setAIModel(
+			activeAIProviderConfig.defaultModel ??
+				activeAIProviderConfig.approvedModels[0] ??
+				"",
+		);
+	}, [activeAIProviderConfig, aiModel]);
+
 	async function resolveResourceSetIds(resourceSetId: string) {
 		const response = await customerRequest<ResourceSetDetail>(
 			`/resource-sets/${resourceSetId}`,
@@ -1234,6 +1301,55 @@ export function DashboardNewPost() {
 			setStartsFromSurface("");
 		}
 		setActiveTab("shared");
+	}
+
+	async function generateAIDraft() {
+		if (!activeWorkspaceId) {
+			return;
+		}
+		if (!aiPrompt.trim()) {
+			setError("Add a goal or topic before generating an AI draft.");
+			return;
+		}
+		setAIGenerating(true);
+		setAIWarnings([]);
+		setError(null);
+		try {
+			const response = await customerRequest<AIGeneratedPostDraft>(
+				`/workspaces/${activeWorkspaceId}/ai/post-drafts`,
+				{
+					method: "POST",
+					body: {
+						prompt: aiPrompt,
+						provider: aiProvider,
+						model: aiModel,
+						mode: aiMode,
+						campaignId: campaignId || null,
+					},
+				},
+			);
+			setLastAIDraft(response);
+			setAIWarnings(response.warnings);
+			const nextTitle =
+				response.title.trim() ||
+				title ||
+				aiPrompt.trim().slice(0, 80);
+			setTitle(nextTitle);
+			const nextKind = response.contentKind as ContentKind;
+			const nextDraft = extractDraftContent(nextKind, response.contentPayload);
+			setSharedDraft(nextDraft);
+			setSharedTagInput(formatTagsForEditor(nextDraft.tags));
+			setActiveTab("shared");
+			toast.success("AI draft inserted into the shared composer.");
+		} catch (generationError) {
+			setError(
+				generationError instanceof Error
+					? generationError.message
+					: "Unable to generate an AI draft.",
+			);
+		} finally {
+			setAIGenerating(false);
+		}
 	}
 
 	async function saveDraft() {
@@ -1788,6 +1904,150 @@ export function DashboardNewPost() {
 						<TabsContent value="shared" className="mt-5">
 							<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
 								<div className="space-y-5">
+									<SurfaceCard className="space-y-4 p-5">
+										<div className="flex flex-wrap items-start justify-between gap-3">
+											<div>
+												<div className="flex items-center gap-2 text-sm font-medium">
+													<WandSparkles className="size-4 text-primary" />
+													AI draft
+												</div>
+												<div className="mt-1 text-sm text-muted-foreground">
+													Generate a shared draft with workspace business context,
+													selected campaign context, and brand signals only when they
+													help.
+												</div>
+											</div>
+											{aiContext?.readiness ? (
+												<Badge variant="outline" className="rounded-full">
+													{aiContext.readiness.complete
+														? "Workspace intelligence ready"
+														: `Missing: ${aiContext.readiness.missing.join(", ")}`}
+												</Badge>
+											) : null}
+											{aiSettings?.fallbackPoolEnabled ? (
+												<Badge variant="outline" className="rounded-full">
+													Fallback key pools enabled
+												</Badge>
+											) : null}
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="ai-post-prompt">What should the post do?</Label>
+											<Textarea
+												id="ai-post-prompt"
+												value={aiPrompt}
+												onChange={(event) => setAIPrompt(event.target.value)}
+												className={mediumTextareaClassName}
+												placeholder="Example: Draft a LinkedIn post about how AI helps CFOs and investors validate financial signals faster without replacing judgment."
+											/>
+										</div>
+										<div className="grid gap-4 md:grid-cols-3">
+											<AdminFormField>
+												<Label>Access mode</Label>
+												<Select
+													value={aiMode}
+													onValueChange={(value) =>
+														setAIMode(value as "native" | "byok")
+													}
+												>
+													<SelectTrigger className={adminSelectTriggerClassName}>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="native">Platform native</SelectItem>
+														<SelectItem value="byok">Bring your own key</SelectItem>
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+											<AdminFormField>
+												<Label>Provider</Label>
+												<Select
+													value={aiProvider}
+													onValueChange={(value) => setAIProvider(value)}
+												>
+													<SelectTrigger className={adminSelectTriggerClassName}>
+														<SelectValue placeholder="Select provider" />
+													</SelectTrigger>
+													<SelectContent>
+														{aiProviders.map((provider) => (
+															<SelectItem
+																key={provider.provider}
+																value={provider.provider}
+															>
+																{provider.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+											<AdminFormField>
+												<Label>Model</Label>
+												<Select value={aiModel} onValueChange={setAIModel}>
+													<SelectTrigger className={adminSelectTriggerClassName}>
+														<SelectValue placeholder="Select model" />
+													</SelectTrigger>
+													<SelectContent>
+														{(activeAIProviderConfig?.approvedModels ?? []).map(
+															(model) => (
+																<SelectItem key={model} value={model}>
+																	{model}
+																</SelectItem>
+															),
+														)}
+													</SelectContent>
+												</Select>
+											</AdminFormField>
+										</div>
+										<div className="flex flex-wrap items-center gap-2">
+											<Button
+												type="button"
+												className="rounded-full border-0 bg-gradient-brand text-white"
+												disabled={
+													aiGenerating ||
+													loading ||
+													!aiPrompt.trim() ||
+													!aiProvider ||
+													!aiModel
+												}
+												onClick={() => void generateAIDraft()}
+											>
+												{aiGenerating ? (
+													<>
+														<LoaderCircle className="size-4 animate-spin" />
+														Generating draft...
+													</>
+												) : (
+													<>
+														<WandSparkles className="size-4" />
+														Generate AI draft
+													</>
+												)}
+											</Button>
+											<Button
+												type="button"
+												variant="outline"
+												className="rounded-full"
+												asChild
+											>
+												<Link to="/dashboard/settings/intelligence">
+													Edit intelligence setup
+												</Link>
+											</Button>
+										</div>
+										{aiWarnings.length > 0 ? (
+											<div className="rounded-[20px] border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-800">
+												{aiWarnings.join(" ")}
+											</div>
+										) : null}
+										{lastAIDraft ? (
+											<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+												Generated with {lastAIDraft.provider} / {lastAIDraft.model}
+												{lastAIDraft.runEvent
+													? ` · run ${lastAIDraft.runEvent.id.slice(0, 8)}`
+													: ""}
+											</div>
+										) : null}
+									</SurfaceCard>
+
 									<SurfaceCard className="space-y-4 p-5">
 										<div className="text-sm font-medium">Shared content</div>
 										<AdminFormField>

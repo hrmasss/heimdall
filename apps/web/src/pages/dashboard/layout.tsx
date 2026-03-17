@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
+import type { WorkspaceContextResponse } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -544,14 +545,73 @@ export function DashboardLayout() {
 	);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [assistantOpen, setAssistantOpen] = useState(false);
+	const [intelligenceContext, setIntelligenceContext] =
+		useState<WorkspaceContextResponse | null>(null);
 	const location = useLocation();
-	const { customerSession, activeWorkspaceMembership } = useAuth();
+	const navigate = useNavigate();
+	const {
+		customerSession,
+		activeWorkspaceId,
+		activeWorkspaceMembership,
+		customerRequest,
+	} = useAuth();
 
 	useEffect(() => {
 		if (location.pathname) {
 			setMobileOpen(false);
 		}
 	}, [location.pathname]);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function loadIntelligenceContext() {
+			if (!activeWorkspaceId) {
+				setIntelligenceContext(null);
+				return;
+			}
+			try {
+				const response = await customerRequest<WorkspaceContextResponse>(
+					`/workspaces/${activeWorkspaceId}/ai/context`,
+				);
+				if (!cancelled) {
+					setIntelligenceContext(response);
+				}
+			} catch {
+				if (!cancelled) {
+					setIntelligenceContext(null);
+				}
+			}
+		}
+
+		void loadIntelligenceContext();
+		return () => {
+			cancelled = true;
+		};
+	}, [activeWorkspaceId, customerRequest, location.pathname]);
+
+	useEffect(() => {
+		if (!intelligenceContext?.readiness || !activeWorkspaceId) {
+			return;
+		}
+		if (intelligenceContext.readiness.complete) {
+			return;
+		}
+		if (
+			location.pathname === "/dashboard" &&
+			location.search !== "?setup=complete"
+		) {
+			navigate("/dashboard/settings/intelligence?onboarding=1", {
+				replace: true,
+			});
+		}
+	}, [
+		activeWorkspaceId,
+		intelligenceContext,
+		location.pathname,
+		location.search,
+		navigate,
+	]);
 
 	return (
 		<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
@@ -589,6 +649,30 @@ export function DashboardLayout() {
 										<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
 											Support access session active for{" "}
 											{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
+										</div>
+									) : null}
+									{intelligenceContext?.readiness &&
+									!intelligenceContext.readiness.complete &&
+									location.pathname !== "/dashboard/settings/intelligence" ? (
+										<div className="mb-6 rounded-[24px] border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-800 dark:text-sky-200">
+											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+												<div>
+													Workspace intelligence is still incomplete.
+													<span className="ml-1">
+														Missing: {intelligenceContext.readiness.missing.join(", ")}.
+													</span>
+												</div>
+												<Button
+													variant="outline"
+													size="sm"
+													className="rounded-full border-sky-500/30 bg-white/70 text-sky-900 hover:bg-white"
+													asChild
+												>
+													<Link to="/dashboard/settings/intelligence">
+														Complete setup
+													</Link>
+												</Button>
+											</div>
 										</div>
 									) : null}
 									<Outlet />
