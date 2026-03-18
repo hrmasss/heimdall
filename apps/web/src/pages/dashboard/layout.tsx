@@ -13,6 +13,7 @@ import {
 	PanelLeftClose,
 	PanelLeftOpen,
 	Settings,
+	Sparkles,
 	Users2,
 	WandSparkles,
 	X,
@@ -55,7 +56,8 @@ const navigation = [
 	{ href: "/dashboard/calendar", label: "Calendar", icon: CalendarRange },
 	{ href: "/dashboard/analytics", label: "Analytics", icon: LineChart },
 	{ href: "/dashboard/automations", label: "Automations", icon: WandSparkles },
-	{ href: "/dashboard/library", label: "Library", icon: FolderKanban },
+	{ href: "/dashboard/studio", label: "Studio", icon: Sparkles },
+	{ href: "/dashboard/library", label: "Assets", icon: FolderKanban },
 	{ href: "/dashboard/team", label: "Team", icon: Users2 },
 	{ href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

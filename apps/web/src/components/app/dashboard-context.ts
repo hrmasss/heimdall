@@ -8,7 +8,8 @@ const dashboardLabels: Record<string, string> = {
 	"/dashboard/calendar": "Calendar",
 	"/dashboard/analytics": "Analytics",
 	"/dashboard/automations": "Automations",
-	"/dashboard/library": "Library",
+	"/dashboard/studio": "Studio",
+	"/dashboard/library": "Assets",
 	"/dashboard/team": "Team",
 	"/dashboard/settings": "Settings",
 	"/dashboard/settings/intelligence": "Intelligence",
@@ -58,7 +59,7 @@ function resolveDashboardLabel(pathname: string) {
 		return "Edit resource";
 	}
 	if (/^\/dashboard\/library\/[^/]+$/.test(pathname)) {
-		return "Resource detail";
+		return "Asset detail";
 	}
 	return (
 		dashboardLabels[pathname] ??

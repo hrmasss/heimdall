@@ -85,6 +85,11 @@ const DashboardAutomations = lazy(async () =>
 		default: module.DashboardAutomations,
 	})),
 );
+const DashboardStudio = lazy(async () =>
+	import("@/pages/dashboard/studio").then((module) => ({
+		default: module.DashboardStudio,
+	})),
+);
 const DashboardLibrary = lazy(async () =>
 	import("@/pages/dashboard/library").then((module) => ({
 		default: module.DashboardLibrary,
@@ -291,6 +296,7 @@ export function AppRoutes() {
 						<Route path="calendar" element={<DashboardCalendar />} />
 						<Route path="analytics" element={<DashboardAnalytics />} />
 						<Route path="automations" element={<DashboardAutomations />} />
+						<Route path="studio" element={<DashboardStudio />} />
 						<Route path="library" element={<DashboardLibrary />} />
 						<Route
 							path="library/sets/new"

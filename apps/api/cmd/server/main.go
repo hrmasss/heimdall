@@ -17,6 +17,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/heimdall/api/internal/ai"
+	"github.com/heimdall/api/internal/automations"
 	"github.com/heimdall/api/internal/campaigns"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/database"
@@ -117,7 +118,7 @@ func runServe(rootDir string) error {
 		AllowCredentials: true,
 	}))
 
-	handlers.NewAppHandler(deps.service, deps.aiService, deps.resourceService, deps.campaignService, deps.postService, deps.socialService, deps.storage, cfg).Register(app)
+	handlers.NewAppHandler(deps.service, deps.aiService, deps.resourceService, deps.campaignService, deps.postService, deps.socialService, deps.automationService, deps.storage, cfg).Register(app)
 
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)
 	log.Printf("Heimdall API starting on http://%s", addr)
@@ -180,14 +181,15 @@ func runHealthcheck(rootDir string) error {
 }
 
 type appDependencies struct {
-	service         *iam.Service
-	aiService       *ai.Service
-	resourceService *resources.Service
-	campaignService *campaigns.Service
-	postService     *posts.Service
-	socialService   *social.Service
-	storage         *resources.LocalStorage
-	cleanup         func()
+	service           *iam.Service
+	aiService         *ai.Service
+	resourceService   *resources.Service
+	campaignService   *campaigns.Service
+	postService       *posts.Service
+	socialService     *social.Service
+	automationService *automations.Service
+	storage           *resources.LocalStorage
+	cleanup           func()
 }
 
 func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, error) {
@@ -212,6 +214,7 @@ func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, err
 	campaignService := campaigns.NewService(db, service, postService)
 	socialService := social.NewService(db, cfg.Social, service, postService, storage)
 	aiService := ai.NewService(db, cfg.AI, service, storage)
+	automationService := automations.NewService(db, service, aiService, resourceService, campaignService, postService)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -220,13 +223,14 @@ func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, err
 	}
 
 	return &appDependencies{
-		service:         service,
-		aiService:       aiService,
-		resourceService: resourceService,
-		campaignService: campaignService,
-		postService:     postService,
-		socialService:   socialService,
-		storage:         storage,
+		service:           service,
+		aiService:         aiService,
+		resourceService:   resourceService,
+		campaignService:   campaignService,
+		postService:       postService,
+		socialService:     socialService,
+		automationService: automationService,
+		storage:           storage,
 		cleanup: func() {
 			_ = db.Close()
 		},

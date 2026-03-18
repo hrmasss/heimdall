@@ -6,11 +6,12 @@ import {
 	Layers3,
 	PencilLine,
 	RefreshCw,
+	Sparkles,
 	Trash2,
 	Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
 import {
@@ -728,11 +729,17 @@ export function DashboardLibrary() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Workspace resources"
-				title="Library"
+				eyebrow="Workspace assets"
+				title="Assets"
 				description="Upload, preview, inspect, and reuse workspace-scoped media. Ordered asset sets keep related resources together for surfaces like carousels and story sequences."
 				actions={
 					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/studio">
+								<Sparkles className="size-4" />
+								Open studio
+							</Link>
+						</Button>
 						<Button
 							variant="outline"
 							className="rounded-full"

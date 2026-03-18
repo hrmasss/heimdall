@@ -519,6 +519,38 @@ func allUseCases() []string {
 	return []string{useCasePostGeneration, useCaseCampaignPlanning, useCaseImageGeneration, useCaseReelGeneration}
 }
 
+func normalizeGeneratedUseCase(value string) string {
+	switch strings.TrimSpace(value) {
+	case useCasePostGeneration,
+		useCaseCampaignPlanning,
+		useCaseVariationGeneration,
+		useCaseImageGeneration,
+		useCaseReelGeneration,
+		useCasePDFGeneration:
+		return strings.TrimSpace(value)
+	default:
+		return ""
+	}
+}
+
+func normalizeConfiguredUseCase(useCase string) string {
+	switch useCase {
+	case useCaseVariationGeneration, useCasePDFGeneration:
+		return useCasePostGeneration
+	default:
+		return useCase
+	}
+}
+
+func normalizeContextCacheUseCase(useCase string) string {
+	switch useCase {
+	case useCaseVariationGeneration, useCasePDFGeneration:
+		return useCasePostGeneration
+	default:
+		return useCase
+	}
+}
+
 func marshalMustJSON(value any) string {
 	encoded, _ := json.Marshal(value)
 	return string(encoded)

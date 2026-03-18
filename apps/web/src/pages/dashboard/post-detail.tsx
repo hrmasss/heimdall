@@ -21,6 +21,7 @@ import {
 	Plus,
 	RefreshCw,
 	Send,
+	Sparkles,
 	Trash2,
 	XCircle,
 } from "lucide-react";
@@ -1503,6 +1504,18 @@ export function DashboardPostDetailPage() {
 				description="Inspect the shared draft, move between platform variants, and keep review plus publication actions close to the active tab."
 				actions={
 					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/automations">
+								<Sparkles className="size-4" />
+								Create variations
+							</Link>
+						</Button>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/studio">
+								<FileText className="size-4" />
+								Generate PDF
+							</Link>
+						</Button>
 						<Button variant="outline" className="rounded-full" asChild>
 							<Link to="/dashboard/posts">
 								<ArrowLeft className="size-4" />

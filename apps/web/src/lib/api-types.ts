@@ -709,3 +709,157 @@ export type AIGeneratedPostDraft = {
 	warnings: string[];
 	runEvent?: AIRunEventSummary;
 };
+
+export type AutomationActionContract = {
+	actionType: string;
+	label: string;
+	description: string;
+	acceptedInputs: string[];
+	producedOutputs: string[];
+	requiredCapabilities: string[];
+	reviewEligible: boolean;
+	publishEligible: boolean;
+	supportsStandalone: boolean;
+	beta: boolean;
+	defaultReviewerType?: string;
+	defaultConsumesType: string;
+	defaultProducesType: string;
+	defaultStepKind: string;
+	providerCapabilities?: string[];
+};
+
+export type WorkflowStep = {
+	id?: string;
+	automationId?: string;
+	position: number;
+	name: string;
+	stepKind: string;
+	actionType: string;
+	consumesArtifactType: string;
+	producesArtifactType: string;
+	reviewerType: string;
+	requiredCapabilities: string[];
+	config: Record<string, unknown>;
+	metadata: Record<string, unknown>;
+};
+
+export type AutomationTemplate = {
+	id: string;
+	name: string;
+	description: string;
+	category: string;
+	entryPoint: string;
+	beta: boolean;
+	metadata?: Record<string, unknown>;
+	steps: WorkflowStep[];
+};
+
+export type AutomationCatalogResponse = {
+	actions: AutomationActionContract[];
+	templates: AutomationTemplate[];
+};
+
+export type AutomationDefinition = {
+	id: string;
+	workspaceId: string;
+	status: string;
+	scope: string;
+	name: string;
+	description: string;
+	actionType: string;
+	triggerType: string;
+	inputSchema: Record<string, unknown>;
+	defaultConfig: Record<string, unknown>;
+	outputSchema: Record<string, unknown>;
+	reviewPolicy: Record<string, unknown>;
+	capabilityHints: string[];
+	metadata: Record<string, unknown>;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type WorkflowDefinition = {
+	id: string;
+	workspaceId: string;
+	status: string;
+	scope: string;
+	name: string;
+	description: string;
+	triggerType: string;
+	inputSchema: Record<string, unknown>;
+	outputSchema: Record<string, unknown>;
+	reviewPolicy: Record<string, unknown>;
+	capabilityHints: string[];
+	metadata: Record<string, unknown>;
+	steps: WorkflowStep[];
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type RunArtifact = {
+	type: string;
+	label: string;
+	campaignId?: string;
+	postId?: string;
+	variantIds?: string[];
+	resourceId?: string;
+	resourceSetId?: string;
+	data?: Record<string, unknown>;
+};
+
+export type RunReview = {
+	id: string;
+	runId: string;
+	runStepId?: string;
+	reviewerType: string;
+	decision: string;
+	status: string;
+	comment: string;
+	findings: string[];
+	actorUserId?: string;
+	automationAgent: string;
+	createdAt: string;
+};
+
+export type AutomationRunStep = {
+	id: string;
+	workflowStepId?: string;
+	position: number;
+	name: string;
+	stepKind: string;
+	actionType: string;
+	state: string;
+	reviewerType: string;
+	inputPayload: Record<string, unknown>;
+	outputPayload: Record<string, unknown>;
+	artifactPayload: RunArtifact[];
+	evidencePayload: Record<string, unknown>;
+	lastError?: string;
+	startedAt?: string;
+	completedAt?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type AutomationRun = {
+	id: string;
+	workspaceId: string;
+	sourceType: string;
+	automationId?: string;
+	workflowId?: string;
+	status: string;
+	currentStepPosition?: number;
+	triggerType: string;
+	reviewRequired: boolean;
+	reviewerType: string;
+	inputPayload: Record<string, unknown>;
+	outputPayload: Record<string, unknown>;
+	lastError?: string;
+	contextFingerprint: string;
+	evidencePayload: Record<string, unknown>;
+	steps: AutomationRunStep[];
+	reviews: RunReview[];
+	completedAt?: string;
+	createdAt: string;
+	updatedAt: string;
+};

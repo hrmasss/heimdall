@@ -13,6 +13,7 @@ import (
 
 	"github.com/heimdall/api/internal/ai"
 	"github.com/heimdall/api/internal/auth"
+	"github.com/heimdall/api/internal/automations"
 	"github.com/heimdall/api/internal/campaigns"
 	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/iam"
@@ -22,18 +23,19 @@ import (
 )
 
 type AppHandler struct {
-	service         *iam.Service
-	aiService       *ai.Service
-	resourceService *resources.Service
-	campaignService *campaigns.Service
-	postService     *posts.Service
-	socialService   *social.Service
-	blobServer      resources.SignedBlobServer
-	cfg             *config.Config
+	service           *iam.Service
+	aiService         *ai.Service
+	resourceService   *resources.Service
+	campaignService   *campaigns.Service
+	postService       *posts.Service
+	socialService     *social.Service
+	automationService *automations.Service
+	blobServer        resources.SignedBlobServer
+	cfg               *config.Config
 }
 
-func NewAppHandler(service *iam.Service, aiService *ai.Service, resourceService *resources.Service, campaignService *campaigns.Service, postService *posts.Service, socialService *social.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, aiService: aiService, resourceService: resourceService, campaignService: campaignService, postService: postService, socialService: socialService, blobServer: blobServer, cfg: cfg}
+func NewAppHandler(service *iam.Service, aiService *ai.Service, resourceService *resources.Service, campaignService *campaigns.Service, postService *posts.Service, socialService *social.Service, automationService *automations.Service, blobServer resources.SignedBlobServer, cfg *config.Config) *AppHandler {
+	return &AppHandler{service: service, aiService: aiService, resourceService: resourceService, campaignService: campaignService, postService: postService, socialService: socialService, automationService: automationService, blobServer: blobServer, cfg: cfg}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -68,6 +70,16 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Patch("/workspaces/:id/ai/settings", h.requireAuth, h.updateWorkspaceAISettings)
 	api.Get("/workspaces/:id/ai/catalog", h.requireAuth, h.getWorkspaceAICatalog)
 	api.Post("/workspaces/:id/ai/post-drafts", h.requireAuth, h.generateWorkspaceAIPostDraft)
+	api.Get("/workspaces/:id/automation-catalog", h.requireAuth, h.getAutomationCatalog)
+	api.Get("/workspaces/:id/automations", h.requireAuth, h.listAutomations)
+	api.Post("/workspaces/:id/automations", h.requireAuth, h.createAutomation)
+	api.Get("/workspaces/:id/workflows", h.requireAuth, h.listWorkflows)
+	api.Post("/workspaces/:id/workflows", h.requireAuth, h.createWorkflow)
+	api.Post("/workspaces/:id/automations/:automationId/runs", h.requireAuth, h.runAutomation)
+	api.Post("/workspaces/:id/workflows/:workflowId/runs", h.requireAuth, h.runWorkflow)
+	api.Get("/workspaces/:id/runs", h.requireAuth, h.listAutomationRuns)
+	api.Get("/workspaces/:id/runs/:runId", h.requireAuth, h.getAutomationRun)
+	api.Post("/workspaces/:id/runs/:runId/reviews", h.requireAuth, h.reviewAutomationRun)
 	api.Get("/workspaces/:id/members", h.requireAuth, h.listWorkspaceMembers)
 	api.Patch("/workspaces/:id/members/:membershipId", h.requireAuth, h.updateWorkspaceMember)
 	api.Get("/workspaces/:id/roles", h.requireAuth, h.listWorkspaceRoles)

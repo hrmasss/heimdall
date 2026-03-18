@@ -1,4 +1,4 @@
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone, Plus, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -178,15 +178,23 @@ export function DashboardCampaigns() {
 				title="Campaigns"
 				description="Plan goal-based windows, keep posts tied back to the campaign they support, and carry lightweight paid tracking without waiting on ad-platform integrations."
 				actions={
-					<Button
-						className="rounded-full bg-gradient-brand border-0 text-white"
-						asChild
-					>
-						<Link to="/dashboard/campaigns/new">
-							<Plus className="size-4" />
-							New campaign
-						</Link>
-					</Button>
+					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/automations">
+								<Sparkles className="size-4" />
+								Plan campaign
+							</Link>
+						</Button>
+						<Button
+							className="rounded-full bg-gradient-brand border-0 text-white"
+							asChild
+						>
+							<Link to="/dashboard/campaigns/new">
+								<Plus className="size-4" />
+								New campaign
+							</Link>
+						</Button>
+					</>
 				}
 			/>
 

@@ -599,3 +599,132 @@ type AIRunEvent struct {
 	CreatedByUserID     *uuid.UUID `bun:"created_by_user_id,type:uuid"`
 	CreatedAt           time.Time  `bun:"created_at,notnull"`
 }
+
+type AutomationDefinition struct {
+	bun.BaseModel `bun:"table:automation_definitions"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status          string     `bun:"status,notnull"`
+	Scope           string     `bun:"scope,notnull"`
+	Name            string     `bun:"name,notnull"`
+	Description     string     `bun:"description,notnull"`
+	ActionType      string     `bun:"action_type,notnull"`
+	TriggerType     string     `bun:"trigger_type,notnull"`
+	InputSchema     string     `bun:"input_schema,notnull"`
+	DefaultConfig   string     `bun:"default_config,notnull"`
+	OutputSchema    string     `bun:"output_schema,notnull"`
+	ReviewPolicy    string     `bun:"review_policy,notnull"`
+	CapabilityHints string     `bun:"capability_hints,notnull"`
+	Metadata        string     `bun:"metadata,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type WorkflowDefinition struct {
+	bun.BaseModel `bun:"table:workflow_definitions"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status          string     `bun:"status,notnull"`
+	Scope           string     `bun:"scope,notnull"`
+	Name            string     `bun:"name,notnull"`
+	Description     string     `bun:"description,notnull"`
+	TriggerType     string     `bun:"trigger_type,notnull"`
+	InputSchema     string     `bun:"input_schema,notnull"`
+	OutputSchema    string     `bun:"output_schema,notnull"`
+	ReviewPolicy    string     `bun:"review_policy,notnull"`
+	CapabilityHints string     `bun:"capability_hints,notnull"`
+	Metadata        string     `bun:"metadata,notnull"`
+	CreatedByUserID *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type WorkflowStep struct {
+	bun.BaseModel `bun:"table:workflow_steps"`
+
+	ID                   uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkflowID           uuid.UUID  `bun:"workflow_id,notnull,type:uuid"`
+	AutomationID         *uuid.UUID `bun:"automation_id,type:uuid"`
+	Position             int        `bun:"position,notnull"`
+	Name                 string     `bun:"name,notnull"`
+	StepKind             string     `bun:"step_kind,notnull"`
+	ActionType           string     `bun:"action_type,notnull"`
+	ConsumesArtifactType string     `bun:"consumes_artifact_type,notnull"`
+	ProducesArtifactType string     `bun:"produces_artifact_type,notnull"`
+	ReviewerType         string     `bun:"reviewer_type,notnull"`
+	RequiredCapabilities string     `bun:"required_capabilities,notnull"`
+	Config               string     `bun:"config,notnull"`
+	Metadata             string     `bun:"metadata,notnull"`
+	CreatedAt            time.Time  `bun:"created_at,notnull"`
+	UpdatedAt            time.Time  `bun:"updated_at,notnull"`
+}
+
+type AutomationRun struct {
+	bun.BaseModel `bun:"table:automation_runs"`
+
+	ID                   uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID          uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	SourceType           string     `bun:"source_type,notnull"`
+	AutomationID         *uuid.UUID `bun:"automation_id,type:uuid"`
+	WorkflowID           *uuid.UUID `bun:"workflow_id,type:uuid"`
+	Status               string     `bun:"status,notnull"`
+	CurrentStepPosition  *int       `bun:"current_step_position"`
+	TriggerType          string     `bun:"trigger_type,notnull"`
+	ReviewRequired       bool       `bun:"review_required,notnull"`
+	ReviewerType         string     `bun:"reviewer_type,notnull"`
+	InputPayload         string     `bun:"input_payload,notnull"`
+	OutputPayload        string     `bun:"output_payload,notnull"`
+	LastError            *string    `bun:"last_error"`
+	ContextFingerprint   string     `bun:"context_fingerprint,notnull"`
+	EvidencePayload      string     `bun:"evidence_payload,notnull"`
+	CreatedByUserID      *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID      *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CompletedAt          *time.Time `bun:"completed_at"`
+	CreatedAt            time.Time  `bun:"created_at,notnull"`
+	UpdatedAt            time.Time  `bun:"updated_at,notnull"`
+}
+
+type AutomationRunStep struct {
+	bun.BaseModel `bun:"table:automation_run_steps"`
+
+	ID                  uuid.UUID  `bun:"id,pk,type:uuid"`
+	RunID               uuid.UUID  `bun:"run_id,notnull,type:uuid"`
+	WorkflowStepID      *uuid.UUID `bun:"workflow_step_id,type:uuid"`
+	Position            int        `bun:"position,notnull"`
+	Name                string     `bun:"name,notnull"`
+	StepKind            string     `bun:"step_kind,notnull"`
+	ActionType          string     `bun:"action_type,notnull"`
+	State               string     `bun:"state,notnull"`
+	ReviewerType        string     `bun:"reviewer_type,notnull"`
+	InputPayload        string     `bun:"input_payload,notnull"`
+	OutputPayload       string     `bun:"output_payload,notnull"`
+	ArtifactPayload     string     `bun:"artifact_payload,notnull"`
+	EvidencePayload     string     `bun:"evidence_payload,notnull"`
+	LastError           *string    `bun:"last_error"`
+	StartedAt           *time.Time `bun:"started_at"`
+	CompletedAt         *time.Time `bun:"completed_at"`
+	CreatedAt           time.Time  `bun:"created_at,notnull"`
+	UpdatedAt           time.Time  `bun:"updated_at,notnull"`
+}
+
+type AutomationRunReview struct {
+	bun.BaseModel `bun:"table:automation_run_reviews"`
+
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	RunID            uuid.UUID  `bun:"run_id,notnull,type:uuid"`
+	RunStepID        *uuid.UUID `bun:"run_step_id,type:uuid"`
+	ReviewerType     string     `bun:"reviewer_type,notnull"`
+	Decision         string     `bun:"decision,notnull"`
+	Status           string     `bun:"status,notnull"`
+	Comment          string     `bun:"comment,notnull"`
+	Findings         string     `bun:"findings,notnull"`
+	ActorUserID      *uuid.UUID `bun:"actor_user_id,type:uuid"`
+	AutomationAgent  string     `bun:"automation_agent,notnull"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+}

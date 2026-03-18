@@ -1719,12 +1719,20 @@ export function DashboardNewPost() {
 			title={isEditMode ? "Edit post" : "Create post"}
 			description="Shared draft for reusable source material, platform tabs for the actual variants you schedule and review."
 			actions={
-				<Button variant="outline" className="rounded-full" asChild>
-					<Link to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}>
-						<ArrowLeft className="size-4" />
-						Back
-					</Link>
-				</Button>
+				<>
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/automations">
+							<WandSparkles className="size-4" />
+							Generate post
+						</Link>
+					</Button>
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}>
+							<ArrowLeft className="size-4" />
+							Back
+						</Link>
+					</Button>
+				</>
 			}
 			aside={
 				<div className="space-y-6 xl:sticky xl:top-24">

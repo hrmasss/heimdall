@@ -29,8 +29,10 @@ const (
 
 	useCasePostGeneration   = "post_generation"
 	useCaseCampaignPlanning = "campaign_planning"
+	useCaseVariationGeneration = "variation_generation"
 	useCaseImageGeneration  = "image_generation"
 	useCaseReelGeneration   = "reel_generation"
+	useCasePDFGeneration    = "pdf_generation"
 	extractorVersion        = "workspace-intelligence-v1"
 	processingStatusReady   = "ready"
 )
@@ -154,6 +156,26 @@ type GeneratedPostDraft struct {
 	ContextFingerprint string             `json:"contextFingerprint"`
 	Warnings           []string           `json:"warnings"`
 	RunEvent           *AIRunEventSummary `json:"runEvent,omitempty"`
+}
+
+type GenerateStructuredArtifactInput struct {
+	UseCase      string     `json:"useCase"`
+	Prompt       string     `json:"prompt"`
+	SystemPrompt string     `json:"systemPrompt"`
+	Provider     string     `json:"provider"`
+	Model        string     `json:"model"`
+	Mode         string     `json:"mode"`
+	CampaignID   *uuid.UUID `json:"campaignId"`
+}
+
+type GeneratedStructuredArtifact struct {
+	Payload            map[string]any       `json:"payload"`
+	Provider           string               `json:"provider"`
+	Model              string               `json:"model"`
+	CredentialMode     string               `json:"credentialMode"`
+	ContextFingerprint string               `json:"contextFingerprint"`
+	Warnings           []string             `json:"warnings"`
+	RunEvent           *AIRunEventSummary   `json:"runEvent,omitempty"`
 }
 
 type UpdateBusinessContextInput struct {
@@ -546,15 +568,74 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 	if strings.TrimSpace(input.Prompt) == "" {
 		return nil, fmt.Errorf("%w: prompt is required", iam.ErrValidation)
 	}
+	systemPrompt := "You generate concise, decision-aware social post drafts for Heimdall. Return strict JSON with keys title, body, tags, warnings. Use context only when it materially improves relevance. Avoid invented offers, audiences, or claims."
+	artifact, err := s.GenerateStructuredArtifact(ctx, principal, workspaceID, GenerateStructuredArtifactInput{
+		UseCase:      useCasePostGeneration,
+		Prompt:       input.Prompt,
+		SystemPrompt: systemPrompt,
+		Provider:     input.Provider,
+		Model:        input.Model,
+		Mode:         input.Mode,
+		CampaignID:   input.CampaignID,
+	})
+	if err != nil && artifact == nil {
+		return nil, err
+	}
+	if err != nil {
+		return &GeneratedPostDraft{
+			Provider:           artifact.Provider,
+			Model:              artifact.Model,
+			CredentialMode:     artifact.CredentialMode,
+			ContextFingerprint: artifact.ContextFingerprint,
+			Warnings:           artifact.Warnings,
+			RunEvent:           artifact.RunEvent,
+		}, err
+	}
+	payload := map[string]any{}
+	if artifact != nil {
+		payload = artifact.Payload
+	}
+
+	title := compactString(payload["title"])
+	body := compactString(payload["body"])
+	if body == "" {
+		return nil, fmt.Errorf("%w: generated draft body was empty", iam.ErrValidation)
+	}
+	tags := toStringSlice(payload["tags"])
+	warnings := toStringSlice(payload["warnings"])
+	return &GeneratedPostDraft{
+		Title:              defaultString(title, "AI draft"),
+		ContentKind:        "text",
+		ContentPayload:     map[string]any{"body": body, "tags": tags},
+		Provider:           artifact.Provider,
+		Model:              artifact.Model,
+		CredentialMode:     artifact.CredentialMode,
+		ContextFingerprint: artifact.ContextFingerprint,
+		Warnings:           append(artifact.Warnings, warnings...),
+		RunEvent:           artifact.RunEvent,
+	}, nil
+}
+
+func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, input GenerateStructuredArtifactInput) (*GeneratedStructuredArtifact, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.manage"); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(input.Prompt) == "" {
+		return nil, fmt.Errorf("%w: prompt is required", iam.ErrValidation)
+	}
+	useCase := normalizeGeneratedUseCase(input.UseCase)
+	if useCase == "" {
+		return nil, fmt.Errorf("%w: unsupported ai use case", iam.ErrValidation)
+	}
 	settings, _, err := s.loadSettings(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
-	provider, model, mode, err := s.resolveGenerationSelection(settings, input)
+	provider, model, mode, err := s.resolveGenerationSelectionForUseCase(settings, useCase, input.Provider, input.Model, input.Mode)
 	if err != nil {
 		return nil, err
 	}
-	contextPack, contextFingerprint, err := s.resolveContextPack(ctx, workspaceID, input.CampaignID)
+	contextPack, contextFingerprint, err := s.resolveContextPack(ctx, workspaceID, useCase, input.CampaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -562,8 +643,6 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 	if err != nil {
 		return nil, err
 	}
-
-	systemPrompt := "You generate concise, decision-aware social post drafts for Heimdall. Return strict JSON with keys title, body, tags, warnings. Use context only when it materially improves relevance. Avoid invented offers, audiences, or claims."
 	userPrompt := fmt.Sprintf("Workspace context:\n%s\n\nUser request:\n%s", marshalPretty(contextPack), strings.TrimSpace(input.Prompt))
 
 	var (
@@ -574,7 +653,7 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 		lastErr      error
 	)
 	for _, credential := range credentials {
-		responseText, usage, lastErr = s.generateJSON(ctx, provider, model, credential.apiKey, systemPrompt, userPrompt, nil)
+		responseText, usage, lastErr = s.generateJSON(ctx, provider, model, credential.apiKey, input.SystemPrompt, userPrompt, nil)
 		if lastErr == nil {
 			usedCred = credential.record
 			break
@@ -586,8 +665,9 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 		break
 	}
 	if lastErr != nil {
-		event, _ := s.recordRunEvent(ctx, principal, workspaceID, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "failed", usage, map[string]any{"brief": input.Prompt}, map[string]any{}, lastErr.Error())
-		return &GeneratedPostDraft{
+		event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "failed", usage, map[string]any{"brief": input.Prompt}, map[string]any{}, lastErr.Error())
+		return &GeneratedStructuredArtifact{
+			Payload:            map[string]any{},
 			Provider:           provider,
 			Model:              model,
 			CredentialMode:     mode,
@@ -597,26 +677,16 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 		}, lastErr
 	}
 	if err := json.Unmarshal([]byte(cleanJSONText(responseText)), &payload); err != nil {
-		return nil, fmt.Errorf("%w: invalid provider draft payload", iam.ErrValidation)
+		return nil, fmt.Errorf("%w: invalid provider payload", iam.ErrValidation)
 	}
-
-	title := compactString(payload["title"])
-	body := compactString(payload["body"])
-	if body == "" {
-		return nil, fmt.Errorf("%w: generated draft body was empty", iam.ErrValidation)
-	}
-	tags := toStringSlice(payload["tags"])
-	warnings := toStringSlice(payload["warnings"])
-	event, _ := s.recordRunEvent(ctx, principal, workspaceID, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "success", usage, map[string]any{"brief": input.Prompt}, payload, "")
-	return &GeneratedPostDraft{
-		Title:              defaultString(title, "AI draft"),
-		ContentKind:        "text",
-		ContentPayload:     map[string]any{"body": body, "tags": tags},
+	event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "success", usage, map[string]any{"brief": input.Prompt}, payload, "")
+	return &GeneratedStructuredArtifact{
+		Payload:            payload,
 		Provider:           provider,
 		Model:              model,
 		CredentialMode:     mode,
 		ContextFingerprint: contextFingerprint,
-		Warnings:           warnings,
+		Warnings:           toStringSlice(payload["warnings"]),
 		RunEvent:           event,
 	}, nil
 }
@@ -784,16 +854,17 @@ func (s *Service) rebuildContextCaches(ctx context.Context, workspaceID uuid.UUI
 	return nil
 }
 
-func (s *Service) resolveContextPack(ctx context.Context, workspaceID uuid.UUID, campaignID *uuid.UUID) (map[string]any, string, error) {
+func (s *Service) resolveContextPack(ctx context.Context, workspaceID uuid.UUID, useCase string, campaignID *uuid.UUID) (map[string]any, string, error) {
 	business, _ := s.loadBusinessContext(ctx, workspaceID)
 	brand, _ := s.loadBrandContext(ctx, workspaceID)
 	sourceFingerprint := s.buildSourceFingerprint(business, brand)
+	cacheUseCase := normalizeContextCacheUseCase(useCase)
 
 	var cache database.WorkspaceContextCache
 	err := s.db.NewSelect().
 		Model(&cache).
 		Where("workspace_id = ?", workspaceID).
-		Where("use_case = ?", useCasePostGeneration).
+		Where("use_case = ?", cacheUseCase).
 		Limit(1).
 		Scan(ctx)
 	if err != nil || cache.SourceFingerprint != sourceFingerprint {
@@ -803,7 +874,7 @@ func (s *Service) resolveContextPack(ctx context.Context, workspaceID uuid.UUID,
 		if err := s.db.NewSelect().
 			Model(&cache).
 			Where("workspace_id = ?", workspaceID).
-			Where("use_case = ?", useCasePostGeneration).
+			Where("use_case = ?", cacheUseCase).
 			Limit(1).
 			Scan(ctx); err != nil {
 			return nil, "", err
@@ -820,15 +891,20 @@ func (s *Service) resolveContextPack(ctx context.Context, workspaceID uuid.UUID,
 }
 
 func (s *Service) resolveGenerationSelection(settings *database.WorkspaceAISettings, input GeneratePostDraftInput) (string, string, string, error) {
-	mode := defaultString(strings.TrimSpace(input.Mode), settings.DefaultMode)
+	return s.resolveGenerationSelectionForUseCase(settings, useCasePostGeneration, input.Provider, input.Model, input.Mode)
+}
+
+func (s *Service) resolveGenerationSelectionForUseCase(settings *database.WorkspaceAISettings, useCase, providerInput, modelInput, modeInput string) (string, string, string, error) {
+	mode := defaultString(strings.TrimSpace(modeInput), settings.DefaultMode)
 	if mode != modeNative && mode != modeBYOK {
 		return "", "", "", fmt.Errorf("%w: invalid ai mode", iam.ErrValidation)
 	}
-	provider := strings.TrimSpace(input.Provider)
-	model := strings.TrimSpace(input.Model)
+	provider := strings.TrimSpace(providerInput)
+	model := strings.TrimSpace(modelInput)
 	defaults := parseCapabilityDefaults(settings.CapabilityDefaults)
 	if provider == "" {
-		if item, ok := defaults[useCasePostGeneration]; ok {
+		lookupUseCase := normalizeConfiguredUseCase(useCase)
+		if item, ok := defaults[lookupUseCase]; ok {
 			provider = item.Provider
 			if model == "" {
 				model = item.Model
@@ -883,11 +959,11 @@ func (s *Service) resolveCredentialChain(ctx context.Context, workspaceID uuid.U
 	return result, nil
 }
 
-func (s *Service) recordRunEvent(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, credential *database.WorkspaceAICredential, credentialMode, provider, model, contextFingerprint string, campaignID *uuid.UUID, status string, usage aiUsage, requestPayload, responsePayload map[string]any, errorText string) (*AIRunEventSummary, error) {
+func (s *Service) recordRunEvent(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, useCase string, credential *database.WorkspaceAICredential, credentialMode, provider, model, contextFingerprint string, campaignID *uuid.UUID, status string, usage aiUsage, requestPayload, responsePayload map[string]any, errorText string) (*AIRunEventSummary, error) {
 	record := &database.AIRunEvent{
 		ID:                 uuid.New(),
 		WorkspaceID:        workspaceID,
-		UseCase:            useCasePostGeneration,
+		UseCase:            useCase,
 		Provider:           provider,
 		Model:              model,
 		CredentialMode:     credentialMode,
