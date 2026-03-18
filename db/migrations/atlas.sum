@@ -1,5 +1,6 @@
-h1:ABOeY+jRSg1EB9pS8GZ7VLoBw9SMrm0IzqLaAX/7+6Y=
+h1:PJ1MqM4A+cXnKNKBPcFX2SMGFHojwSjN7MMVNh+f0hc=
 20260315000000_init.sql h1:y9CyB+9dN4g3Bu9OZXb9lSURplGCrc1kdWkMsAM3R8E=
 20260316000000_campaigns.sql h1:ca9IIFr21xXBlNw1px53ihCiIWGJmGd+XRWWPjtCvJI=
 20260317000000_campaign_delivery_setup.sql h1:gtHx52p6KbMmjlfaz249CRg79kqBUE0ZazAJ+/vfXao=
 20260318000000_workspace_ai_foundation.sql h1:mRLGot2fXY33i6uxuOgr0y3QEN4KfHNw8luI7LccUyg=
+20260318010000_automation_runtime.sql h1:IEsk4nrYtipI2CnQT9NQ/X97bTrE/LHQ2VeIY+tXstU=
