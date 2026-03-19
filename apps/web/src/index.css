@@ -66,47 +66,50 @@
 	--density-surface-padding-sm: 0.875rem;
 	--density-surface-padding: 1.5rem;
 	--density-surface-padding-lg: 2rem;
-	--density-page-header-gap: 1.25rem;
-	--density-page-title-size: 2.25rem;
-	--density-page-title-size-sm: 1.875rem;
-	--density-page-copy-size: 1rem;
+	--density-page-header-gap: 1rem;
+	--density-page-title-size: 2rem;
+	--density-page-title-size-sm: 1.625rem;
+	--density-page-copy-size: 0.95rem;
 	--density-kpi-icon-size: 2.75rem;
 	--density-kpi-icon-radius: 1rem;
 	--density-assistant-height: 2.5rem;
 	--density-assistant-title-size: 0.9rem;
-	--density-dashboard-topbar-height: 72px;
+	--density-dashboard-topbar-height: 64px;
 	--density-dashboard-topbar-px: 0.75rem;
-	--density-dashboard-sidebar-width: 286px;
-	--density-dashboard-sidebar-collapsed-width: 92px;
-	--density-dashboard-sidebar-compact-size: 64px;
-	--density-dashboard-sidebar-shell-p: 0.875rem;
-	--density-dashboard-sidebar-header-px: 0.625rem;
-	--density-dashboard-sidebar-card-padding: 0.875rem;
-	--density-dashboard-sidebar-card-radius: 1.375rem;
-	--density-dashboard-sidebar-avatar-size: 2.5rem;
-	--density-dashboard-sidebar-nav-px: 0.875rem;
-	--density-dashboard-sidebar-nav-py: 0.75rem;
-	--density-dashboard-sidebar-nav-radius: 1.25rem;
-	--density-dashboard-content-radius: 30px;
-	--density-dashboard-main-px: 0.75rem;
-	--density-dashboard-main-pb: 0.75rem;
+	--density-dashboard-sidebar-width: 264px;
+	--density-dashboard-sidebar-collapsed-width: 84px;
+	--density-dashboard-sidebar-compact-size: 56px;
+	--density-dashboard-sidebar-shell-p: 0.75rem;
+	--density-dashboard-sidebar-header-px: 0.5rem;
+	--density-dashboard-sidebar-card-padding: 0.75rem;
+	--density-dashboard-sidebar-card-radius: 1.125rem;
+	--density-dashboard-sidebar-avatar-size: 2.25rem;
+	--density-dashboard-sidebar-nav-px: 0.75rem;
+	--density-dashboard-sidebar-nav-py: 0.625rem;
+	--density-dashboard-sidebar-nav-radius: 1.125rem;
+	--density-dashboard-content-radius: 24px;
+	--density-dashboard-main-px: 0.625rem;
+	--density-dashboard-main-pb: 0.625rem;
 	--density-dashboard-topbar-pr: 1rem;
-	--density-dashboard-content-px: 0.875rem;
-	--density-dashboard-content-py: 1.5rem;
+	--density-dashboard-content-px: 0.75rem;
+	--density-dashboard-content-py: 1.125rem;
 	--density-dashboard-content-pr: 0.875rem;
-	--density-dashboard-stack-gap: 1.5rem;
-	--density-dashboard-grid-gap: 1.25rem;
-	--density-dashboard-card-padding: 1.5rem;
-	--density-dashboard-card-padding-sm: 1rem;
-	--density-dashboard-card-radius: 1.5rem;
-	--density-dashboard-card-radius-sm: 1.125rem;
-	--density-dashboard-sticky-top: 6rem;
-	--density-dashboard-input-height: 2.75rem;
-	--density-dashboard-tabs-min-height: 4.5rem;
-	--density-dashboard-tall-empty-height: 24rem;
-	--density-dashboard-textarea-medium: 7rem;
-	--density-dashboard-textarea-large: 10rem;
-	--density-dashboard-textarea-xl: 11rem;
+	--density-dashboard-stack-gap: 1.125rem;
+	--density-dashboard-grid-gap: 1rem;
+	--density-dashboard-card-padding: 1.125rem;
+	--density-dashboard-card-padding-sm: 0.875rem;
+	--density-dashboard-card-radius: 1.125rem;
+	--density-dashboard-card-radius-sm: 0.9375rem;
+	--density-dashboard-sticky-top: 5.25rem;
+	--density-dashboard-input-height: 2.625rem;
+	--density-dashboard-tabs-min-height: 4rem;
+	--density-dashboard-tall-empty-height: 20rem;
+	--density-dashboard-textarea-medium: 6rem;
+	--density-dashboard-textarea-large: 8.5rem;
+	--density-dashboard-textarea-xl: 9.5rem;
+	--density-dashboard-banner-radius: 1.125rem;
+	--density-dashboard-banner-px: 0.875rem;
+	--density-dashboard-banner-py: 0.75rem;
 	--density-auth-shell-card-max: 40rem;
 	--density-auth-shell-card-max-xl: 72rem;
 	--density-auth-card-padding: 1rem;
@@ -139,47 +142,50 @@
 	--density-surface-padding-sm: 0.75rem;
 	--density-surface-padding: 1.25rem;
 	--density-surface-padding-lg: 1.5rem;
-	--density-page-header-gap: 1rem;
-	--density-page-title-size: 2rem;
-	--density-page-title-size-sm: 1.5rem;
-	--density-page-copy-size: 0.95rem;
+	--density-page-header-gap: 0.875rem;
+	--density-page-title-size: 1.75rem;
+	--density-page-title-size-sm: 1.375rem;
+	--density-page-copy-size: 0.9rem;
 	--density-kpi-icon-size: 2.4rem;
 	--density-kpi-icon-radius: 0.9rem;
 	--density-assistant-height: 2.35rem;
 	--density-assistant-title-size: 0.84rem;
-	--density-dashboard-topbar-height: 60px;
-	--density-dashboard-topbar-px: 0.625rem;
-	--density-dashboard-sidebar-width: 246px;
-	--density-dashboard-sidebar-collapsed-width: 84px;
-	--density-dashboard-sidebar-compact-size: 56px;
-	--density-dashboard-sidebar-shell-p: 0.75rem;
-	--density-dashboard-sidebar-header-px: 0.5rem;
-	--density-dashboard-sidebar-card-padding: 0.75rem;
-	--density-dashboard-sidebar-card-radius: 1.125rem;
-	--density-dashboard-sidebar-avatar-size: 2.2rem;
-	--density-dashboard-sidebar-nav-px: 0.75rem;
-	--density-dashboard-sidebar-nav-py: 0.625rem;
-	--density-dashboard-sidebar-nav-radius: 1.125rem;
-	--density-dashboard-content-radius: 22px;
+	--density-dashboard-topbar-height: 56px;
+	--density-dashboard-topbar-px: 0.5rem;
+	--density-dashboard-sidebar-width: 236px;
+	--density-dashboard-sidebar-collapsed-width: 76px;
+	--density-dashboard-sidebar-compact-size: 52px;
+	--density-dashboard-sidebar-shell-p: 0.625rem;
+	--density-dashboard-sidebar-header-px: 0.375rem;
+	--density-dashboard-sidebar-card-padding: 0.625rem;
+	--density-dashboard-sidebar-card-radius: 1rem;
+	--density-dashboard-sidebar-avatar-size: 2rem;
+	--density-dashboard-sidebar-nav-px: 0.625rem;
+	--density-dashboard-sidebar-nav-py: 0.5rem;
+	--density-dashboard-sidebar-nav-radius: 1rem;
+	--density-dashboard-content-radius: 20px;
 	--density-dashboard-main-px: 0.5rem;
 	--density-dashboard-main-pb: 0.5rem;
 	--density-dashboard-topbar-pr: 0.75rem;
-	--density-dashboard-content-px: 0.75rem;
-	--density-dashboard-content-py: 1rem;
-	--density-dashboard-content-pr: 0.75rem;
-	--density-dashboard-stack-gap: 1rem;
-	--density-dashboard-grid-gap: 0.875rem;
-	--density-dashboard-card-padding: 1rem;
-	--density-dashboard-card-padding-sm: 0.75rem;
-	--density-dashboard-card-radius: 1rem;
-	--density-dashboard-card-radius-sm: 0.875rem;
-	--density-dashboard-sticky-top: 4.75rem;
-	--density-dashboard-input-height: 2.5rem;
-	--density-dashboard-tabs-min-height: 3.75rem;
-	--density-dashboard-tall-empty-height: 18rem;
-	--density-dashboard-textarea-medium: 5.5rem;
-	--density-dashboard-textarea-large: 8rem;
-	--density-dashboard-textarea-xl: 9rem;
+	--density-dashboard-content-px: 0.625rem;
+	--density-dashboard-content-py: 0.875rem;
+	--density-dashboard-content-pr: 0.625rem;
+	--density-dashboard-stack-gap: 0.875rem;
+	--density-dashboard-grid-gap: 0.75rem;
+	--density-dashboard-card-padding: 0.875rem;
+	--density-dashboard-card-padding-sm: 0.6875rem;
+	--density-dashboard-card-radius: 0.9375rem;
+	--density-dashboard-card-radius-sm: 0.8125rem;
+	--density-dashboard-sticky-top: 4.25rem;
+	--density-dashboard-input-height: 2.375rem;
+	--density-dashboard-tabs-min-height: 3.5rem;
+	--density-dashboard-tall-empty-height: 16rem;
+	--density-dashboard-textarea-medium: 5rem;
+	--density-dashboard-textarea-large: 7rem;
+	--density-dashboard-textarea-xl: 8rem;
+	--density-dashboard-banner-radius: 1rem;
+	--density-dashboard-banner-px: 0.75rem;
+	--density-dashboard-banner-py: 0.625rem;
 	--density-auth-shell-card-max: 36rem;
 	--density-auth-shell-card-max-xl: 64rem;
 	--density-auth-card-padding: 0.875rem;
@@ -205,10 +211,10 @@
 	:root {
 		--density-page-container-px: 1.5rem;
 		--density-dashboard-topbar-px: 1rem;
-		--density-dashboard-main-px: 1rem;
-		--density-dashboard-main-pb: 1rem;
-		--density-dashboard-content-px: 1rem;
-		--density-dashboard-content-pr: 1rem;
+		--density-dashboard-main-px: 0.75rem;
+		--density-dashboard-main-pb: 0.75rem;
+		--density-dashboard-content-px: 0.875rem;
+		--density-dashboard-content-pr: 0.875rem;
 	}
 
 	[data-density="compact"] {
@@ -224,14 +230,14 @@
 @media (min-width: 1024px) {
 	:root {
 		--density-page-container-px: 2rem;
-		--density-dashboard-content-px: 1.25rem;
-		--density-dashboard-content-pr: 2rem;
+		--density-dashboard-content-px: 1rem;
+		--density-dashboard-content-pr: 1.25rem;
 	}
 
 	[data-density="compact"] {
 		--density-page-container-px: 1.5rem;
-		--density-dashboard-content-px: 1rem;
-		--density-dashboard-content-pr: 1.5rem;
+		--density-dashboard-content-px: 0.875rem;
+		--density-dashboard-content-pr: 1rem;
 	}
 }
 
@@ -1781,6 +1787,43 @@ body {
 .customer-dashboard-shell .dashboard-panel-copy {
 	font-size: 0.92rem;
 	line-height: 1.55;
+}
+
+.customer-dashboard-shell .dashboard-notice {
+	padding-inline: var(--density-dashboard-banner-px);
+	padding-block: var(--density-dashboard-banner-py);
+	border-radius: var(--density-dashboard-banner-radius);
+}
+
+.customer-dashboard-shell .dashboard-data-table {
+	gap: var(--density-dashboard-stack-gap);
+}
+
+.customer-dashboard-shell .dashboard-data-table__head {
+	row-gap: var(--density-dashboard-card-padding-sm);
+}
+
+.customer-dashboard-shell .dashboard-data-table__surface {
+	padding: var(--density-dashboard-card-padding);
+	border-radius: var(--density-dashboard-card-radius);
+}
+
+.customer-dashboard-shell .dashboard-data-table__search {
+	height: var(--density-dashboard-input-height);
+}
+
+.customer-dashboard-shell .dashboard-data-table__grid {
+	gap: var(--density-dashboard-grid-gap);
+}
+
+.customer-dashboard-shell .dashboard-data-table__card {
+	padding: var(--density-dashboard-card-padding);
+	border-radius: var(--density-dashboard-card-radius);
+}
+
+.customer-dashboard-shell .dashboard-data-table__card-actions {
+	margin-top: var(--density-dashboard-card-padding-sm);
+	padding-top: var(--density-dashboard-card-padding-sm);
 }
 
 @media (min-width: 768px) {

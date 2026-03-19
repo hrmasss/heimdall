@@ -506,8 +506,8 @@ export function DataTable<T>({
 	}
 
 	return (
-		<div className="space-y-5">
-			<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+		<div className="dashboard-data-table space-y-5">
+			<div className="dashboard-data-table__head flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 				<div className="space-y-2">
 					{title ? (
 						<div className="text-xl font-semibold tracking-tight">{title}</div>
@@ -533,7 +533,7 @@ export function DataTable<T>({
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 md:p-5">
+			<div className="dashboard-data-table__surface flex flex-col gap-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 md:p-5">
 				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 					<div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
 						<div className="relative min-w-0 flex-1 lg:max-w-sm">
@@ -547,7 +547,7 @@ export function DataTable<T>({
 									})
 								}
 								placeholder={searchPlaceholder}
-								className="h-10 rounded-full bg-card pl-10"
+								className="dashboard-data-table__search h-10 rounded-full bg-card pl-10"
 							/>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
@@ -763,7 +763,7 @@ export function DataTable<T>({
 					) : (
 						<div
 							className={cn(
-								"grid gap-4 md:grid-cols-2 xl:grid-cols-3",
+								"dashboard-data-table__grid grid gap-4 md:grid-cols-2 xl:grid-cols-3",
 								gridClassName,
 							)}
 						>
@@ -784,7 +784,7 @@ export function DataTable<T>({
 									role={onRowClick ? "button" : undefined}
 									tabIndex={onRowClick ? 0 : undefined}
 									className={cn(
-										"rounded-[26px] border border-[var(--brand-border-soft)] bg-card p-5",
+										"dashboard-data-table__card rounded-[26px] border border-[var(--brand-border-soft)] bg-card p-5",
 										gridCardClassName,
 										onRowClick &&
 											"cursor-pointer transition-colors hover:bg-accent/20",
@@ -812,7 +812,7 @@ export function DataTable<T>({
 										</div>
 									)}
 									{rowActions.length ? (
-										<div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
+										<div className="dashboard-data-table__card-actions mt-5 flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
 											{rowActions.slice(0, 2).map((action) => (
 												<Button
 													key={action.label}

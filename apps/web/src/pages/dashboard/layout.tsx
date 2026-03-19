@@ -273,11 +273,11 @@ function Sidebar({
 						</Button>
 					</div>
 
-					<div className="mt-5">
+					<div className="mt-4">
 						<WorkspaceSwitcher compact={collapsed} />
 					</div>
 
-					<nav className="mt-6 flex-1 space-y-1.5">
+					<nav className="mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
 						{navigation.map((item) => {
 							const active =
 								item.href === "/dashboard"
@@ -317,7 +317,7 @@ function Sidebar({
 						})}
 					</nav>
 
-					<div className="mt-6">
+					<div className="mt-4">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<button
@@ -518,18 +518,18 @@ function TopBar({
 					</Breadcrumb>
 				</div>
 
-				<div className="ml-auto flex items-center gap-2 sm:gap-3">
+				<div className="ml-auto flex items-center gap-2">
 					<div className="hidden w-[min(38vw,420px)] md:block">
 						<SearchCommand
 							onOpenAssistant={onOpenAssistant}
 							className="w-full"
 						/>
 					</div>
-					<ThemeToggle compact className="size-10" />
+					<ThemeToggle compact className="size-9" />
 					<AlertInbox />
 					<Button
 						type="button"
-						className="assistant-launch rounded-full px-4"
+						className="assistant-launch rounded-full px-3.5"
 						onClick={onOpenAssistant}
 					>
 						<WandSparkles className="assistant-launch__icon size-4" />
@@ -642,14 +642,14 @@ export function DashboardLayout() {
 							>
 								<div className="dashboard-page-stack min-h-full px-[var(--density-dashboard-content-px)] py-[var(--density-dashboard-content-py)] pr-[var(--density-dashboard-content-pr)]">
 									{customerSession?.impersonator ? (
-										<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+										<div className="dashboard-notice mb-3 border border-amber-500/30 bg-amber-500/10 text-sm text-amber-700 dark:text-amber-300">
 											Support impersonation active. Acting as{" "}
 											{customerSession.user.fullName} on behalf of{" "}
 											{customerSession.impersonator.fullName}.
 										</div>
 									) : null}
 									{customerSession?.assumedWorkspaceId ? (
-										<div className="mb-6 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+										<div className="dashboard-notice mb-4 border border-amber-500/30 bg-amber-500/10 text-sm text-amber-700 dark:text-amber-300">
 											Support access session active for{" "}
 											{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
 										</div>
@@ -657,7 +657,7 @@ export function DashboardLayout() {
 									{intelligenceContext?.readiness &&
 									!intelligenceContext.readiness.complete &&
 									location.pathname !== "/dashboard/settings/intelligence" ? (
-										<div className="mb-6 rounded-[24px] border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-800 dark:text-sky-200">
+										<div className="dashboard-notice mb-4 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-800 dark:text-sky-200">
 											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 												<div>
 													Workspace intelligence is still incomplete.

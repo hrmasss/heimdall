@@ -727,14 +727,14 @@ export function DashboardLibrary() {
 	);
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack">
 			<DashboardPageHeader
 				eyebrow="Workspace assets"
 				title="Assets"
 				description="Upload, preview, inspect, and reuse workspace-scoped media. Ordered asset sets keep related resources together for surfaces like carousels and story sequences."
 				actions={
 					<>
-						<Button variant="outline" className="rounded-full" asChild>
+						<Button variant="outline" size="sm" className="rounded-full" asChild>
 							<Link to="/dashboard/studio">
 								<Sparkles className="size-4" />
 								Open studio
@@ -742,6 +742,7 @@ export function DashboardLibrary() {
 						</Button>
 						<Button
 							variant="outline"
+							size="sm"
 							className="rounded-full"
 							onClick={() => void loadData()}
 						>
@@ -750,6 +751,7 @@ export function DashboardLibrary() {
 						</Button>
 						<Button
 							variant="outline"
+							size="sm"
 							className="rounded-full"
 							onClick={() => navigate("/dashboard/library/sets/new")}
 						>
@@ -757,6 +759,7 @@ export function DashboardLibrary() {
 							New asset set
 						</Button>
 						<Button
+							size="sm"
 							className="rounded-full border-0 bg-gradient-brand text-white"
 							onClick={() => fileInputRef.current?.click()}
 						>
@@ -784,7 +787,7 @@ export function DashboardLibrary() {
 				title="Upload queue"
 				description="Preview files before they enter the workspace library. Multi-file uploads can create an ordered asset set automatically."
 				action={
-					<div className="flex flex-wrap items-center gap-3">
+					<div className="flex flex-wrap items-center gap-2.5">
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
 							<Switch
 								checked={optimizeImages}
@@ -796,6 +799,7 @@ export function DashboardLibrary() {
 						</div>
 						<Button
 							variant="outline"
+							size="sm"
 							className="rounded-full"
 							onClick={clearCompletedQueue}
 							disabled={queue.length === 0}
@@ -803,6 +807,7 @@ export function DashboardLibrary() {
 							Clear queue
 						</Button>
 						<Button
+							size="sm"
 							className="rounded-full border-0 bg-gradient-brand text-white"
 							disabled={
 								uploading || queue.every((item) => item.status !== "pending")
@@ -816,7 +821,7 @@ export function DashboardLibrary() {
 				}
 			>
 				<div
-					className="rounded-[28px] border border-dashed border-[var(--brand-border-soft)] bg-[linear-gradient(145deg,var(--brand-highlight),transparent)] px-6 py-10 text-center"
+					className="dashboard-card border border-dashed border-[var(--brand-border-soft)] bg-[linear-gradient(145deg,var(--brand-highlight),transparent)] text-center"
 					onDragOver={(event) => event.preventDefault()}
 					onDrop={(event) => {
 						event.preventDefault();
@@ -825,10 +830,10 @@ export function DashboardLibrary() {
 						}
 					}}
 				>
-					<div className="mx-auto flex size-14 items-center justify-center rounded-3xl bg-background/90 text-primary shadow-sm">
-						<FolderKanban className="size-6" />
+					<div className="mx-auto flex size-12 items-center justify-center rounded-[var(--density-dashboard-card-radius-sm)] bg-background/90 text-primary shadow-sm">
+						<FolderKanban className="size-5" />
 					</div>
-					<div className="mt-4 text-lg font-medium">
+					<div className="mt-3 text-base font-medium sm:text-lg">
 						Drop files into the shared library
 					</div>
 					<p className="mt-2 text-sm text-muted-foreground">
@@ -838,7 +843,7 @@ export function DashboardLibrary() {
 					</p>
 				</div>
 				{queue.length >= 2 ? (
-					<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+					<div className="dashboard-card-sm mt-3 border border-[var(--brand-border-soft)] bg-background/70">
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<div className="font-medium">
@@ -867,7 +872,7 @@ export function DashboardLibrary() {
 										id="batch-set-name"
 										value={batchSetName}
 										onChange={(event) => setBatchSetName(event.target.value)}
-										className="h-11 rounded-2xl"
+										className="dashboard-input-height rounded-2xl"
 										placeholder="Instagram carousel set"
 									/>
 								</div>
@@ -877,7 +882,7 @@ export function DashboardLibrary() {
 										value={batchIntentPlatform}
 										onValueChange={setBatchIntentPlatform}
 									>
-										<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+										<SelectTrigger className="dashboard-input-height w-full rounded-2xl px-4">
 											<SelectValue placeholder="Choose a platform" />
 										</SelectTrigger>
 										<SelectContent position="popper" align="start">
@@ -895,7 +900,7 @@ export function DashboardLibrary() {
 										value={batchIntentSurface}
 										onValueChange={setBatchIntentSurface}
 									>
-										<SelectTrigger className="h-11 w-full rounded-2xl px-4">
+										<SelectTrigger className="dashboard-input-height w-full rounded-2xl px-4">
 											<SelectValue placeholder="Choose a surface" />
 										</SelectTrigger>
 										<SelectContent position="popper" align="start">
@@ -939,7 +944,7 @@ export function DashboardLibrary() {
 									setDraggingQueueItemId(null);
 								}}
 								className={cn(
-									"flex flex-wrap items-center gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-4",
+									"dashboard-card-sm flex flex-wrap items-center gap-3 border border-[var(--brand-border-soft)] bg-background/75",
 									draggingQueueItemId === item.id && "opacity-60",
 								)}
 							>
@@ -952,7 +957,7 @@ export function DashboardLibrary() {
 											1}
 									</span>
 								</div>
-								<div className="h-24 w-28 overflow-hidden rounded-[18px] bg-muted">
+								<div className="h-20 w-24 overflow-hidden rounded-[16px] bg-muted">
 									<LocalFileThumb
 										file={item.file}
 										previewUrl={item.previewUrl}
@@ -1025,20 +1030,21 @@ export function DashboardLibrary() {
 			</DashboardPanel>
 
 			{error ? (
-				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+				<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
 					{error}
 				</SurfaceCard>
 			) : null}
 			{notice ? (
-				<SurfaceCard className="border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700">
+				<SurfaceCard className="dashboard-card-sm border border-emerald-500/20 bg-emerald-500/10 text-sm text-emerald-700">
 					{notice}
 				</SurfaceCard>
 			) : null}
 
-			<SurfaceCard className="p-4">
+			<SurfaceCard className="dashboard-card-sm">
 				<div className="flex flex-wrap items-center gap-2">
 					<Button
 						variant={libraryMode === "resources" ? "secondary" : "outline"}
+						size="sm"
 						className="rounded-full"
 						onClick={() => setLibraryMode("resources")}
 					>
@@ -1047,6 +1053,7 @@ export function DashboardLibrary() {
 					</Button>
 					<Button
 						variant={libraryMode === "sets" ? "secondary" : "outline"}
+						size="sm"
 						className="rounded-full"
 						onClick={() => setLibraryMode("sets")}
 					>
@@ -1056,7 +1063,7 @@ export function DashboardLibrary() {
 				</div>
 			</SurfaceCard>
 
-			<SurfaceCard className="p-5 md:p-6">
+			<SurfaceCard className="dashboard-card">
 				{libraryMode === "resources" ? (
 					<DataTable
 						title="Workspace resources"
@@ -1116,7 +1123,7 @@ export function DashboardLibrary() {
 								<div className="aspect-[16/10] overflow-hidden bg-muted">
 									<ResourceThumb resource={resource} variant="minimal" />
 								</div>
-								<div className="space-y-4 p-5">
+								<div className="space-y-3 p-4">
 									<div className="flex items-start justify-between gap-3">
 										<div className="min-w-0">
 											<div className="truncate text-lg font-medium">
@@ -1236,7 +1243,7 @@ export function DashboardLibrary() {
 								<div className="aspect-[16/10] overflow-hidden bg-muted">
 									<ResourceSetCover set={set} />
 								</div>
-								<div className="space-y-4 p-5">
+								<div className="space-y-3 p-4">
 									<div className="flex items-start justify-between gap-3">
 										<div className="min-w-0">
 											<div className="truncate text-lg font-medium">
