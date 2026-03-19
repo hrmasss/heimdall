@@ -489,7 +489,7 @@ func (s *Service) UpdateSettings(ctx context.Context, principal *iam.Principal, 
 	if existed {
 		_, err = s.db.NewUpdate().
 			Model(settings).
-			Column("default_mode", "capability_defaults", "updated_at").
+			Column("default_mode", "capability_defaults", "usage_policy", "updated_at").
 			Where("workspace_id = ?", workspaceID).
 			Exec(ctx)
 	} else {
