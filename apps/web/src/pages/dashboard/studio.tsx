@@ -346,7 +346,7 @@ export function DashboardStudio() {
 				</SurfaceCard>
 			) : null}
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+			<div className="grid gap-6 xl:items-start xl:grid-cols-[minmax(0,1fr)_380px]">
 				<div className="space-y-6">
 					<DashboardPanel
 						title={`${currentMode.label} canvas`}
@@ -468,241 +468,249 @@ export function DashboardStudio() {
 					</DashboardPanel>
 				</div>
 
-				<DashboardPanel
-					title="Inspector"
-					description="Controls stay mode-aware, while prompt policy and execution all route through the shared automation runtime."
-					className="h-fit xl:sticky xl:top-24"
-				>
-					<div className="space-y-5">
-						<SurfaceCard className="space-y-4 p-5">
-							<div className="space-y-2">
-								<div className="text-sm font-medium">Studio mode</div>
-								<div className="text-xs text-muted-foreground">
-									Switch modes from the inspector instead of leaving the canvas.
-								</div>
-							</div>
-							<div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-								{studioModes.map((item) => (
-									<Button
-										key={item.value}
-										variant={
-											item.value === currentMode.value ? "default" : "outline"
-										}
-										className="justify-start rounded-full"
-										onClick={() => {
-											searchParams.set("mode", item.value);
-											setSearchParams(searchParams, { replace: true });
-										}}
-									>
-										<item.icon className="size-4" />
-										{item.label}
-									</Button>
-								))}
-							</div>
-						</SurfaceCard>
-
-						<SurfaceCard className="space-y-4 p-5">
-							{currentMode.value === "image" ? (
-								<>
-									<div className="space-y-2">
-										<Label>Prompt</Label>
-										<Textarea
-											value={imagePrompt}
-											onChange={(event) => setImagePrompt(event.target.value)}
-											className="min-h-28 rounded-[24px]"
-											placeholder="Editorial product scene, strong focal point, warm material palette..."
-										/>
-									</div>
-									<div className="grid gap-3 sm:grid-cols-2">
-										<div className="space-y-2">
-											<Label>Aspect ratio</Label>
-											<Select
-												value={imageAspectRatio}
-												onValueChange={setImageAspectRatio}
-											>
-												<SelectTrigger className="h-11 rounded-2xl">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													{Object.keys(imageAspectRatios).map((ratio) => (
-														<SelectItem key={ratio} value={ratio}>
-															{ratio}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-										</div>
-										<div className="space-y-2">
-											<Label>Model</Label>
-											<Input
-												value={imageModel}
-												onChange={(event) => setImageModel(event.target.value)}
-												className="h-11 rounded-2xl"
-											/>
-										</div>
-									</div>
-									<div className="space-y-2">
-										<Label>Seed</Label>
-										<Input
-											value={imageSeed}
-											onChange={(event) => setImageSeed(event.target.value)}
-											className="h-11 rounded-2xl"
-											placeholder="Optional deterministic seed"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label>Reference assets</Label>
-										<ResourcePicker
-											resources={imageResources}
-											value={imageReferenceIds}
-											onChange={setImageReferenceIds}
-											triggerLabel="Choose references"
-											emptyMessage="Upload image assets in the library first."
-										/>
-									</div>
-								</>
-							) : null}
-
-							{currentMode.value === "pdf" ? (
-								<>
-									<div className="space-y-2">
-										<Label>Title</Label>
-										<Input
-											value={pdfTitle}
-											onChange={(event) => setPdfTitle(event.target.value)}
-											className="h-11 rounded-2xl"
-											placeholder="The 5 systems behind consistent content operations"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label>Subtitle</Label>
-										<Input
-											value={pdfSubtitle}
-											onChange={(event) => setPdfSubtitle(event.target.value)}
-											className="h-11 rounded-2xl"
-											placeholder="Optional supporting subtitle"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label>Pages</Label>
-										<Textarea
-											value={pdfPages}
-											onChange={(event) => setPdfPages(event.target.value)}
-											className="min-h-40 rounded-[24px]"
-											placeholder="Write one paragraph per page. Separate pages with a blank line."
-										/>
-									</div>
-								</>
-							) : null}
-
-							{currentMode.value === "reel" ? (
-								<>
-									<div className="space-y-2">
-										<Label>Source video</Label>
-										<ResourcePicker
-											resources={videoResources}
-											value={reelVideoIds}
-											onChange={(next) => setReelVideoIds(next.slice(0, 1))}
-											triggerLabel="Choose video"
-											emptyMessage="Upload a video asset in the library first."
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label>Caption</Label>
-										<Textarea
-											value={reelCaption}
-											onChange={(event) => setReelCaption(event.target.value)}
-											className="min-h-28 rounded-[24px]"
-											placeholder="Animated captions, strong opening line, tight pacing..."
-										/>
-									</div>
-									<div className="grid gap-3 sm:grid-cols-2">
-										<div className="space-y-2">
-											<Label>Style</Label>
-											<Input
-												value={reelStyle}
-												onChange={(event) => setReelStyle(event.target.value)}
-												className="h-11 rounded-2xl"
-											/>
-										</div>
-										<div className="space-y-2">
-											<Label>Effects</Label>
-											<Input
-												value={reelEffects}
-												onChange={(event) => setReelEffects(event.target.value)}
-												className="h-11 rounded-2xl"
-												placeholder="zoom, cut, captions"
-											/>
-										</div>
-									</div>
-								</>
-							) : null}
-
-							<Button
-								className="w-full rounded-full border-0 bg-gradient-brand text-white"
-								onClick={() => void runStudioMode()}
-								disabled={submitting}
-							>
-								<Play className="size-4" />
-								{submitting ? "Running..." : `Run ${currentMode.label}`}
-							</Button>
-						</SurfaceCard>
-
-						<SurfaceCard className="space-y-4 p-5">
-							<div className="text-sm font-medium">Current mode activity</div>
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
-								{selectedRun
-									? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
-									: "No runs for this mode yet."}
-							</div>
-							{selectedRun ? (
-								<Button
-									variant="outline"
-									className="w-full rounded-full"
-									asChild
-								>
-									<Link to={`/dashboard/automations/runs/${selectedRun.id}`}>
-										View run detail
-									</Link>
-								</Button>
-							) : null}
-						</SurfaceCard>
-
-						<SurfaceCard className="space-y-3 p-5">
-							<div className="flex items-center justify-between gap-3">
-								<div>
-									<div className="text-sm font-medium">Prompt policy</div>
+				<div className="xl:self-start">
+					<DashboardPanel
+						title="Inspector"
+						description="Controls stay mode-aware, while prompt policy and execution all route through the shared automation runtime."
+						className="h-fit xl:sticky xl:top-24"
+					>
+						<div className="space-y-5">
+							<SurfaceCard className="space-y-4 p-5">
+								<div className="space-y-2">
+									<div className="text-sm font-medium">Studio mode</div>
 									<div className="text-xs text-muted-foreground">
-										Base + {currentMode.label.toLowerCase()} override
+										Switch modes from the inspector instead of leaving the
+										canvas.
 									</div>
 								</div>
+								<div className="grid grid-cols-3 gap-2">
+									{studioModes.map((item) => (
+										<Button
+											key={item.value}
+											variant={
+												item.value === currentMode.value ? "default" : "outline"
+											}
+											size="sm"
+											className="h-10 rounded-full px-3 text-sm"
+											onClick={() => {
+												searchParams.set("mode", item.value);
+												setSearchParams(searchParams, { replace: true });
+											}}
+										>
+											<item.icon className="size-4" />
+											{item.label}
+										</Button>
+									))}
+								</div>
+							</SurfaceCard>
+
+							<SurfaceCard className="space-y-4 p-5">
+								{currentMode.value === "image" ? (
+									<>
+										<div className="space-y-2">
+											<Label>Prompt</Label>
+											<Textarea
+												value={imagePrompt}
+												onChange={(event) => setImagePrompt(event.target.value)}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Editorial product scene, strong focal point, warm material palette..."
+											/>
+										</div>
+										<div className="grid gap-3 sm:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Aspect ratio</Label>
+												<Select
+													value={imageAspectRatio}
+													onValueChange={setImageAspectRatio}
+												>
+													<SelectTrigger className="h-11 rounded-2xl">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{Object.keys(imageAspectRatios).map((ratio) => (
+															<SelectItem key={ratio} value={ratio}>
+																{ratio}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
+											<div className="space-y-2">
+												<Label>Model</Label>
+												<Input
+													value={imageModel}
+													onChange={(event) =>
+														setImageModel(event.target.value)
+													}
+													className="h-11 rounded-2xl"
+												/>
+											</div>
+										</div>
+										<div className="space-y-2">
+											<Label>Seed</Label>
+											<Input
+												value={imageSeed}
+												onChange={(event) => setImageSeed(event.target.value)}
+												className="h-11 rounded-2xl"
+												placeholder="Optional deterministic seed"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label>Reference assets</Label>
+											<ResourcePicker
+												resources={imageResources}
+												value={imageReferenceIds}
+												onChange={setImageReferenceIds}
+												triggerLabel="Choose references"
+												emptyMessage="Upload image assets in the library first."
+											/>
+										</div>
+									</>
+								) : null}
+
+								{currentMode.value === "pdf" ? (
+									<>
+										<div className="space-y-2">
+											<Label>Title</Label>
+											<Input
+												value={pdfTitle}
+												onChange={(event) => setPdfTitle(event.target.value)}
+												className="h-11 rounded-2xl"
+												placeholder="The 5 systems behind consistent content operations"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label>Subtitle</Label>
+											<Input
+												value={pdfSubtitle}
+												onChange={(event) => setPdfSubtitle(event.target.value)}
+												className="h-11 rounded-2xl"
+												placeholder="Optional supporting subtitle"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label>Pages</Label>
+											<Textarea
+												value={pdfPages}
+												onChange={(event) => setPdfPages(event.target.value)}
+												className="min-h-40 rounded-[24px]"
+												placeholder="Write one paragraph per page. Separate pages with a blank line."
+											/>
+										</div>
+									</>
+								) : null}
+
+								{currentMode.value === "reel" ? (
+									<>
+										<div className="space-y-2">
+											<Label>Source video</Label>
+											<ResourcePicker
+												resources={videoResources}
+												value={reelVideoIds}
+												onChange={(next) => setReelVideoIds(next.slice(0, 1))}
+												triggerLabel="Choose video"
+												emptyMessage="Upload a video asset in the library first."
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label>Caption</Label>
+											<Textarea
+												value={reelCaption}
+												onChange={(event) => setReelCaption(event.target.value)}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Animated captions, strong opening line, tight pacing..."
+											/>
+										</div>
+										<div className="grid gap-3 sm:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Style</Label>
+												<Input
+													value={reelStyle}
+													onChange={(event) => setReelStyle(event.target.value)}
+													className="h-11 rounded-2xl"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Effects</Label>
+												<Input
+													value={reelEffects}
+													onChange={(event) =>
+														setReelEffects(event.target.value)
+													}
+													className="h-11 rounded-2xl"
+													placeholder="zoom, cut, captions"
+												/>
+											</div>
+										</div>
+									</>
+								) : null}
+
 								<Button
-									variant="outline"
-									size="sm"
-									className="rounded-full"
-									asChild
+									className="w-full rounded-full border-0 bg-gradient-brand text-white"
+									onClick={() => void runStudioMode()}
+									disabled={submitting}
 								>
-									<Link to="/dashboard/settings/intelligence">
-										<Settings2 className="size-4" />
-										Edit
-									</Link>
+									<Play className="size-4" />
+									{submitting ? "Running..." : `Run ${currentMode.label}`}
 								</Button>
-							</div>
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
-								{aiSettings
-									? systemPromptPreview(
-											aiSettings.systemPrompts,
-											currentMode.value === "image"
-												? "studioImage"
-												: currentMode.value === "pdf"
-													? "studioPdf"
-													: "studioReel",
-										)
-									: "Loading prompt policy..."}
-							</div>
-						</SurfaceCard>
-					</div>
-				</DashboardPanel>
+							</SurfaceCard>
+
+							<SurfaceCard className="space-y-4 p-5">
+								<div className="text-sm font-medium">Current mode activity</div>
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
+									{selectedRun
+										? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
+										: "No runs for this mode yet."}
+								</div>
+								{selectedRun ? (
+									<Button
+										variant="outline"
+										className="w-full rounded-full"
+										asChild
+									>
+										<Link to={`/dashboard/automations/runs/${selectedRun.id}`}>
+											View run detail
+										</Link>
+									</Button>
+								) : null}
+							</SurfaceCard>
+
+							<SurfaceCard className="space-y-3 p-5">
+								<div className="flex items-center justify-between gap-3">
+									<div>
+										<div className="text-sm font-medium">Prompt policy</div>
+										<div className="text-xs text-muted-foreground">
+											Base + {currentMode.label.toLowerCase()} override
+										</div>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										className="rounded-full"
+										asChild
+									>
+										<Link to="/dashboard/settings/intelligence">
+											<Settings2 className="size-4" />
+											Edit
+										</Link>
+									</Button>
+								</div>
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
+									{aiSettings
+										? systemPromptPreview(
+												aiSettings.systemPrompts,
+												currentMode.value === "image"
+													? "studioImage"
+													: currentMode.value === "pdf"
+														? "studioPdf"
+														: "studioReel",
+											)
+										: "Loading prompt policy..."}
+								</div>
+							</SurfaceCard>
+						</div>
+					</DashboardPanel>
+				</div>
 			</div>
 		</div>
 	);
