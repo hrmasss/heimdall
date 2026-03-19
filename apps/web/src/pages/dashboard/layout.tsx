@@ -518,8 +518,8 @@ function TopBar({
 					</Breadcrumb>
 				</div>
 
-				<div className="ml-auto flex items-center gap-2">
-					<div className="hidden w-[min(38vw,420px)] md:block">
+				<div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+					<div className="hidden w-[min(34vw,380px)] md:block">
 						<SearchCommand
 							onOpenAssistant={onOpenAssistant}
 							className="w-full"
@@ -529,7 +529,7 @@ function TopBar({
 					<AlertInbox />
 					<Button
 						type="button"
-						className="assistant-launch rounded-full px-3.5"
+						className="assistant-launch rounded-full px-3"
 						onClick={onOpenAssistant}
 					>
 						<WandSparkles className="assistant-launch__icon size-4" />
