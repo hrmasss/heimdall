@@ -85,6 +85,21 @@ const DashboardAutomations = lazy(async () =>
 		default: module.DashboardAutomations,
 	})),
 );
+const DashboardAutomationCatalogDetail = lazy(async () =>
+	import("@/pages/dashboard/automation-catalog-detail").then((module) => ({
+		default: module.DashboardAutomationCatalogDetailPage,
+	})),
+);
+const DashboardAutomationWorkflowEditor = lazy(async () =>
+	import("@/pages/dashboard/automation-workflow-editor").then((module) => ({
+		default: module.DashboardAutomationWorkflowEditorPage,
+	})),
+);
+const DashboardAutomationRunDetail = lazy(async () =>
+	import("@/pages/dashboard/automation-run-detail").then((module) => ({
+		default: module.DashboardAutomationRunDetailPage,
+	})),
+);
 const DashboardStudio = lazy(async () =>
 	import("@/pages/dashboard/studio").then((module) => ({
 		default: module.DashboardStudio,
@@ -296,6 +311,22 @@ export function AppRoutes() {
 						<Route path="calendar" element={<DashboardCalendar />} />
 						<Route path="analytics" element={<DashboardAnalytics />} />
 						<Route path="automations" element={<DashboardAutomations />} />
+						<Route
+							path="automations/catalog/:actionType"
+							element={<DashboardAutomationCatalogDetail />}
+						/>
+						<Route
+							path="automations/workflows/new"
+							element={<DashboardAutomationWorkflowEditor />}
+						/>
+						<Route
+							path="automations/workflows/:id"
+							element={<DashboardAutomationWorkflowEditor />}
+						/>
+						<Route
+							path="automations/runs/:runId"
+							element={<DashboardAutomationRunDetail />}
+						/>
 						<Route path="studio" element={<DashboardStudio />} />
 						<Route path="library" element={<DashboardLibrary />} />
 						<Route

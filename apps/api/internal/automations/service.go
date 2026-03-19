@@ -271,6 +271,39 @@ type CreateWorkflowInput struct {
 	Steps           []WorkflowStepRecord `json:"steps"`
 }
 
+type UpdateAutomationInput struct {
+	Status          *string         `json:"status"`
+	Scope           *string         `json:"scope"`
+	Name            *string         `json:"name"`
+	Description     *string         `json:"description"`
+	ActionType      *string         `json:"actionType"`
+	TriggerType     *string         `json:"triggerType"`
+	InputSchema     *map[string]any `json:"inputSchema"`
+	DefaultConfig   *map[string]any `json:"defaultConfig"`
+	OutputSchema    *map[string]any `json:"outputSchema"`
+	ReviewPolicy    *map[string]any `json:"reviewPolicy"`
+	CapabilityHints *[]string       `json:"capabilityHints"`
+	Metadata        *map[string]any `json:"metadata"`
+}
+
+type UpdateWorkflowInput struct {
+	Status          *string               `json:"status"`
+	Scope           *string               `json:"scope"`
+	Name            *string               `json:"name"`
+	Description     *string               `json:"description"`
+	TriggerType     *string               `json:"triggerType"`
+	InputSchema     *map[string]any       `json:"inputSchema"`
+	OutputSchema    *map[string]any       `json:"outputSchema"`
+	ReviewPolicy    *map[string]any       `json:"reviewPolicy"`
+	CapabilityHints *[]string             `json:"capabilityHints"`
+	Metadata        *map[string]any       `json:"metadata"`
+	Steps           *[]WorkflowStepRecord `json:"steps"`
+}
+
+type DuplicateWorkflowInput struct {
+	Name string `json:"name"`
+}
+
 type RunRequest struct {
 	Input map[string]any `json:"input"`
 }
@@ -292,6 +325,7 @@ type textGenerationRequest struct {
 	UseCase      string
 	SystemPrompt string
 	Prompt       string
+	PromptScope  string
 	CampaignID   *uuid.UUID
 	Provider     string
 	Model        string
@@ -491,6 +525,94 @@ func (s *Service) CreateAutomation(ctx context.Context, principal *iam.Principal
 	return &mapped, nil
 }
 
+func (s *Service) GetAutomation(ctx context.Context, principal *iam.Principal, workspaceID, automationID uuid.UUID) (*AutomationDefinitionRecord, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.view"); err != nil {
+		return nil, err
+	}
+	record, err := s.findAutomation(ctx, workspaceID, automationID)
+	if err != nil {
+		return nil, err
+	}
+	mapped := mapAutomationDefinition(*record)
+	return &mapped, nil
+}
+
+func (s *Service) UpdateAutomation(ctx context.Context, principal *iam.Principal, workspaceID, automationID uuid.UUID, input UpdateAutomationInput) (*AutomationDefinitionRecord, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.manage"); err != nil {
+		return nil, err
+	}
+	record, err := s.findAutomation(ctx, workspaceID, automationID)
+	if err != nil {
+		return nil, err
+	}
+	if input.ActionType != nil {
+		contract, ok := s.findActionContract(strings.TrimSpace(*input.ActionType))
+		if !ok {
+			return nil, fmt.Errorf("%w: unsupported automation action type", iam.ErrValidation)
+		}
+		record.ActionType = contract.ActionType
+	}
+	if input.Status != nil {
+		record.Status = defaultString(strings.TrimSpace(strings.ToLower(*input.Status)), record.Status)
+	}
+	if input.Scope != nil {
+		record.Scope = defaultString(strings.TrimSpace(strings.ToLower(*input.Scope)), record.Scope)
+	}
+	if input.Name != nil {
+		record.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.Description != nil {
+		record.Description = strings.TrimSpace(*input.Description)
+	}
+	if input.TriggerType != nil {
+		record.TriggerType = defaultString(strings.TrimSpace(strings.ToLower(*input.TriggerType)), record.TriggerType)
+	}
+	if input.InputSchema != nil {
+		record.InputSchema = marshalJSON(*input.InputSchema)
+	}
+	if input.DefaultConfig != nil {
+		record.DefaultConfig = marshalJSON(*input.DefaultConfig)
+	}
+	if input.OutputSchema != nil {
+		record.OutputSchema = marshalJSON(*input.OutputSchema)
+	}
+	if input.ReviewPolicy != nil {
+		record.ReviewPolicy = marshalJSON(*input.ReviewPolicy)
+	}
+	if input.CapabilityHints != nil {
+		record.CapabilityHints = marshalJSON(normalizeStringSlice(*input.CapabilityHints))
+	}
+	if input.Metadata != nil {
+		record.Metadata = marshalJSON(*input.Metadata)
+	}
+	if strings.TrimSpace(record.Name) == "" {
+		return nil, fmt.Errorf("%w: automation name is required", iam.ErrValidation)
+	}
+	record.UpdatedAt = time.Now().UTC()
+	record.UpdatedByUserID = &principal.UserID
+	if _, err := s.db.NewUpdate().
+		Model(record).
+		Column("status", "scope", "name", "description", "action_type", "trigger_type", "input_schema", "default_config", "output_schema", "review_policy", "capability_hints", "metadata", "updated_by_user_id", "updated_at").
+		WherePK().
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+	mapped := mapAutomationDefinition(*record)
+	return &mapped, nil
+}
+
+func (s *Service) DeleteAutomation(ctx context.Context, principal *iam.Principal, workspaceID, automationID uuid.UUID) error {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.manage"); err != nil {
+		return err
+	}
+	record, err := s.findAutomation(ctx, workspaceID, automationID)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.NewDelete().Model(record).WherePK().Exec(ctx)
+	return err
+}
+
 func (s *Service) ListWorkflows(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID) ([]WorkflowDefinitionRecord, error) {
 	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.view"); err != nil {
 		return nil, err
@@ -590,6 +712,171 @@ func (s *Service) CreateWorkflow(ctx context.Context, principal *iam.Principal, 
 	}
 	result := mapWorkflowDefinition(*record, dbSteps)
 	return &result, nil
+}
+
+func (s *Service) GetWorkflow(ctx context.Context, principal *iam.Principal, workspaceID, workflowID uuid.UUID) (*WorkflowDefinitionRecord, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.view"); err != nil {
+		return nil, err
+	}
+	record, err := s.findWorkflow(ctx, workspaceID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	steps, err := s.loadWorkflowStepRecords(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	mapped := mapWorkflowDefinition(*record, steps)
+	return &mapped, nil
+}
+
+func (s *Service) UpdateWorkflow(ctx context.Context, principal *iam.Principal, workspaceID, workflowID uuid.UUID, input UpdateWorkflowInput) (*WorkflowDefinitionRecord, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.manage"); err != nil {
+		return nil, err
+	}
+	record, err := s.findWorkflow(ctx, workspaceID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	existingSteps, err := s.loadWorkflowStepRecords(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	steps := recordsToStepDTOs(existingSteps)
+	if input.Steps != nil {
+		steps, err = s.normalizeWorkflowSteps(*input.Steps)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := s.validateWorkflowSteps(steps); err != nil {
+		return nil, err
+	}
+	if workflowContainsPublish(steps) {
+		if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish"); err != nil {
+			return nil, err
+		}
+	}
+	if input.Status != nil {
+		record.Status = defaultString(strings.TrimSpace(strings.ToLower(*input.Status)), record.Status)
+	}
+	if input.Scope != nil {
+		record.Scope = defaultString(strings.TrimSpace(strings.ToLower(*input.Scope)), record.Scope)
+	}
+	if input.Name != nil {
+		record.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.Description != nil {
+		record.Description = strings.TrimSpace(*input.Description)
+	}
+	if input.TriggerType != nil {
+		record.TriggerType = defaultString(strings.TrimSpace(strings.ToLower(*input.TriggerType)), record.TriggerType)
+	}
+	if input.InputSchema != nil {
+		record.InputSchema = marshalJSON(*input.InputSchema)
+	}
+	if input.OutputSchema != nil {
+		record.OutputSchema = marshalJSON(*input.OutputSchema)
+	}
+	if input.ReviewPolicy != nil {
+		record.ReviewPolicy = marshalJSON(*input.ReviewPolicy)
+	}
+	if input.CapabilityHints != nil {
+		record.CapabilityHints = marshalJSON(normalizeStringSlice(*input.CapabilityHints))
+	}
+	if input.Metadata != nil {
+		record.Metadata = marshalJSON(*input.Metadata)
+	}
+	if strings.TrimSpace(record.Name) == "" {
+		return nil, fmt.Errorf("%w: workflow name is required", iam.ErrValidation)
+	}
+	now := time.Now().UTC()
+	record.UpdatedAt = now
+	record.UpdatedByUserID = &principal.UserID
+	dbSteps := make([]*database.WorkflowStep, 0, len(steps))
+	for _, step := range steps {
+		dbSteps = append(dbSteps, &database.WorkflowStep{
+			ID:                   uuid.New(),
+			WorkflowID:           workflowID,
+			AutomationID:         parseUUIDPointer(step.AutomationID),
+			Position:             step.Position,
+			Name:                 step.Name,
+			StepKind:             step.StepKind,
+			ActionType:           step.ActionType,
+			ConsumesArtifactType: step.ConsumesArtifactType,
+			ProducesArtifactType: step.ProducesArtifactType,
+			ReviewerType:         step.ReviewerType,
+			RequiredCapabilities: marshalJSON(normalizeStringSlice(step.RequiredCapabilities)),
+			Config:               marshalJSON(step.Config),
+			Metadata:             marshalJSON(step.Metadata),
+			CreatedAt:            now,
+			UpdatedAt:            now,
+		})
+	}
+	if err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().
+			Model(record).
+			Column("status", "scope", "name", "description", "trigger_type", "input_schema", "output_schema", "review_policy", "capability_hints", "metadata", "updated_by_user_id", "updated_at").
+			WherePK().
+			Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().
+			Model((*database.WorkflowStep)(nil)).
+			Where("workflow_id = ?", workflowID).
+			Exec(ctx); err != nil {
+			return err
+		}
+		if len(dbSteps) > 0 {
+			if _, err := tx.NewInsert().Model(&dbSteps).Exec(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	result := mapWorkflowDefinition(*record, dbSteps)
+	return &result, nil
+}
+
+func (s *Service) DeleteWorkflow(ctx context.Context, principal *iam.Principal, workspaceID, workflowID uuid.UUID) error {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.manage"); err != nil {
+		return err
+	}
+	record, err := s.findWorkflow(ctx, workspaceID, workflowID)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.NewDelete().Model(record).WherePK().Exec(ctx)
+	return err
+}
+
+func (s *Service) DuplicateWorkflow(ctx context.Context, principal *iam.Principal, workspaceID, workflowID uuid.UUID, input DuplicateWorkflowInput) (*WorkflowDefinitionRecord, error) {
+	if _, err := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.automations.manage"); err != nil {
+		return nil, err
+	}
+	record, err := s.findWorkflow(ctx, workspaceID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	steps, err := s.loadWorkflowStepRecords(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	return s.CreateWorkflow(ctx, principal, workspaceID, CreateWorkflowInput{
+		Status:          record.Status,
+		Scope:           record.Scope,
+		Name:            firstNonEmptyString(strings.TrimSpace(input.Name), strings.TrimSpace(record.Name)+" Copy"),
+		Description:     record.Description,
+		TriggerType:     record.TriggerType,
+		InputSchema:     parseJSONMap(record.InputSchema),
+		OutputSchema:    parseJSONMap(record.OutputSchema),
+		ReviewPolicy:    parseJSONMap(record.ReviewPolicy),
+		CapabilityHints: parseJSONStringSlice(record.CapabilityHints),
+		Metadata:        parseJSONMap(record.Metadata),
+		Steps:           recordsToStepDTOs(steps),
+	})
 }
 
 func (s *Service) RunAutomation(ctx context.Context, principal *iam.Principal, workspaceID, automationID uuid.UUID, request RunRequest) (*AutomationRunRecord, error) {
@@ -993,6 +1280,7 @@ func (s *Service) executeCampaignPlan(
 	research, err := s.providers.research["workspace_ai"].Research(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "campaign_planning",
 		SystemPrompt: "Return strict JSON with summary, sourceUrls, facts, and evidenceNotes for campaign planning research. Use empty arrays when unsure.",
+		PromptScope:  ai.PromptScopeAutomations,
 		Prompt:       prompt,
 	})
 	if err != nil {
@@ -1001,6 +1289,7 @@ func (s *Service) executeCampaignPlan(
 	artifact, err := s.providers.text["workspace_ai"].Generate(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "campaign_planning",
 		SystemPrompt: "Return strict JSON with campaignName, objective, targetAudience, messageTheme, notes, primaryChannels, postAngles, and callToAction.",
+		PromptScope:  ai.PromptScopeAutomations,
 		Prompt:       fmt.Sprintf("%s\n\nResearch summary:\n%s", prompt, research.Summary),
 	})
 	if err != nil {
@@ -1084,13 +1373,15 @@ func (s *Service) executePostGenerate(
 	research, err := s.providers.research["workspace_ai"].Research(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "post_generation",
 		SystemPrompt: "Return strict JSON with summary, sourceUrls, facts, and evidenceNotes that help a social post stay relevant and credible. Use empty arrays when unsure.",
+		PromptScope:  ai.PromptScopeAutomations,
 		Prompt:       prompt,
 	})
 	if err != nil {
 		return nil, false, err
 	}
 	draft, err := s.ai.GeneratePostDraft(ctx, principal, workspaceID, ai.GeneratePostDraftInput{
-		Prompt: fmt.Sprintf("%s\n\nUse this research:\n%s", prompt, research.Summary),
+		Prompt:      fmt.Sprintf("%s\n\nUse this research:\n%s", prompt, research.Summary),
+		PromptScope: ai.PromptScopeAutomations,
 	})
 	if err != nil {
 		return nil, false, err
@@ -1180,6 +1471,7 @@ func (s *Service) executeVariationGenerate(
 	artifact, err := s.providers.text["workspace_ai"].Generate(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "variation_generation",
 		SystemPrompt: "Return strict JSON with variants as an array of objects. Each variant must include platform, surface, title, body, tags, and contentKind.",
+		PromptScope:  ai.PromptScopeAutomations,
 		Prompt:       fmt.Sprintf("Base title: %s\nBase body: %s\nCreate variations for %s.", baseTitle, baseBody, strings.Join(targetDescriptions, ", ")),
 	})
 	if err != nil {
@@ -1258,6 +1550,10 @@ func (s *Service) executeImageGenerate(
 		deriveImagePrompt(currentArtifacts),
 		"Generate a social-ready image with a strong focal point and clean composition.",
 	)
+	promptScope := firstNonEmptyString(stringValue(runInput["promptScope"]), ai.PromptScopeAutomations)
+	if systemPrompt, err := s.ai.ComposeExecutionSystemPrompt(ctx, workspaceID, promptScope, ""); err == nil && strings.TrimSpace(systemPrompt) != "" {
+		prompt = fmt.Sprintf("%s\n\nCreative brief:\n%s", systemPrompt, prompt)
+	}
 	imageCount := intValue(stepConfig["count"], 1)
 	if imageCount < 1 {
 		imageCount = 1
@@ -1353,11 +1649,16 @@ func (s *Service) executeReelGenerate(
 	if videoResourceID == "" {
 		return nil, false, fmt.Errorf("%w: reel generation requires a source video resource", iam.ErrValidation)
 	}
+	promptScope := firstNonEmptyString(stringValue(runInput["promptScope"]), ai.PromptScopeAutomations)
+	style := firstNonEmptyString(stringValue(stepConfig["style"]), "kinetic")
+	if systemPrompt, err := s.ai.ComposeExecutionSystemPrompt(ctx, workspaceID, promptScope, ""); err == nil && strings.TrimSpace(systemPrompt) != "" {
+		style = firstNonEmptyString(stringValue(stepConfig["style"]), systemPrompt, "kinetic")
+	}
 	result, err := s.providers.media["reel_blueprint"].Compose(ctx, principal, workspaceID, mediaCompositionRequest{
 		SourceResourceID: mustParseUUID(videoResourceID),
 		Title:            firstNonEmptyString(stringValue(stepConfig["title"]), "Reel draft"),
 		Caption:          firstNonEmptyString(stringValue(runInput["caption"]), stringValue(stepConfig["caption"]), deriveCaption(currentArtifacts)),
-		Style:            firstNonEmptyString(stringValue(stepConfig["style"]), "kinetic"),
+		Style:            style,
 		Effects:          stringSlice(stepConfig["effects"]),
 	})
 	if err != nil {
@@ -1391,9 +1692,14 @@ func (s *Service) executeLinkedInPDFGenerate(
 ) (*executionResult, bool, error) {
 	title := firstNonEmptyString(stringValue(runInput["title"]), stringValue(stepConfig["title"]), derivePDFTitle(currentArtifacts), "LinkedIn PDF")
 	pages := derivePDFPages(runInput, stepConfig, currentArtifacts)
+	subtitle := firstNonEmptyString(stringValue(stepConfig["subtitle"]), stringValue(runInput["subtitle"]))
+	promptScope := firstNonEmptyString(stringValue(runInput["promptScope"]), ai.PromptScopeAutomations)
+	if systemPrompt, err := s.ai.ComposeExecutionSystemPrompt(ctx, workspaceID, promptScope, ""); err == nil && strings.TrimSpace(systemPrompt) != "" {
+		subtitle = firstNonEmptyString(subtitle, systemPrompt)
+	}
 	result, err := s.providers.document["linkedin_pdf"].Render(ctx, documentRenderRequest{
 		Title:           title,
-		Subtitle:        firstNonEmptyString(stringValue(stepConfig["subtitle"]), stringValue(runInput["subtitle"])),
+		Subtitle:        subtitle,
 		Pages:           pages,
 		CreatePostDraft: boolValue(stepConfig["createPostDraft"]),
 	})
@@ -1494,6 +1800,7 @@ func (s *Service) executeReviewStep(
 	reviewArtifact, err := s.providers.text["workspace_ai"].Generate(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "post_generation",
 		SystemPrompt: "You are an automation QA reviewer. Return strict JSON with decision, comment, and findings array. decision must be approved or changes_requested.",
+		PromptScope:  ai.PromptScopeAutomations,
 		Prompt:       fmt.Sprintf("Review these automation artifacts for clarity, safety, factuality, and platform readiness:\n%s", marshalJSON(currentArtifacts)),
 	})
 	if err != nil {
@@ -1913,6 +2220,7 @@ func (p aiTextGenerationProvider) Generate(ctx context.Context, principal *iam.P
 	return p.ai.GenerateStructuredArtifact(ctx, principal, workspaceID, ai.GenerateStructuredArtifactInput{
 		UseCase:      request.UseCase,
 		SystemPrompt: request.SystemPrompt,
+		PromptScope:  request.PromptScope,
 		Prompt:       request.Prompt,
 		CampaignID:   request.CampaignID,
 		Provider:     request.Provider,
@@ -1929,6 +2237,7 @@ func (p aiResearchProvider) Research(ctx context.Context, principal *iam.Princip
 	artifact, err := p.ai.GenerateStructuredArtifact(ctx, principal, workspaceID, ai.GenerateStructuredArtifactInput{
 		UseCase:      request.UseCase,
 		SystemPrompt: request.SystemPrompt,
+		PromptScope:  request.PromptScope,
 		Prompt:       request.Prompt,
 		CampaignID:   request.CampaignID,
 		Provider:     request.Provider,

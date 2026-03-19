@@ -8,6 +8,7 @@ const dashboardLabels: Record<string, string> = {
 	"/dashboard/calendar": "Calendar",
 	"/dashboard/analytics": "Analytics",
 	"/dashboard/automations": "Automations",
+	"/dashboard/automations/workflows/new": "New workflow",
 	"/dashboard/studio": "Studio",
 	"/dashboard/library": "Assets",
 	"/dashboard/team": "Team",
@@ -45,6 +46,15 @@ function resolveDashboardLabel(pathname: string) {
 	}
 	if (/^\/dashboard\/campaigns\/[^/]+\/edit$/.test(pathname)) {
 		return "Edit campaign";
+	}
+	if (/^\/dashboard\/automations\/catalog\/[^/]+$/.test(pathname)) {
+		return "Action detail";
+	}
+	if (/^\/dashboard\/automations\/workflows\/[^/]+$/.test(pathname)) {
+		return "Workflow detail";
+	}
+	if (/^\/dashboard\/automations\/runs\/[^/]+$/.test(pathname)) {
+		return "Run detail";
 	}
 	if (/^\/dashboard\/campaigns\/[^/]+$/.test(pathname)) {
 		return "Campaign detail";

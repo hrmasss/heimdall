@@ -48,6 +48,57 @@ func (h *AppHandler) createAutomation(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(record)
 }
 
+func (h *AppHandler) getAutomation(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	automationID, err := uuid.Parse(c.Params("automationId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.automationService.GetAutomation(c.Context(), principal, workspaceID, automationID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) updateAutomation(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	automationID, err := uuid.Parse(c.Params("automationId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body automations.UpdateAutomationInput
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.automationService.UpdateAutomation(c.Context(), principal, workspaceID, automationID, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) deleteAutomation(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	automationID, err := uuid.Parse(c.Params("automationId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.automationService.DeleteAutomation(c.Context(), principal, workspaceID, automationID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func (h *AppHandler) listWorkflows(c fiber.Ctx) error {
 	workspaceID, principal, err := h.resolveAutomationContext(c)
 	if err != nil {
@@ -70,6 +121,77 @@ func (h *AppHandler) createWorkflow(c fiber.Ctx) error {
 		return h.writeError(c, iam.ErrValidation)
 	}
 	record, err := h.automationService.CreateWorkflow(c.Context(), principal, workspaceID, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) getWorkflow(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workflowID, err := uuid.Parse(c.Params("workflowId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.automationService.GetWorkflow(c.Context(), principal, workspaceID, workflowID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) updateWorkflow(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workflowID, err := uuid.Parse(c.Params("workflowId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body automations.UpdateWorkflowInput
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.automationService.UpdateWorkflow(c.Context(), principal, workspaceID, workflowID, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) deleteWorkflow(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workflowID, err := uuid.Parse(c.Params("workflowId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.automationService.DeleteWorkflow(c.Context(), principal, workspaceID, workflowID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) duplicateWorkflow(c fiber.Ctx) error {
+	workspaceID, principal, err := h.resolveAutomationContext(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	workflowID, err := uuid.Parse(c.Params("workflowId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body automations.DuplicateWorkflowInput
+	if err := c.Bind().JSON(&body); err != nil && c.Body() != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.automationService.DuplicateWorkflow(c.Context(), principal, workspaceID, workflowID, body)
 	if err != nil {
 		return h.writeError(c, err)
 	}

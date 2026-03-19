@@ -669,7 +669,16 @@ export type WorkspaceAISettings = {
 	capabilityDefaults: Record<string, AIModelSelection>;
 	fallbackPoolEnabled: boolean;
 	usagePolicy: Record<string, unknown>;
+	systemPrompts: WorkspaceSystemPrompts;
 	credentials: AIProviderCredentialRecord[];
+};
+
+export type WorkspaceSystemPrompts = {
+	base: string;
+	studioImage: string;
+	studioPdf: string;
+	studioReel: string;
+	automations: string;
 };
 
 export type AIProviderCatalogEntry = {

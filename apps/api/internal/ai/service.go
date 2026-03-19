@@ -27,14 +27,19 @@ const (
 	modeNative = "native"
 	modeBYOK   = "byok"
 
-	useCasePostGeneration   = "post_generation"
-	useCaseCampaignPlanning = "campaign_planning"
+	useCasePostGeneration      = "post_generation"
+	useCaseCampaignPlanning    = "campaign_planning"
 	useCaseVariationGeneration = "variation_generation"
-	useCaseImageGeneration  = "image_generation"
-	useCaseReelGeneration   = "reel_generation"
-	useCasePDFGeneration    = "pdf_generation"
-	extractorVersion        = "workspace-intelligence-v1"
-	processingStatusReady   = "ready"
+	useCaseImageGeneration     = "image_generation"
+	useCaseReelGeneration      = "reel_generation"
+	useCasePDFGeneration       = "pdf_generation"
+	extractorVersion           = "workspace-intelligence-v1"
+	processingStatusReady      = "ready"
+
+	PromptScopeAutomations = "automations"
+	PromptScopeStudioImage = "studio_image"
+	PromptScopeStudioPDF   = "studio_pdf"
+	PromptScopeStudioReel  = "studio_reel"
 )
 
 type Authorizer interface {
@@ -112,11 +117,20 @@ type AIProviderCredentialRecord struct {
 	UpdatedAt     string   `json:"updatedAt,omitempty"`
 }
 
+type WorkspaceSystemPrompts struct {
+	Base        string `json:"base"`
+	StudioImage string `json:"studioImage"`
+	StudioPDF   string `json:"studioPdf"`
+	StudioReel  string `json:"studioReel"`
+	Automations string `json:"automations"`
+}
+
 type WorkspaceAISettings struct {
 	DefaultMode         string                       `json:"defaultMode"`
 	CapabilityDefaults  map[string]AIModelSelection  `json:"capabilityDefaults"`
 	FallbackPoolEnabled bool                         `json:"fallbackPoolEnabled"`
 	UsagePolicy         map[string]any               `json:"usagePolicy"`
+	SystemPrompts       WorkspaceSystemPrompts       `json:"systemPrompts"`
 	Credentials         []AIProviderCredentialRecord `json:"credentials"`
 }
 
@@ -162,6 +176,7 @@ type GenerateStructuredArtifactInput struct {
 	UseCase      string     `json:"useCase"`
 	Prompt       string     `json:"prompt"`
 	SystemPrompt string     `json:"systemPrompt"`
+	PromptScope  string     `json:"promptScope"`
 	Provider     string     `json:"provider"`
 	Model        string     `json:"model"`
 	Mode         string     `json:"mode"`
@@ -169,13 +184,13 @@ type GenerateStructuredArtifactInput struct {
 }
 
 type GeneratedStructuredArtifact struct {
-	Payload            map[string]any       `json:"payload"`
-	Provider           string               `json:"provider"`
-	Model              string               `json:"model"`
-	CredentialMode     string               `json:"credentialMode"`
-	ContextFingerprint string               `json:"contextFingerprint"`
-	Warnings           []string             `json:"warnings"`
-	RunEvent           *AIRunEventSummary   `json:"runEvent,omitempty"`
+	Payload            map[string]any     `json:"payload"`
+	Provider           string             `json:"provider"`
+	Model              string             `json:"model"`
+	CredentialMode     string             `json:"credentialMode"`
+	ContextFingerprint string             `json:"contextFingerprint"`
+	Warnings           []string           `json:"warnings"`
+	RunEvent           *AIRunEventSummary `json:"runEvent,omitempty"`
 }
 
 type UpdateBusinessContextInput struct {
@@ -208,6 +223,7 @@ type AIProviderCredentialInput struct {
 type UpdateWorkspaceAISettingsInput struct {
 	DefaultMode        string                      `json:"defaultMode"`
 	CapabilityDefaults map[string]AIModelSelection `json:"capabilityDefaults"`
+	SystemPrompts      *WorkspaceSystemPrompts     `json:"systemPrompts"`
 	Credentials        []AIProviderCredentialInput `json:"credentials"`
 }
 
@@ -216,11 +232,12 @@ type UpdatePlatformWorkspaceAISettingsInput struct {
 }
 
 type GeneratePostDraftInput struct {
-	Prompt     string     `json:"prompt"`
-	Provider   string     `json:"provider"`
-	Model      string     `json:"model"`
-	Mode       string     `json:"mode"`
-	CampaignID *uuid.UUID `json:"campaignId"`
+	Prompt      string     `json:"prompt"`
+	PromptScope string     `json:"promptScope"`
+	Provider    string     `json:"provider"`
+	Model       string     `json:"model"`
+	Mode        string     `json:"mode"`
+	CampaignID  *uuid.UUID `json:"campaignId"`
 }
 
 type aiUsage struct {
@@ -463,6 +480,11 @@ func (s *Service) UpdateSettings(ctx context.Context, principal *iam.Principal, 
 		}
 		settings.CapabilityDefaults = marshalMustJSON(s.normalizeCapabilityDefaults(input.CapabilityDefaults))
 	}
+	if input.SystemPrompts != nil {
+		settings.UsagePolicy = marshalMustJSON(
+			s.withSystemPrompts(parseJSONObject(settings.UsagePolicy), *input.SystemPrompts),
+		)
+	}
 	settings.UpdatedAt = time.Now().UTC()
 	if existed {
 		_, err = s.db.NewUpdate().
@@ -573,6 +595,7 @@ func (s *Service) GeneratePostDraft(ctx context.Context, principal *iam.Principa
 		UseCase:      useCasePostGeneration,
 		Prompt:       input.Prompt,
 		SystemPrompt: systemPrompt,
+		PromptScope:  input.PromptScope,
 		Provider:     input.Provider,
 		Model:        input.Model,
 		Mode:         input.Mode,
@@ -643,7 +666,8 @@ func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam
 	if err != nil {
 		return nil, err
 	}
-	userPrompt := fmt.Sprintf("Workspace context:\n%s\n\nUser request:\n%s", marshalPretty(contextPack), strings.TrimSpace(input.Prompt))
+	systemPrompt := s.composeSystemPrompt(settings, input.PromptScope, input.SystemPrompt)
+	userPrompt := fmt.Sprintf("User request:\n%s\n\nWorkspace context:\n%s", strings.TrimSpace(input.Prompt), marshalPretty(contextPack))
 
 	var (
 		payload      map[string]any
@@ -653,7 +677,7 @@ func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam
 		lastErr      error
 	)
 	for _, credential := range credentials {
-		responseText, usage, lastErr = s.generateJSON(ctx, provider, model, credential.apiKey, input.SystemPrompt, userPrompt, nil)
+		responseText, usage, lastErr = s.generateJSON(ctx, provider, model, credential.apiKey, systemPrompt, userPrompt, nil)
 		if lastErr == nil {
 			usedCred = credential.record
 			break
@@ -713,7 +737,7 @@ func (s *Service) loadSettings(ctx context.Context, workspaceID uuid.UUID) (*dat
 		DefaultMode:         defaultMode(s.cfg),
 		CapabilityDefaults:  marshalMustJSON(s.defaultCapabilityDefaults()),
 		FallbackPoolEnabled: false,
-		UsagePolicy:         marshalMustJSON(map[string]any{"windowDays": 30}),
+		UsagePolicy:         marshalMustJSON(s.defaultUsagePolicy()),
 	}
 	err := s.db.NewSelect().Model(record).Where("workspace_id = ?", workspaceID).Limit(1).Scan(ctx)
 	if err != nil {
@@ -1090,6 +1114,9 @@ func mapBrandContext(record *database.WorkspaceBrandContext) WorkspaceBrandConte
 }
 
 func mapAISettings(record *database.WorkspaceAISettings, credentials []database.WorkspaceAICredential) WorkspaceAISettings {
+	usagePolicy := compactMap(parseJSONObject(record.UsagePolicy))
+	systemPrompts := parseWorkspaceSystemPrompts(usagePolicy)
+	usagePolicy["systemPrompts"] = workspaceSystemPromptsMap(systemPrompts)
 	items := make([]AIProviderCredentialRecord, 0, len(credentials))
 	for _, credential := range credentials {
 		items = append(items, AIProviderCredentialRecord{
@@ -1106,7 +1133,104 @@ func mapAISettings(record *database.WorkspaceAISettings, credentials []database.
 		DefaultMode:         defaultString(record.DefaultMode, modeNative),
 		CapabilityDefaults:  parseCapabilityDefaults(record.CapabilityDefaults),
 		FallbackPoolEnabled: record.FallbackPoolEnabled,
-		UsagePolicy:         compactMap(parseJSONObject(record.UsagePolicy)),
+		UsagePolicy:         usagePolicy,
+		SystemPrompts:       systemPrompts,
 		Credentials:         items,
+	}
+}
+
+func (s *Service) ComposeExecutionSystemPrompt(ctx context.Context, workspaceID uuid.UUID, scope, existing string) (string, error) {
+	settings, _, err := s.loadSettings(ctx, workspaceID)
+	if err != nil {
+		return "", err
+	}
+	return s.composeSystemPrompt(settings, scope, existing), nil
+}
+
+func (s *Service) defaultUsagePolicy() map[string]any {
+	return map[string]any{
+		"windowDays":    30,
+		"systemPrompts": workspaceSystemPromptsMap(WorkspaceSystemPrompts{}),
+	}
+}
+
+func (s *Service) composeSystemPrompt(settings *database.WorkspaceAISettings, scope, existing string) string {
+	policy := parseJSONObject(settings.UsagePolicy)
+	prompts := parseWorkspaceSystemPrompts(policy)
+	parts := []string{}
+	if prompts.Base != "" {
+		parts = append(parts, prompts.Base)
+	}
+	if scoped := promptForScope(prompts, scope); scoped != "" {
+		parts = append(parts, scoped)
+	}
+	if strings.TrimSpace(existing) != "" {
+		parts = append(parts, strings.TrimSpace(existing))
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func (s *Service) withSystemPrompts(policy map[string]any, prompts WorkspaceSystemPrompts) map[string]any {
+	next := compactMap(policy)
+	if len(next) == 0 {
+		next = s.defaultUsagePolicy()
+	}
+	next["systemPrompts"] = workspaceSystemPromptsMap(normalizeWorkspaceSystemPrompts(prompts))
+	return next
+}
+
+func parseWorkspaceSystemPrompts(policy map[string]any) WorkspaceSystemPrompts {
+	raw, _ := policy["systemPrompts"].(map[string]any)
+	return WorkspaceSystemPrompts{
+		Base:        strings.TrimSpace(stringValue(raw["base"])),
+		StudioImage: strings.TrimSpace(stringValue(raw["studioImage"])),
+		StudioPDF:   strings.TrimSpace(stringValue(raw["studioPdf"])),
+		StudioReel:  strings.TrimSpace(stringValue(raw["studioReel"])),
+		Automations: strings.TrimSpace(stringValue(raw["automations"])),
+	}
+}
+
+func normalizeWorkspaceSystemPrompts(prompts WorkspaceSystemPrompts) WorkspaceSystemPrompts {
+	return WorkspaceSystemPrompts{
+		Base:        strings.TrimSpace(prompts.Base),
+		StudioImage: strings.TrimSpace(prompts.StudioImage),
+		StudioPDF:   strings.TrimSpace(prompts.StudioPDF),
+		StudioReel:  strings.TrimSpace(prompts.StudioReel),
+		Automations: strings.TrimSpace(prompts.Automations),
+	}
+}
+
+func workspaceSystemPromptsMap(prompts WorkspaceSystemPrompts) map[string]any {
+	normalized := normalizeWorkspaceSystemPrompts(prompts)
+	return map[string]any{
+		"base":        normalized.Base,
+		"studioImage": normalized.StudioImage,
+		"studioPdf":   normalized.StudioPDF,
+		"studioReel":  normalized.StudioReel,
+		"automations": normalized.Automations,
+	}
+}
+
+func promptForScope(prompts WorkspaceSystemPrompts, scope string) string {
+	switch strings.TrimSpace(scope) {
+	case PromptScopeStudioImage:
+		return prompts.StudioImage
+	case PromptScopeStudioPDF:
+		return prompts.StudioPDF
+	case PromptScopeStudioReel:
+		return prompts.StudioReel
+	case PromptScopeAutomations:
+		return prompts.Automations
+	default:
+		return ""
+	}
+}
+
+func stringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return ""
 	}
 }

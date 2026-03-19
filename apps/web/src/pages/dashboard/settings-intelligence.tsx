@@ -39,6 +39,7 @@ import type {
 	ResourceRecord,
 	WorkspaceAISettings,
 	WorkspaceContextResponse,
+	WorkspaceSystemPrompts,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 
@@ -73,6 +74,16 @@ function createBlankCredential(position = 0): CredentialDraft {
 		status: "active",
 		apiKey: "",
 		keyHint: "",
+	};
+}
+
+function createBlankSystemPrompts(): WorkspaceSystemPrompts {
+	return {
+		base: "",
+		studioImage: "",
+		studioPdf: "",
+		studioReel: "",
+		automations: "",
 	};
 }
 
@@ -120,7 +131,9 @@ function groupCredentialDrafts(
 			keyHint: credential.keyHint,
 		});
 		grouped[credential.provider] =
-			current[0]?.id === undefined && current.length > 1 ? current.slice(1) : current;
+			current[0]?.id === undefined && current.length > 1
+				? current.slice(1)
+				: current;
 	}
 
 	return grouped;
@@ -139,19 +152,22 @@ function normalizeCapabilityDefaults(
 	for (const item of useCaseOptions) {
 		const existing = defaults[item.value];
 		const provider =
-			existing?.provider && providers.some((entry) => entry.provider === existing.provider)
+			existing?.provider &&
+			providers.some((entry) => entry.provider === existing.provider)
 				? existing.provider
 				: fallbackProvider;
-		const providerConfig = providers.find((entry) => entry.provider === provider);
+		const providerConfig = providers.find(
+			(entry) => entry.provider === provider,
+		);
 		result[item.value] = {
 			provider,
 			model:
 				existing?.model &&
 				providerConfig?.approvedModels.includes(existing.model)
 					? existing.model
-					: providerConfig?.defaultModel ??
+					: (providerConfig?.defaultModel ??
 						providerConfig?.approvedModels[0] ??
-						fallbackModel,
+						fallbackModel),
 		};
 	}
 
@@ -199,6 +215,9 @@ export function DashboardSettingsIntelligencePage() {
 	const [credentialDrafts, setCredentialDrafts] = useState<
 		Record<string, CredentialDraft[]>
 	>({});
+	const [systemPrompts, setSystemPrompts] = useState<WorkspaceSystemPrompts>(
+		createBlankSystemPrompts(),
+	);
 
 	const imageResources = useMemo(
 		() => resources.filter((resource) => resource.mediaKind === "image"),
@@ -217,19 +236,23 @@ export function DashboardSettingsIntelligencePage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const [contextResponse, settingsResponse, catalogResponse, resourcesResponse] =
-				await Promise.all([
-					customerRequest<WorkspaceContextResponse>(
-						`/workspaces/${activeWorkspaceId}/ai/context`,
-					),
-					customerRequest<WorkspaceAISettings>(
-						`/workspaces/${activeWorkspaceId}/ai/settings`,
-					),
-					customerRequest<AIProviderCatalog>(
-						`/workspaces/${activeWorkspaceId}/ai/catalog`,
-					),
-					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-				]);
+			const [
+				contextResponse,
+				settingsResponse,
+				catalogResponse,
+				resourcesResponse,
+			] = await Promise.all([
+				customerRequest<WorkspaceContextResponse>(
+					`/workspaces/${activeWorkspaceId}/ai/context`,
+				),
+				customerRequest<WorkspaceAISettings>(
+					`/workspaces/${activeWorkspaceId}/ai/settings`,
+				),
+				customerRequest<AIProviderCatalog>(
+					`/workspaces/${activeWorkspaceId}/ai/catalog`,
+				),
+				customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+			]);
 
 			setContext(contextResponse);
 			setSettings(settingsResponse);
@@ -238,7 +261,9 @@ export function DashboardSettingsIntelligencePage() {
 
 			setBusinessNarrative(contextResponse.business.narrative);
 			setBusinessSummary(contextResponse.business.summary);
-			setUnderstandingScore(String(contextResponse.business.understandingScore));
+			setUnderstandingScore(
+				String(contextResponse.business.understandingScore),
+			);
 			setMissingGapsInput(contextResponse.business.missingGaps.join("\n"));
 			setFacts(
 				contextResponse.business.facts.length > 0
@@ -249,15 +274,25 @@ export function DashboardSettingsIntelligencePage() {
 			setBrandNarrative(contextResponse.brand.narrative);
 			setBrandSummary(contextResponse.brand.summary);
 			setBrandMissingGapsInput(contextResponse.brand.missingGaps.join("\n"));
-			setVisualGuardrailsInput(contextResponse.brand.visualGuardrails.join("\n"));
+			setVisualGuardrailsInput(
+				contextResponse.brand.visualGuardrails.join("\n"),
+			);
 			setReferenceResourceId(contextResponse.brand.referenceResourceId ?? "");
-			setPrimaryColor(tokenValue(contextResponse.brand.designTokens, "primaryColor"));
+			setPrimaryColor(
+				tokenValue(contextResponse.brand.designTokens, "primaryColor"),
+			);
 			setSecondaryColor(
 				tokenValue(contextResponse.brand.designTokens, "secondaryColor"),
 			);
-			setAccentColor(tokenValue(contextResponse.brand.designTokens, "accentColor"));
-			setTypography(tokenValue(contextResponse.brand.designTokens, "typography"));
-			setVisualStyle(tokenValue(contextResponse.brand.designTokens, "visualStyle"));
+			setAccentColor(
+				tokenValue(contextResponse.brand.designTokens, "accentColor"),
+			);
+			setTypography(
+				tokenValue(contextResponse.brand.designTokens, "typography"),
+			);
+			setVisualStyle(
+				tokenValue(contextResponse.brand.designTokens, "visualStyle"),
+			);
 			setCompositionCues(
 				tokenValue(contextResponse.brand.designTokens, "compositionCues"),
 			);
@@ -278,6 +313,7 @@ export function DashboardSettingsIntelligencePage() {
 					catalogResponse.providers.map((entry) => entry.provider),
 				),
 			);
+			setSystemPrompts(settingsResponse.systemPrompts);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
@@ -343,29 +379,40 @@ export function DashboardSettingsIntelligencePage() {
 		try {
 			let designTokens = { ...context.brand.designTokens };
 			designTokens = setTokenValue(designTokens, "primaryColor", primaryColor);
-			designTokens = setTokenValue(designTokens, "secondaryColor", secondaryColor);
+			designTokens = setTokenValue(
+				designTokens,
+				"secondaryColor",
+				secondaryColor,
+			);
 			designTokens = setTokenValue(designTokens, "accentColor", accentColor);
 			designTokens = setTokenValue(designTokens, "typography", typography);
 			designTokens = setTokenValue(designTokens, "visualStyle", visualStyle);
-			designTokens = setTokenValue(designTokens, "compositionCues", compositionCues);
+			designTokens = setTokenValue(
+				designTokens,
+				"compositionCues",
+				compositionCues,
+			);
 			designTokens = setTokenValue(
 				designTokens,
 				"prohibitedMotifs",
 				prohibitedMotifs,
 			);
 
-			await customerRequest(`/workspaces/${activeWorkspaceId}/ai/context/brand`, {
-				method: "PATCH",
-				body: {
-					narrative: brandNarrative,
-					summary: brandSummary,
-					designTokens,
-					visualGuardrails: splitLines(visualGuardrailsInput),
-					missingGaps: splitLines(brandMissingGapsInput),
-					referenceResourceId: referenceResourceId || null,
-					clearReferenceImage: !referenceResourceId,
+			await customerRequest(
+				`/workspaces/${activeWorkspaceId}/ai/context/brand`,
+				{
+					method: "PATCH",
+					body: {
+						narrative: brandNarrative,
+						summary: brandSummary,
+						designTokens,
+						visualGuardrails: splitLines(visualGuardrailsInput),
+						missingGaps: splitLines(brandMissingGapsInput),
+						referenceResourceId: referenceResourceId || null,
+						clearReferenceImage: !referenceResourceId,
+					},
 				},
-			});
+			);
 			toast.success("Brand system updated.");
 			await loadPage();
 		} catch (saveError) {
@@ -404,6 +451,7 @@ export function DashboardSettingsIntelligencePage() {
 				body: {
 					defaultMode,
 					capabilityDefaults,
+					systemPrompts,
 					credentials,
 				},
 			});
@@ -466,7 +514,8 @@ export function DashboardSettingsIntelligencePage() {
 						</div>
 						<div className="flex flex-wrap gap-2">
 							<Badge variant="outline" className="rounded-full">
-								Business {context.readiness.hasBusinessContext ? "ready" : "missing"}
+								Business{" "}
+								{context.readiness.hasBusinessContext ? "ready" : "missing"}
 							</Badge>
 							<Badge variant="outline" className="rounded-full">
 								Brand {context.readiness.hasBrandContext ? "ready" : "optional"}
@@ -502,6 +551,10 @@ export function DashboardSettingsIntelligencePage() {
 						<KeyRound className="size-4" />
 						AI Access
 					</TabsTrigger>
+					<TabsTrigger value="prompts" className="rounded-[18px] px-4 py-3">
+						<Sparkles className="size-4" />
+						Prompt Policy
+					</TabsTrigger>
 				</TabsList>
 
 				<TabsContent value="business" className="mt-5">
@@ -522,11 +575,15 @@ export function DashboardSettingsIntelligencePage() {
 							<div className="space-y-5">
 								<SurfaceCard className="space-y-4 p-5">
 									<div className="space-y-2">
-										<Label htmlFor="business-narrative">Business description</Label>
+										<Label htmlFor="business-narrative">
+											Business description
+										</Label>
 										<Textarea
 											id="business-narrative"
 											value={businessNarrative}
-											onChange={(event) => setBusinessNarrative(event.target.value)}
+											onChange={(event) =>
+												setBusinessNarrative(event.target.value)
+											}
 											className="min-h-44 rounded-[24px]"
 											placeholder="Describe what the business does, who it serves, what outcomes it helps create, what makes it different, and any constraints AI should respect."
 											disabled={loading}
@@ -534,24 +591,32 @@ export function DashboardSettingsIntelligencePage() {
 									</div>
 									<div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px]">
 										<div className="space-y-2">
-											<Label htmlFor="business-summary">What Heimdall understands</Label>
+											<Label htmlFor="business-summary">
+												What Heimdall understands
+											</Label>
 											<Textarea
 												id="business-summary"
 												value={businessSummary}
-												onChange={(event) => setBusinessSummary(event.target.value)}
+												onChange={(event) =>
+													setBusinessSummary(event.target.value)
+												}
 												className="min-h-24 rounded-[24px]"
 												disabled={loading}
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="understanding-score">Understanding score</Label>
+											<Label htmlFor="understanding-score">
+												Understanding score
+											</Label>
 											<Input
 												id="understanding-score"
 												type="number"
 												min={0}
 												max={100}
 												value={understandingScore}
-												onChange={(event) => setUnderstandingScore(event.target.value)}
+												onChange={(event) =>
+													setUnderstandingScore(event.target.value)
+												}
 												className="h-11 rounded-2xl"
 												disabled={loading}
 											/>
@@ -562,7 +627,9 @@ export function DashboardSettingsIntelligencePage() {
 										<Textarea
 											id="business-gaps"
 											value={missingGapsInput}
-											onChange={(event) => setMissingGapsInput(event.target.value)}
+											onChange={(event) =>
+												setMissingGapsInput(event.target.value)
+											}
 											className="min-h-24 rounded-[24px]"
 											placeholder="One gap per line"
 											disabled={loading}
@@ -573,7 +640,9 @@ export function DashboardSettingsIntelligencePage() {
 								<SurfaceCard className="space-y-4 p-5">
 									<div className="flex items-center justify-between gap-3">
 										<div>
-											<div className="text-sm font-medium">High-impact facts</div>
+											<div className="text-sm font-medium">
+												High-impact facts
+											</div>
 											<div className="text-sm text-muted-foreground">
 												Keep only facts that should materially change AI output.
 											</div>
@@ -582,7 +651,9 @@ export function DashboardSettingsIntelligencePage() {
 											type="button"
 											variant="outline"
 											className="rounded-full"
-											onClick={() => setFacts((current) => [...current, createBlankFact()])}
+											onClick={() =>
+												setFacts((current) => [...current, createBlankFact()])
+											}
 										>
 											<Plus className="size-4" />
 											Add fact
@@ -642,7 +713,7 @@ export function DashboardSettingsIntelligencePage() {
 																						| "low"
 																						| "medium"
 																						| "high",
-																			  }
+																				}
 																			: item,
 																	),
 																)
@@ -679,7 +750,9 @@ export function DashboardSettingsIntelligencePage() {
 													<Label>Use this for</Label>
 													<div className="flex flex-wrap gap-2">
 														{useCaseOptions.map((option) => {
-															const selected = fact.appliesTo.includes(option.value);
+															const selected = fact.appliesTo.includes(
+																option.value,
+															);
 															return (
 																<Button
 																	key={option.value}
@@ -695,10 +768,14 @@ export function DashboardSettingsIntelligencePage() {
 																							...item,
 																							appliesTo: selected
 																								? item.appliesTo.filter(
-																										(value) => value !== option.value,
-																								  )
-																								: [...item.appliesTo, option.value],
-																					  }
+																										(value) =>
+																											value !== option.value,
+																									)
+																								: [
+																										...item.appliesTo,
+																										option.value,
+																									],
+																						}
 																					: item,
 																			),
 																		)
@@ -720,7 +797,9 @@ export function DashboardSettingsIntelligencePage() {
 															setFacts((current) =>
 																current.length === 1
 																	? [createBlankFact()]
-																	: current.filter((_, itemIndex) => itemIndex !== index),
+																	: current.filter(
+																			(_, itemIndex) => itemIndex !== index,
+																		),
 															)
 														}
 													>
@@ -741,16 +820,16 @@ export function DashboardSettingsIntelligencePage() {
 								<div className="space-y-3 text-sm text-muted-foreground">
 									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
 										Post generation gets the business summary, audience, offers,
-										differentiators, guardrails, and optionally the linked campaign
-										objective.
+										differentiators, guardrails, and optionally the linked
+										campaign objective.
 									</div>
 									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-										Campaign planning gets goal and audience signals, but not extra
-										fluff.
+										Campaign planning gets goal and audience signals, but not
+										extra fluff.
 									</div>
 									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-										The shorter and sharper these facts are, the more reliable the
-										downstream prompts stay.
+										The shorter and sharper these facts are, the more reliable
+										the downstream prompts stay.
 									</div>
 								</div>
 							</SurfaceCard>
@@ -776,11 +855,15 @@ export function DashboardSettingsIntelligencePage() {
 							<div className="space-y-5">
 								<SurfaceCard className="space-y-4 p-5">
 									<div className="space-y-2">
-										<Label htmlFor="brand-narrative">Brand and design description</Label>
+										<Label htmlFor="brand-narrative">
+											Brand and design description
+										</Label>
 										<Textarea
 											id="brand-narrative"
 											value={brandNarrative}
-											onChange={(event) => setBrandNarrative(event.target.value)}
+											onChange={(event) =>
+												setBrandNarrative(event.target.value)
+											}
 											className="min-h-40 rounded-[24px]"
 											placeholder="Describe how the brand should feel visually, what it should avoid, and what a strong visual system looks like."
 										/>
@@ -800,7 +883,9 @@ export function DashboardSettingsIntelligencePage() {
 											<ResourcePicker
 												resources={imageResources}
 												value={referenceResourceId ? [referenceResourceId] : []}
-												onChange={(next) => setReferenceResourceId(next[0] ?? "")}
+												onChange={(next) =>
+													setReferenceResourceId(next[0] ?? "")
+												}
 												triggerLabel="Choose reference image"
 												emptyMessage="Upload an image to the library first."
 											/>
@@ -822,8 +907,8 @@ export function DashboardSettingsIntelligencePage() {
 									<div>
 										<div className="text-sm font-medium">Concrete tokens</div>
 										<div className="text-sm text-muted-foreground">
-											These are the fields future image and reel workflows will rely
-											on most.
+											These are the fields future image and reel workflows will
+											rely on most.
 										</div>
 									</div>
 									<div className="grid gap-4 md:grid-cols-2">
@@ -831,7 +916,9 @@ export function DashboardSettingsIntelligencePage() {
 											<Label>Primary color</Label>
 											<Input
 												value={primaryColor}
-												onChange={(event) => setPrimaryColor(event.target.value)}
+												onChange={(event) =>
+													setPrimaryColor(event.target.value)
+												}
 												className="h-10 rounded-2xl"
 											/>
 										</div>
@@ -839,7 +926,9 @@ export function DashboardSettingsIntelligencePage() {
 											<Label>Secondary color</Label>
 											<Input
 												value={secondaryColor}
-												onChange={(event) => setSecondaryColor(event.target.value)}
+												onChange={(event) =>
+													setSecondaryColor(event.target.value)
+												}
 												className="h-10 rounded-2xl"
 											/>
 										</div>
@@ -871,7 +960,9 @@ export function DashboardSettingsIntelligencePage() {
 											<Label>Composition cues</Label>
 											<Textarea
 												value={compositionCues}
-												onChange={(event) => setCompositionCues(event.target.value)}
+												onChange={(event) =>
+													setCompositionCues(event.target.value)
+												}
 												className="min-h-24 rounded-[20px]"
 											/>
 										</div>
@@ -879,7 +970,9 @@ export function DashboardSettingsIntelligencePage() {
 											<Label>Prohibited motifs</Label>
 											<Textarea
 												value={prohibitedMotifs}
-												onChange={(event) => setProhibitedMotifs(event.target.value)}
+												onChange={(event) =>
+													setProhibitedMotifs(event.target.value)
+												}
 												className="min-h-24 rounded-[20px]"
 											/>
 										</div>
@@ -893,7 +986,9 @@ export function DashboardSettingsIntelligencePage() {
 										<Label>Visual guardrails</Label>
 										<Textarea
 											value={visualGuardrailsInput}
-											onChange={(event) => setVisualGuardrailsInput(event.target.value)}
+											onChange={(event) =>
+												setVisualGuardrailsInput(event.target.value)
+											}
 											className="min-h-28 rounded-[24px]"
 											placeholder="One guardrail per line"
 										/>
@@ -902,13 +997,16 @@ export function DashboardSettingsIntelligencePage() {
 										<Label>Missing gaps</Label>
 										<Textarea
 											value={brandMissingGapsInput}
-											onChange={(event) => setBrandMissingGapsInput(event.target.value)}
+											onChange={(event) =>
+												setBrandMissingGapsInput(event.target.value)
+											}
 											className="min-h-24 rounded-[24px]"
 											placeholder="One gap per line"
 										/>
 									</div>
 									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
-										Processing status: {context?.brand.processingStatus ?? "ready"}
+										Processing status:{" "}
+										{context?.brand.processingStatus ?? "ready"}
 									</div>
 								</SurfaceCard>
 							</div>
@@ -951,9 +1049,9 @@ export function DashboardSettingsIntelligencePage() {
 										</Select>
 									</div>
 									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
-										Native mode uses Heimdall-managed keys and will later respect
-										plan limits. BYOK mode keeps the workspace on its own approved
-										provider keys.
+										Native mode uses Heimdall-managed keys and will later
+										respect plan limits. BYOK mode keeps the workspace on its
+										own approved provider keys.
 									</div>
 								</div>
 							</SurfaceCard>
@@ -1007,7 +1105,10 @@ export function DashboardSettingsIntelligencePage() {
 														</SelectTrigger>
 														<SelectContent>
 															{providerEntries.map((entry) => (
-																<SelectItem key={entry.provider} value={entry.provider}>
+																<SelectItem
+																	key={entry.provider}
+																	value={entry.provider}
+																>
 																	{entry.label}
 																</SelectItem>
 															))}
@@ -1017,7 +1118,9 @@ export function DashboardSettingsIntelligencePage() {
 												<div className="space-y-2">
 													<Label>Model</Label>
 													<Select
-														value={selection?.model ?? provider?.defaultModel ?? ""}
+														value={
+															selection?.model ?? provider?.defaultModel ?? ""
+														}
 														onValueChange={(value) =>
 															setCapabilityDefaults((current) => ({
 																...current,
@@ -1055,12 +1158,18 @@ export function DashboardSettingsIntelligencePage() {
 										createBlankCredential(),
 									];
 									return (
-										<SurfaceCard key={provider.provider} className="space-y-4 p-5">
+										<SurfaceCard
+											key={provider.provider}
+											className="space-y-4 p-5"
+										>
 											<div className="flex items-start justify-between gap-3">
 												<div>
-													<div className="text-sm font-medium">{provider.label}</div>
+													<div className="text-sm font-medium">
+														{provider.label}
+													</div>
 													<div className="text-sm text-muted-foreground">
-														Approved models: {provider.approvedModels.join(", ")}
+														Approved models:{" "}
+														{provider.approvedModels.join(", ")}
 													</div>
 												</div>
 												<div className="flex flex-wrap gap-2">
@@ -1084,12 +1193,16 @@ export function DashboardSettingsIntelligencePage() {
 													>
 														<div className="mb-3 flex items-center justify-between gap-3">
 															<div className="text-sm font-medium">
-																{provider.supportsByok && settings?.fallbackPoolEnabled
+																{provider.supportsByok &&
+																settings?.fallbackPoolEnabled
 																	? `Key ${index + 1}`
 																	: "Workspace key"}
 															</div>
 															{draft.keyHint ? (
-																<Badge variant="outline" className="rounded-full">
+																<Badge
+																	variant="outline"
+																	className="rounded-full"
+																>
 																	Saved: {draft.keyHint}
 																</Badge>
 															) : null}
@@ -1106,7 +1219,10 @@ export function DashboardSettingsIntelligencePage() {
 																			current[provider.provider] ?? []
 																		).map((item, itemIndex) =>
 																			itemIndex === index
-																				? { ...item, apiKey: event.target.value }
+																				? {
+																						...item,
+																						apiKey: event.target.value,
+																					}
 																				: item,
 																		),
 																	}))
@@ -1126,8 +1242,8 @@ export function DashboardSettingsIntelligencePage() {
 												<div className="flex justify-between gap-3 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
 													<div>
 														Fallback key pools are enabled for this workspace by
-														staff. Additional keys are tried when a provider hits
-														retryable rate or credit failures.
+														staff. Additional keys are tried when a provider
+														hits retryable rate or credit failures.
 													</div>
 													<Button
 														type="button"
@@ -1154,6 +1270,132 @@ export function DashboardSettingsIntelligencePage() {
 									);
 								})}
 							</div>
+						</div>
+					</DashboardPanel>
+				</TabsContent>
+
+				<TabsContent value="prompts" className="mt-5">
+					<DashboardPanel
+						title="Workspace prompt policy"
+						description="Define a shared base system prompt plus studio- and automation-specific overrides. These are applied automatically on future Studio and Automation runs."
+						action={
+							<Button
+								className="rounded-full border-0 bg-gradient-brand text-white"
+								disabled={loading || savingAI}
+								onClick={() => void saveAISettings()}
+							>
+								{savingAI ? "Saving..." : "Save prompt policy"}
+							</Button>
+						}
+					>
+						<div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+							<div className="space-y-5">
+								<SurfaceCard className="space-y-4 p-5">
+									<div className="space-y-2">
+										<Label>Shared base prompt</Label>
+										<Textarea
+											value={systemPrompts.base}
+											onChange={(event) =>
+												setSystemPrompts((current) => ({
+													...current,
+													base: event.target.value,
+												}))
+											}
+											className="min-h-28 rounded-[24px]"
+											placeholder="High-level brand, safety, factuality, or operator constraints that should apply everywhere."
+										/>
+									</div>
+								</SurfaceCard>
+
+								<div className="grid gap-4 md:grid-cols-2">
+									<SurfaceCard className="space-y-4 p-5">
+										<div className="space-y-2">
+											<Label>Automations override</Label>
+											<Textarea
+												value={systemPrompts.automations}
+												onChange={(event) =>
+													setSystemPrompts((current) => ({
+														...current,
+														automations: event.target.value,
+													}))
+												}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Extra instructions for automation and workflow runs."
+											/>
+										</div>
+									</SurfaceCard>
+									<SurfaceCard className="space-y-4 p-5">
+										<div className="space-y-2">
+											<Label>Studio image override</Label>
+											<Textarea
+												value={systemPrompts.studioImage}
+												onChange={(event) =>
+													setSystemPrompts((current) => ({
+														...current,
+														studioImage: event.target.value,
+													}))
+												}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Image generation direction, style guardrails, and visual constraints."
+											/>
+										</div>
+									</SurfaceCard>
+									<SurfaceCard className="space-y-4 p-5">
+										<div className="space-y-2">
+											<Label>Studio PDF override</Label>
+											<Textarea
+												value={systemPrompts.studioPdf}
+												onChange={(event) =>
+													setSystemPrompts((current) => ({
+														...current,
+														studioPdf: event.target.value,
+													}))
+												}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Document structure, tone, or layout expectations for Studio PDF runs."
+											/>
+										</div>
+									</SurfaceCard>
+									<SurfaceCard className="space-y-4 p-5">
+										<div className="space-y-2">
+											<Label>Studio reel override</Label>
+											<Textarea
+												value={systemPrompts.studioReel}
+												onChange={(event) =>
+													setSystemPrompts((current) => ({
+														...current,
+														studioReel: event.target.value,
+													}))
+												}
+												className="min-h-28 rounded-[24px]"
+												placeholder="Motion, pacing, caption, and storytelling direction for Studio reel runs."
+											/>
+										</div>
+									</SurfaceCard>
+								</div>
+							</div>
+
+							<SurfaceCard className="space-y-4 p-5">
+								<div className="flex items-center gap-2 text-sm font-medium">
+									<Sparkles className="size-4 text-primary" />
+									How prompts stack
+								</div>
+								<div className="space-y-3 text-sm text-muted-foreground">
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+										1. Shared base prompt
+									</div>
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+										2. Mode-specific override for automations, image, PDF, or
+										reel
+									</div>
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+										3. Built-in task system prompt
+									</div>
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+										4. Runtime user brief and resolved workspace context
+									</div>
+								</div>
+							</SurfaceCard>
 						</div>
 					</DashboardPanel>
 				</TabsContent>
