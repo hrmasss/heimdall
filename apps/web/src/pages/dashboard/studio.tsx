@@ -472,7 +472,7 @@ export function DashboardStudio() {
 					<DashboardPanel
 						title="Inspector"
 						description="Controls stay mode-aware, while prompt policy and execution all route through the shared automation runtime."
-						className="h-fit xl:sticky xl:top-24"
+						className="h-fit xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto"
 					>
 						<div className="space-y-5">
 							<SurfaceCard className="space-y-4 p-5">
