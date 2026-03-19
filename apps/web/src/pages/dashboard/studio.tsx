@@ -346,23 +346,6 @@ export function DashboardStudio() {
 				</SurfaceCard>
 			) : null}
 
-			<div className="flex flex-wrap gap-2">
-				{studioModes.map((item) => (
-					<Button
-						key={item.value}
-						variant={item.value === currentMode.value ? "default" : "outline"}
-						className="rounded-full"
-						onClick={() => {
-							searchParams.set("mode", item.value);
-							setSearchParams(searchParams, { replace: true });
-						}}
-					>
-						<item.icon className="size-4" />
-						{item.label}
-					</Button>
-				))}
-			</div>
-
 			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
 				<div className="space-y-6">
 					<DashboardPanel
@@ -488,31 +471,33 @@ export function DashboardStudio() {
 				<DashboardPanel
 					title="Inspector"
 					description="Controls stay mode-aware, while prompt policy and execution all route through the shared automation runtime."
+					className="h-fit xl:sticky xl:top-24"
 				>
 					<div className="space-y-5">
 						<SurfaceCard className="space-y-4 p-5">
-							<div className="flex items-center justify-between gap-3">
-								<div>
-									<div className="text-sm font-medium">Prompt policy</div>
-									<div className="text-xs text-muted-foreground">
-										Base + {currentMode.label.toLowerCase()} override
-									</div>
+							<div className="space-y-2">
+								<div className="text-sm font-medium">Studio mode</div>
+								<div className="text-xs text-muted-foreground">
+									Switch modes from the inspector instead of leaving the canvas.
 								</div>
-								<Badge variant="outline" className="rounded-full">
-									Shared runtime
-								</Badge>
 							</div>
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground whitespace-pre-wrap">
-								{aiSettings
-									? systemPromptPreview(
-											aiSettings.systemPrompts,
-											currentMode.value === "image"
-												? "studioImage"
-												: currentMode.value === "pdf"
-													? "studioPdf"
-													: "studioReel",
-										)
-									: "Loading prompt policy..."}
+							<div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+								{studioModes.map((item) => (
+									<Button
+										key={item.value}
+										variant={
+											item.value === currentMode.value ? "default" : "outline"
+										}
+										className="justify-start rounded-full"
+										onClick={() => {
+											searchParams.set("mode", item.value);
+											setSearchParams(searchParams, { replace: true });
+										}}
+									>
+										<item.icon className="size-4" />
+										{item.label}
+									</Button>
+								))}
 							</div>
 						</SurfaceCard>
 
@@ -681,6 +666,40 @@ export function DashboardStudio() {
 									</Link>
 								</Button>
 							) : null}
+						</SurfaceCard>
+
+						<SurfaceCard className="space-y-3 p-5">
+							<div className="flex items-center justify-between gap-3">
+								<div>
+									<div className="text-sm font-medium">Prompt policy</div>
+									<div className="text-xs text-muted-foreground">
+										Base + {currentMode.label.toLowerCase()} override
+									</div>
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									className="rounded-full"
+									asChild
+								>
+									<Link to="/dashboard/settings/intelligence">
+										<Settings2 className="size-4" />
+										Edit
+									</Link>
+								</Button>
+							</div>
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
+								{aiSettings
+									? systemPromptPreview(
+											aiSettings.systemPrompts,
+											currentMode.value === "image"
+												? "studioImage"
+												: currentMode.value === "pdf"
+													? "studioPdf"
+													: "studioReel",
+										)
+									: "Loading prompt policy..."}
+							</div>
 						</SurfaceCard>
 					</div>
 				</DashboardPanel>

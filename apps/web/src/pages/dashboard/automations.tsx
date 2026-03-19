@@ -22,20 +22,17 @@ import {
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import type {
 	ApiListResponse,
 	AutomationCatalogResponse,
 	AutomationDefinition,
 	AutomationRun,
 	WorkflowDefinition,
-	WorkspaceAISettings,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import {
 	formatAutomationWhen,
 	summarizeRunArtifacts,
-	systemPromptPreview,
 } from "@/lib/automation-builder";
 
 type WorkflowRow = WorkflowDefinition & {
@@ -72,10 +69,6 @@ export function DashboardAutomations() {
 	const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
 	const [workflows, setWorkflows] = useState<WorkflowDefinition[]>([]);
 	const [runs, setRuns] = useState<AutomationRun[]>([]);
-	const [aiSettings, setAiSettings] = useState<WorkspaceAISettings | null>(
-		null,
-	);
-	const [runtimePrompt, setRuntimePrompt] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -91,7 +84,6 @@ export function DashboardAutomations() {
 				automationResponse,
 				workflowResponse,
 				runResponse,
-				settingsResponse,
 			] = await Promise.all([
 				customerRequest<AutomationCatalogResponse>(
 					`/workspaces/${activeWorkspaceId}/automation-catalog`,
@@ -105,15 +97,11 @@ export function DashboardAutomations() {
 				customerRequest<ApiListResponse<AutomationRun>>(
 					`/workspaces/${activeWorkspaceId}/runs`,
 				),
-				customerRequest<WorkspaceAISettings>(
-					`/workspaces/${activeWorkspaceId}/ai/settings`,
-				),
 			]);
 			setCatalog(catalogResponse);
 			setAutomations(automationResponse.items);
 			setWorkflows(workflowResponse.items);
 			setRuns(runResponse.items);
-			setAiSettings(settingsResponse);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
@@ -214,7 +202,6 @@ export function DashboardAutomations() {
 					method: "POST",
 					body: {
 						input: {
-							prompt: runtimePrompt,
 							promptScope: "automations",
 						},
 					},
@@ -315,73 +302,23 @@ export function DashboardAutomations() {
 				</SurfaceCard>
 			) : null}
 
-			<DashboardPanel
-				title="Run context"
-				description="Keep a shared operator brief handy while testing standalone actions and saved workflows. Workspace prompt policy is shown here, but edited centrally in Intelligence."
-			>
-				<div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_360px]">
-					<SurfaceCard className="space-y-4 p-5">
-						<div className="text-sm font-medium">Shared runtime brief</div>
-						<Textarea
-							value={runtimePrompt}
-							onChange={(event) => setRuntimePrompt(event.target.value)}
-							className="min-h-32 rounded-[24px]"
-							placeholder="Campaign objective, target audience, creative direction, constraints, approval notes..."
-						/>
-						<div className="grid gap-3 md:grid-cols-3">
-							<StatPill
-								icon={Workflow}
-								label="Saved workflows"
-								value={String(workflows.length)}
-							/>
-							<StatPill
-								icon={Bot}
-								label="Standalone actions"
-								value={String(automations.length)}
-							/>
-							<StatPill
-								icon={Clock3}
-								label="Pending reviews"
-								value={String(pendingRuns.length)}
-							/>
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="space-y-4 p-5">
-						<div className="flex items-center justify-between gap-3">
-							<div>
-								<div className="text-sm font-medium">
-									Workspace prompt policy
-								</div>
-								<div className="text-xs text-muted-foreground">
-									Base + automation override
-								</div>
-							</div>
-							<Button
-								variant="outline"
-								size="sm"
-								className="rounded-full"
-								asChild
-							>
-								<Link to="/dashboard/settings/intelligence">
-									Edit prompts
-									<ArrowRight className="size-4" />
-								</Link>
-							</Button>
-						</div>
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4 text-sm text-muted-foreground whitespace-pre-wrap">
-							{aiSettings
-								? systemPromptPreview(aiSettings.systemPrompts, "automations")
-								: "Loading prompt policy..."}
-						</div>
-						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-							Open any action card below for standalone execution, or launch the
-							workflow editor when you want to connect multiple compatible
-							nodes.
-						</div>
-					</SurfaceCard>
-				</div>
-			</DashboardPanel>
+			<div className="grid gap-3 md:grid-cols-3">
+				<StatPill
+					icon={Workflow}
+					label="Saved workflows"
+					value={String(workflows.length)}
+				/>
+				<StatPill
+					icon={Bot}
+					label="Standalone actions"
+					value={String(automations.length)}
+				/>
+				<StatPill
+					icon={Clock3}
+					label="Pending reviews"
+					value={String(pendingRuns.length)}
+				/>
+			</div>
 
 			<DashboardPanel
 				title="Available automations"
