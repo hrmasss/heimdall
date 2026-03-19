@@ -102,7 +102,7 @@ export function DashboardSettings() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack">
 			<DashboardPageHeader
 				eyebrow="Preferences"
 				title="Settings"
@@ -114,7 +114,7 @@ export function DashboardSettings() {
 				description="Choose how spacious Heimdall feels across the dashboard, auth, and marketing surfaces on this device."
 			>
 				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-					<SurfaceCard tone="muted" className="space-y-4 p-5">
+					<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 						<div className="space-y-2">
 							<div className="text-sm font-medium">Display density</div>
 							<div className="text-sm text-muted-foreground">
@@ -150,7 +150,7 @@ export function DashboardSettings() {
 						</div>
 					</SurfaceCard>
 
-					<SurfaceCard tone="muted" className="space-y-3 p-5">
+					<SurfaceCard tone="muted" className="dashboard-card space-y-3">
 						<div className="text-sm font-medium">Active mode</div>
 						<div className="text-lg font-semibold tracking-tight">
 							{density === "compact" ? "Compact" : "Comfortable"}
@@ -168,14 +168,14 @@ export function DashboardSettings() {
 				description="Update the workspace name and review the permissions available in the current role bundle."
 			>
 				<div className="grid gap-4 lg:grid-cols-2">
-					<SurfaceCard tone="muted" className="space-y-4 p-5">
+					<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 						<div className="space-y-2">
 							<label htmlFor="workspace-name" className="text-sm font-medium">
 								Workspace name
 							</label>
 							<Input
 								id="workspace-name"
-								className="h-10 rounded-2xl"
+								className="dashboard-input-height rounded-2xl"
 								value={name}
 								onChange={(event) => setName(event.target.value)}
 								disabled={!canManageSettings}
@@ -187,7 +187,7 @@ export function DashboardSettings() {
 							</label>
 							<Input
 								id="workspace-slug"
-								className="h-10 rounded-2xl"
+								className="dashboard-input-height rounded-2xl"
 								value={workspace?.slug ?? ""}
 								readOnly
 							/>
@@ -201,7 +201,7 @@ export function DashboardSettings() {
 						</Button>
 					</SurfaceCard>
 
-					<SurfaceCard tone="muted" className="space-y-4 p-5">
+					<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 						{preferenceCards.map((item) => (
 							<div
 								key={item.title}

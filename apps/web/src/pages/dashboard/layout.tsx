@@ -145,11 +145,11 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					className={cn(
-						"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
-						sidebarTransitionClass,
-						compact &&
-							"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
+				className={cn(
+					"flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-card-radius)] border border-[var(--brand-border-soft)] bg-background/75 p-[var(--density-dashboard-sidebar-card-padding)] text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
+					sidebarTransitionClass,
+					compact &&
+						"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
 					)}
 					aria-label={
 						compact
@@ -162,7 +162,7 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 							: undefined
 					}
 				>
-					<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
+					<div className="flex size-[var(--density-dashboard-sidebar-avatar-size)] items-center justify-center rounded-[calc(var(--density-dashboard-sidebar-card-radius)-0.375rem)] bg-gradient-brand text-sm font-semibold text-white">
 						{activeWorkspace.workspaceName[0]}
 					</div>
 					<SidebarCopy
@@ -244,7 +244,7 @@ function Sidebar({
 
 			<aside
 				className={cn(
-					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-4 py-4 backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-4 lg:py-4 lg:backdrop-blur-none",
+					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-[var(--density-dashboard-sidebar-shell-p)] py-[var(--density-dashboard-sidebar-shell-p)] backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-[var(--density-dashboard-sidebar-shell-p)] lg:py-[var(--density-dashboard-sidebar-shell-p)] lg:backdrop-blur-none",
 					sidebarTransitionClass,
 					collapsed && "lg:w-[var(--density-dashboard-sidebar-collapsed-width)]",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -252,7 +252,7 @@ function Sidebar({
 				)}
 			>
 				<div className="relative z-10 flex h-full flex-col">
-					<div className="flex items-center justify-between gap-3 px-3">
+					<div className="flex items-center justify-between gap-3 px-[var(--density-dashboard-sidebar-header-px)]">
 						<Link
 							to="/dashboard"
 							className={cn(
@@ -295,7 +295,7 @@ function Sidebar({
 										onClick={onClose}
 										aria-label={collapsed ? item.label : undefined}
 										className={cn(
-											"group flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3 py-3 text-sm transition-[width,gap,padding,background-color,color]",
+										"group flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-nav-radius)] px-[var(--density-dashboard-sidebar-nav-px)] py-[var(--density-dashboard-sidebar-nav-py)] text-sm transition-[width,gap,padding,background-color,color]",
 											sidebarTransitionClass,
 											active
 												? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
@@ -323,7 +323,7 @@ function Sidebar({
 								<button
 									type="button"
 									className={cn(
-										"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
+										"flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-card-radius)] border border-[var(--brand-border-soft)] bg-background/72 p-[var(--density-dashboard-sidebar-card-padding)] text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
 										sidebarTransitionClass,
 										collapsed &&
 											"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
@@ -331,7 +331,7 @@ function Sidebar({
 									aria-label={collapsed ? currentUser.fullName : undefined}
 									title={collapsed ? currentUser.fullName : undefined}
 								>
-									<div className="flex size-10 items-center justify-center rounded-2xl bg-gradient-brand text-sm font-semibold text-white">
+									<div className="flex size-[var(--density-dashboard-sidebar-avatar-size)] items-center justify-center rounded-[calc(var(--density-dashboard-sidebar-card-radius)-0.375rem)] bg-gradient-brand text-sm font-semibold text-white">
 										{currentUser.fullName
 											.split(" ")
 											.map((part) => part[0])
@@ -434,7 +434,7 @@ function TopBar({
 
 	return (
 		<header className="dashboard-topbar relative z-20 flex-none">
-			<div className="relative z-10 flex h-[var(--density-dashboard-topbar-height)] items-center gap-4 px-3 sm:px-4 lg:pl-0 lg:pr-[var(--density-dashboard-topbar-pr)]">
+			<div className="relative z-10 flex h-[var(--density-dashboard-topbar-height)] items-center gap-3 px-[var(--density-dashboard-topbar-px)] lg:pl-0 lg:pr-[var(--density-dashboard-topbar-pr)]">
 				<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
 					<Button
 						variant="outline"
@@ -529,7 +529,7 @@ function TopBar({
 					<AlertInbox />
 					<Button
 						type="button"
-						className="assistant-launch h-10 rounded-full px-4"
+						className="assistant-launch rounded-full px-4"
 						onClick={onOpenAssistant}
 					>
 						<WandSparkles className="assistant-launch__icon size-4" />
@@ -631,7 +631,7 @@ export function DashboardLayout() {
 						onToggleSidebar={() => setCollapsed((value) => !value)}
 						onOpenAssistant={() => setAssistantOpen(true)}
 					/>
-					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-[var(--density-dashboard-main-px)] pt-0 pb-[var(--density-dashboard-main-pb)] sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
+					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-[var(--density-dashboard-main-px)] pt-0 pb-[var(--density-dashboard-main-pb)] lg:pl-0">
 						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col">
 							<ScrollArea
 								type="scroll"
@@ -640,7 +640,7 @@ export function DashboardLayout() {
 								scrollbarClassName="dashboard-content-scrollbar"
 								thumbClassName="dashboard-content-scrollbar-thumb"
 							>
-								<div className="flex min-h-full flex-col px-[var(--density-dashboard-content-px)] py-[var(--density-dashboard-content-py)] sm:px-6 sm:pr-8 lg:px-8 lg:pr-[var(--density-dashboard-content-pr)]">
+								<div className="dashboard-page-stack min-h-full px-[var(--density-dashboard-content-px)] py-[var(--density-dashboard-content-py)] pr-[var(--density-dashboard-content-pr)]">
 									{customerSession?.impersonator ? (
 										<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
 											Support impersonation active. Acting as{" "}
