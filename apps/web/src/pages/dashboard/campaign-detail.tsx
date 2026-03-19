@@ -159,7 +159,7 @@ export function DashboardCampaignDetailPage() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
 				eyebrow="Campaign planning"
 				title={campaign?.name ?? "Campaign detail"}
@@ -196,18 +196,18 @@ export function DashboardCampaignDetailPage() {
 			/>
 
 			{error ? (
-				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+				<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
 					{error}
 				</SurfaceCard>
 			) : null}
 
 			{loading || !campaign ? (
-				<SurfaceCard className="p-5 text-sm text-muted-foreground">
+				<SurfaceCard className="dashboard-card text-sm text-muted-foreground">
 					Loading campaign details...
 				</SurfaceCard>
 			) : (
 				<>
-					<SurfaceCard className="space-y-5 p-5 md:p-6">
+					<SurfaceCard className="dashboard-card space-y-5">
 						<div className="flex flex-wrap items-start justify-between gap-4">
 							<div className="space-y-3">
 								<div className="flex flex-wrap items-center gap-2">
@@ -281,9 +281,9 @@ export function DashboardCampaignDetailPage() {
 						</div>
 					</SurfaceCard>
 
-					<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-						<div className="space-y-6">
-							<SurfaceCard className="p-5 md:p-6">
+					<div className="dashboard-page-stack grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+						<div className="dashboard-page-stack space-y-6">
+							<SurfaceCard className="dashboard-card">
 								<div className="space-y-1">
 									<h2 className="text-lg font-semibold tracking-tight">
 										Delivery targets
@@ -295,14 +295,14 @@ export function DashboardCampaignDetailPage() {
 								</div>
 								<div className="mt-5 space-y-3">
 									{campaign.deliveryTargets.length === 0 ? (
-										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+										<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 											No delivery targets configured yet.
 										</div>
 									) : (
 										campaign.deliveryTargets.map((target) => (
 											<div
 												key={target.id}
-												className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+												className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55"
 											>
 												<div className="flex flex-wrap items-center justify-between gap-3">
 													<div className="flex min-w-0 items-center gap-3">
@@ -335,7 +335,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5 md:p-6">
+							<SurfaceCard className="dashboard-card">
 								<div className="space-y-1">
 									<h2 className="text-lg font-semibold tracking-tight">
 										Posting cadence
@@ -348,7 +348,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 								<div className="mt-5 space-y-3">
 									{campaign.scheduleRules.length === 0 ? (
-										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+										<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 											No cadence rules configured yet.
 										</div>
 									) : (
@@ -359,7 +359,7 @@ export function DashboardCampaignDetailPage() {
 											return (
 												<div
 													key={rule.id}
-													className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+													className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55"
 												>
 													<div className="flex flex-wrap items-start justify-between gap-3">
 														<div>
@@ -386,7 +386,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5 md:p-6">
+							<SurfaceCard className="dashboard-card">
 								<div className="space-y-1">
 									<h2 className="text-lg font-semibold tracking-tight">
 										Linked posts
@@ -398,7 +398,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 								<div className="mt-5 space-y-3">
 									{campaign.linkedPosts.length === 0 ? (
-										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+										<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 											No posts linked yet.
 										</div>
 									) : (
@@ -406,7 +406,7 @@ export function DashboardCampaignDetailPage() {
 											<Link
 												key={post.id}
 												to={`/dashboard/posts/${post.id}`}
-												className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 transition-colors hover:bg-accent/35"
+												className="dashboard-card-sm block border border-[var(--brand-border-soft)] bg-background/55 transition-colors hover:bg-accent/35"
 											>
 												<div className="flex flex-wrap items-center justify-between gap-3">
 													<div>
@@ -430,7 +430,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5 md:p-6">
+							<SurfaceCard className="dashboard-card">
 								<div className="space-y-1">
 									<h2 className="text-lg font-semibold tracking-tight">
 										Campaign notes
@@ -440,7 +440,7 @@ export function DashboardCampaignDetailPage() {
 										notes.
 									</p>
 								</div>
-								<div className="mt-5 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+								<div className="dashboard-card-sm mt-5 border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 									{campaign.notes?.trim()
 										? campaign.notes
 										: "No campaign notes yet."}
@@ -448,8 +448,8 @@ export function DashboardCampaignDetailPage() {
 							</SurfaceCard>
 						</div>
 
-						<div className="space-y-6">
-							<SurfaceCard className="p-5">
+						<div className="dashboard-page-stack space-y-6">
+							<SurfaceCard className="dashboard-card">
 								<div className="flex items-center gap-2">
 									<CalendarRange className="size-4 text-primary" />
 									<div className="text-lg font-semibold">Timing and setup</div>
@@ -478,7 +478,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5">
+							<SurfaceCard className="dashboard-card">
 								<div className="flex items-center gap-2">
 									<AlertTriangle className="size-4 text-primary" />
 									<div className="text-lg font-semibold">
@@ -490,7 +490,7 @@ export function DashboardCampaignDetailPage() {
 									cadence setup future workflows will expect.
 								</div>
 								<div className="mt-4 space-y-3">
-									<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm">
+									<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm">
 										<span className={statusClassName(campaign.status)}>
 											{campaign.automationReadiness.ready
 												? "Ready"
@@ -498,14 +498,14 @@ export function DashboardCampaignDetailPage() {
 										</span>
 									</div>
 									{campaign.automationReadiness.issues.length === 0 ? (
-										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+										<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 											No blocking issues detected.
 										</div>
 									) : (
 										campaign.automationReadiness.issues.map((issue) => (
 											<div
 												key={issue}
-												className="rounded-[24px] border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900"
+												className="dashboard-card-sm border border-amber-200 bg-amber-50/80 text-sm text-amber-900"
 											>
 												{issue}
 											</div>
@@ -514,7 +514,7 @@ export function DashboardCampaignDetailPage() {
 									{campaign.automationReadiness.warnings.map((warning) => (
 										<div
 											key={warning}
-											className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground"
+											className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground"
 										>
 											{warning}
 										</div>
@@ -522,7 +522,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5">
+							<SurfaceCard className="dashboard-card">
 								<div className="text-lg font-semibold">Derived KPI rollups</div>
 								<div className="mt-2 text-sm text-muted-foreground">
 									These are aggregated from linked post metric snapshots already
@@ -530,14 +530,14 @@ export function DashboardCampaignDetailPage() {
 								</div>
 								<div className="mt-4 space-y-3">
 									{metricSummary.length === 0 ? (
-										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
+										<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55 text-sm text-muted-foreground">
 											No linked post metrics yet.
 										</div>
 									) : (
 										metricSummary.map((metric) => (
 											<div
 												key={metric.code}
-												className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4"
+												className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55"
 											>
 												<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
 													{metric.label}
@@ -552,7 +552,7 @@ export function DashboardCampaignDetailPage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="p-5">
+							<SurfaceCard className="dashboard-card">
 								<div className="text-lg font-semibold">Paid tracking</div>
 								<div className="mt-4 flex flex-wrap gap-2">
 									{campaign.paidChannels.length > 0 ? (

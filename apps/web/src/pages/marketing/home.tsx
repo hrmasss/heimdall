@@ -340,7 +340,7 @@ function SpotlightCard({
 		<div
 			onMouseMove={handleMouseMove}
 			className={cn(
-				"spotlight-card surface-panel rounded-[28px] p-6 md:p-8",
+				"spotlight-card surface-panel rounded-[var(--density-surface-radius)] p-[var(--density-surface-padding)] md:p-[var(--density-surface-padding-lg)]",
 				wide && "bento-wide",
 				className,
 			)}
@@ -451,7 +451,7 @@ function HeroSection() {
 					</div>
 
 					{/* Headline */}
-					<h1 className="mx-auto mt-5 max-w-[11.5ch] text-balance text-[2.75rem] font-semibold leading-[1] tracking-[-0.04em] sm:max-w-[13.5ch] sm:text-6xl md:max-w-none lg:text-[4.5rem]">
+					<h1 className="marketing-home-hero-title mx-auto mt-5 max-w-[11.5ch] text-balance font-semibold leading-[1] tracking-[-0.04em] sm:max-w-[13.5ch] md:max-w-none">
 						The marketing{" "}
 						<span className="text-gradient-brand">command center</span>
 						<br className="hidden md:block" /> your team deserves
@@ -527,7 +527,7 @@ function HeroSection() {
 					{/* Main dashboard mockup */}
 					<SurfaceCard
 						tone="strong"
-						className="relative overflow-hidden p-3 pb-4 md:p-5 md:pb-6 cta-glow"
+						className="relative overflow-hidden p-[var(--density-surface-padding-sm)] pb-[calc(var(--density-surface-padding-sm)+0.25rem)] md:p-[var(--density-surface-padding)] md:pb-[calc(var(--density-surface-padding)+0.25rem)] cta-glow"
 					>
 						<div className="brand-grid absolute inset-0 opacity-15" />
 						<div className="relative space-y-4">
@@ -840,7 +840,7 @@ function MetricsSection() {
 							{bigMetrics.map((m) => (
 								<div
 									key={m.label}
-									className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-6 text-center backdrop-blur-sm"
+								className="rounded-[var(--density-surface-radius-md)] border border-[var(--brand-border-soft)] bg-background/65 p-[var(--density-surface-padding)] text-center backdrop-blur-sm"
 								>
 									<div className="text-4xl font-semibold tracking-tight md:text-5xl">
 										<AnimatedCounter value={m.value} suffix={m.suffix} />
@@ -890,7 +890,7 @@ function TestimonialsSection() {
 					{testimonials.map((t) => (
 						<div
 							key={t.author}
-							className="testimonial-card surface-panel rounded-[24px] p-6"
+							className="testimonial-card surface-panel rounded-[var(--density-surface-radius-md)] p-[var(--density-surface-padding)]"
 						>
 							{/* Stars */}
 							<div className="flex gap-1 text-[var(--brand-primary)]">
@@ -960,7 +960,7 @@ function IntegrationsSection() {
 					{integrations.map((item) => (
 						<div
 							key={item.name}
-							className="integration-icon flex min-h-40 flex-col items-center justify-center gap-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 px-6 py-7 text-center backdrop-blur-sm"
+							className="marketing-min-card-height integration-icon flex flex-col items-center justify-center gap-4 rounded-[var(--density-surface-radius-md)] border border-[var(--brand-border-soft)] bg-background/60 px-[var(--density-surface-padding)] py-[calc(var(--density-surface-padding)+0.2rem)] text-center backdrop-blur-sm"
 						>
 							<div
 								className="flex size-14 items-center justify-center rounded-2xl"
@@ -1034,7 +1034,7 @@ function FinalCTASection() {
 			<div className="page-container">
 				<SurfaceCard
 					tone="strong"
-					className="relative overflow-hidden px-6 py-14 md:px-16 md:py-20"
+					className="relative overflow-hidden px-[var(--density-marketing-footer-newsletter-px)] py-[calc(var(--density-marketing-footer-newsletter-py)+0.75rem)] md:px-[calc(var(--density-marketing-footer-newsletter-px)+2rem)] md:py-[calc(var(--density-marketing-footer-newsletter-py)+1.5rem)]"
 				>
 					<div className="brand-grid absolute inset-0 opacity-12" />
 					{/* Glow orbs */}

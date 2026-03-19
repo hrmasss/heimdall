@@ -833,7 +833,7 @@ function TikTokPublishPanel({
 		!saving;
 
 	return (
-		<SurfaceCard tone="muted" className="space-y-4 p-5">
+		<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<div className="text-sm font-medium">Publish to TikTok</div>
@@ -887,7 +887,7 @@ function TikTokPublishPanel({
 							}
 							onValueChange={(value) => onChange({ privacyLevel: value })}
 						>
-							<SelectTrigger className="h-11 rounded-2xl px-4">
+							<SelectTrigger className="dashboard-input-height rounded-2xl px-4">
 								<SelectValue placeholder="Select privacy" />
 							</SelectTrigger>
 							<SelectContent>
@@ -1497,7 +1497,7 @@ export function DashboardPostDetailPage() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
 				eyebrow="Posts"
 				title={post?.title ?? "Post detail"}
@@ -1542,19 +1542,19 @@ export function DashboardPostDetailPage() {
 			/>
 
 			{error ? (
-				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+				<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
 					{error}
 				</SurfaceCard>
 			) : null}
 
 			{dataWarning ? (
-				<SurfaceCard className="flex items-start gap-3 border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-700">
+				<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-amber-500/25 bg-amber-500/10 text-sm text-amber-700">
 					<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 					<div>{dataWarning}</div>
 				</SurfaceCard>
 			) : null}
 
-			<SurfaceCard className="space-y-5 p-5 md:p-6">
+			<SurfaceCard className="dashboard-card space-y-5">
 				{loading || !post ? (
 					<div className="flex items-center gap-3 text-sm text-muted-foreground">
 						<LoaderCircle className="size-4 animate-spin" />
@@ -1612,7 +1612,7 @@ export function DashboardPostDetailPage() {
 							/>
 						</div>
 						{post.campaign ? (
-							<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+							<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-background/55">
 								<div className="flex flex-wrap items-center justify-between gap-3">
 									<div>
 										<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -1638,9 +1638,9 @@ export function DashboardPostDetailPage() {
 				)}
 			</SurfaceCard>
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-				<div className="space-y-6">
-					<SurfaceCard className="space-y-5 p-5 md:p-6">
+			<div className="dashboard-page-stack grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+				<div className="dashboard-page-stack space-y-6">
+					<SurfaceCard className="dashboard-card space-y-5">
 						<div>
 							<div className="text-lg font-semibold">Post tabs</div>
 							<div className="text-sm text-muted-foreground">
@@ -1656,7 +1656,7 @@ export function DashboardPostDetailPage() {
 							<Tabs value={activeTab} onValueChange={setActiveTab}>
 								<TabsList
 									variant="default"
-									className="!h-auto min-h-[4.5rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
+									className="dashboard-tabs-min-height !h-auto w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
 								>
 									<TabsTrigger
 										value="shared"
@@ -1678,7 +1678,7 @@ export function DashboardPostDetailPage() {
 								</TabsList>
 
 								<TabsContent value="shared" className="mt-5 space-y-5">
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="flex flex-wrap items-start justify-between gap-4">
 											<div className="space-y-2">
 												<div className="flex items-center gap-2 text-lg font-semibold">
@@ -1707,9 +1707,9 @@ export function DashboardPostDetailPage() {
 											</Button>
 										</div>
 
-										<div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+										<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_320px]">
 											<div className="space-y-5">
-												<SurfaceCard tone="muted" className="space-y-4 p-5">
+												<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 													<div className="flex items-center justify-between gap-3">
 														<div className="text-sm font-medium">Content</div>
 														{post.contentKind === "article" ? (
@@ -1742,7 +1742,7 @@ export function DashboardPostDetailPage() {
 													/>
 												</SurfaceCard>
 
-												<SurfaceCard tone="muted" className="space-y-4 p-5">
+												<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 													<div className="text-sm font-medium">
 														Shared assets for inheritance
 													</div>
@@ -1755,7 +1755,7 @@ export function DashboardPostDetailPage() {
 											</div>
 
 											<div className="space-y-5">
-												<SurfaceCard tone="muted" className="space-y-4 p-5">
+												<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 													<div className="flex items-center justify-between gap-3">
 														<div>
 															<div className="text-sm font-medium">
@@ -1902,7 +1902,7 @@ export function DashboardPostDetailPage() {
 
 												<div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_340px]">
 													<div className="space-y-5">
-														<SurfaceCard tone="muted" className="space-y-4 p-5">
+														<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 															<div className="flex flex-wrap items-center justify-between gap-3">
 																<div>
 																	<div className="text-sm font-medium">
@@ -1982,7 +1982,7 @@ export function DashboardPostDetailPage() {
 															</div>
 														</SurfaceCard>
 
-														<SurfaceCard tone="muted" className="space-y-4 p-5">
+														<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 															<div className="text-sm font-medium">
 																Asset inheritance and effective media
 															</div>
@@ -2012,7 +2012,7 @@ export function DashboardPostDetailPage() {
 															</div>
 														</SurfaceCard>
 
-														<SurfaceCard tone="muted" className="space-y-4 p-5">
+														<SurfaceCard tone="muted" className="dashboard-card space-y-4">
 															<div className="text-sm font-medium">
 																Review timeline
 															</div>
@@ -2021,7 +2021,7 @@ export function DashboardPostDetailPage() {
 													</div>
 
 													<div className="space-y-5">
-														<SurfaceCard className="space-y-4 p-5">
+														<SurfaceCard className="dashboard-card space-y-4">
 															<div className="mb-1 flex items-center gap-2 text-sm font-medium">
 																<CalendarClock className="size-4 text-primary" />
 																{isPublished
@@ -2108,7 +2108,7 @@ export function DashboardPostDetailPage() {
 																					<Button
 																						type="button"
 																						variant="outline"
-																						className="h-11 w-full justify-between rounded-2xl px-4 text-left font-normal"
+																						className="dashboard-input-height w-full justify-between rounded-2xl px-4 text-left font-normal"
 																					>
 																						<span className="flex items-center gap-3">
 																							<CalendarDays className="size-4 text-muted-foreground" />
@@ -2162,7 +2162,7 @@ export function DashboardPostDetailPage() {
 																			</div>
 																			<div
 																				id={`planned-time-${variant.id}`}
-																				className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
+																					className="dashboard-input-height flex items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
 																			>
 																				<Input
 																					aria-label="Planned hour"
@@ -2479,8 +2479,8 @@ export function DashboardPostDetailPage() {
 					) : null}
 				</div>
 
-				<div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-					<SurfaceCard className="space-y-4 p-5">
+				<div className="dashboard-page-stack space-y-6 xl:sticky xl:self-start dashboard-sticky-rail">
+					<SurfaceCard className="dashboard-card space-y-4">
 						<div className="text-lg font-semibold">
 							{activeTab === "shared"
 								? "Shared draft summary"
@@ -2550,7 +2550,7 @@ export function DashboardPostDetailPage() {
 						)}
 					</SurfaceCard>
 
-					<SurfaceCard className="space-y-4 p-5">
+					<SurfaceCard className="dashboard-card space-y-4">
 						<div className="text-lg font-semibold">Aggregate performance</div>
 						<MetricStrip items={aggregateMetrics} />
 					</SurfaceCard>

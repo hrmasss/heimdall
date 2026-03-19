@@ -65,7 +65,7 @@ export function SurfaceCard({
 	return (
 		<div
 			className={cn(
-				"rounded-[28px]",
+				"density-surface-card",
 				tone === "default" && "surface-panel",
 				tone === "strong" && "surface-panel-strong",
 				tone === "muted" && "surface-panel-muted",
@@ -86,7 +86,7 @@ export function StatChip({
 	detail?: string;
 }) {
 	return (
-		<div className="rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-4 py-3 backdrop-blur-sm">
+		<div className="rounded-[var(--density-surface-radius-sm)] border border-[var(--brand-border-soft)] bg-background/60 px-4 py-3 backdrop-blur-sm">
 			<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
 				{label}
 			</div>

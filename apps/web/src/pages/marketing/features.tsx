@@ -123,7 +123,7 @@ function WorkflowSection() {
 	return (
 		<section className="section-spacing-sm">
 			<div className="page-container grid gap-6 lg:grid-cols-[1fr_1.05fr]">
-				<SurfaceCard tone="strong" className="p-6 md:p-8">
+				<SurfaceCard tone="strong" className="p-[var(--density-surface-padding)] md:p-[var(--density-surface-padding-lg)]">
 					<SectionHeading
 						badge={<SectionTag>Operator flow</SectionTag>}
 						title="One place for the full launch cycle."
@@ -133,7 +133,7 @@ function WorkflowSection() {
 						{workflowHighlights.map((lane) => (
 							<div
 								key={lane.title}
-								className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 p-4"
+							className="rounded-[var(--density-surface-radius-md)] border border-[var(--brand-border-soft)] bg-background/70 p-[var(--density-dashboard-card-padding-sm)]"
 							>
 								<div className="flex items-center gap-3 text-primary">
 									<lane.icon className="size-5" />
@@ -149,8 +149,8 @@ function WorkflowSection() {
 					</div>
 				</SurfaceCard>
 
-				<SurfaceCard className="overflow-hidden p-4 md:p-6">
-					<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75 p-5 md:p-6">
+				<SurfaceCard className="overflow-hidden p-[var(--density-dashboard-card-padding-sm)] md:p-[var(--density-surface-padding)]">
+					<div className="rounded-[var(--density-surface-radius)] border border-[var(--brand-border-soft)] bg-background/75 p-[var(--density-surface-padding)] md:p-[var(--density-surface-padding)]">
 						<SectionHeading
 							badge={<SectionTag>Campaign rhythm</SectionTag>}
 							title="From kickoff to reporting, the room stays aligned."
@@ -161,7 +161,7 @@ function WorkflowSection() {
 							{campaignFlow.map((step) => (
 								<div
 									key={step.label}
-									className="rounded-[24px] border border-[var(--brand-border-soft)] bg-card/90 p-4"
+									className="rounded-[var(--density-surface-radius-md)] border border-[var(--brand-border-soft)] bg-card/90 p-[var(--density-dashboard-card-padding-sm)]"
 								>
 									<div className="flex items-center justify-between gap-3">
 										<div className="text-xs font-medium uppercase tracking-[0.22em] text-[var(--brand-accent)]">
@@ -199,8 +199,8 @@ function SystemSection() {
 				/>
 				<div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 					{systemBlocks.map((block) => (
-						<SurfaceCard key={block.title} className="p-6">
-							<div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+						<SurfaceCard key={block.title} className="p-[var(--density-surface-padding)]">
+							<div className="marketing-feature-icon flex items-center justify-center rounded-2xl bg-primary/10 text-primary">
 								<block.icon className="size-5" />
 							</div>
 							<div className="mt-5 text-lg font-medium tracking-tight">
@@ -223,7 +223,7 @@ function CTASection() {
 			<div className="page-container">
 				<SurfaceCard
 					tone="strong"
-					className="flex flex-col gap-6 p-8 md:flex-row md:items-center md:justify-between md:p-10"
+					className="flex flex-col gap-6 p-[var(--density-surface-padding-lg)] md:flex-row md:items-center md:justify-between"
 				>
 					<div className="max-w-2xl space-y-3">
 						<SectionTag>See it live</SectionTag>

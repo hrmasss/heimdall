@@ -58,12 +58,12 @@ function Navbar() {
       <div className="page-container pt-4">
         <div
           className={cn(
-            "glass rounded-full px-4 transition-all duration-300 md:px-5",
+            "marketing-navbar-shell glass rounded-full transition-all duration-300",
             scrolled
               ? "shadow-[0_20px_50px_-30px_rgba(32,16,11,0.55)]"
               : "shadow-none",
           )}>
-          <div className="flex h-16 items-center justify-between gap-4">
+          <div className="marketing-navbar-inner flex items-center justify-between gap-4">
             <Link
               to="/"
               className="flex items-center">
@@ -143,7 +143,7 @@ function Navbar() {
         </div>
 
         {menuOpen ? (
-          <div className="glass mt-3 rounded-[28px] p-4 md:hidden">
+          <div className="marketing-mobile-menu glass mt-3 md:hidden">
             <div className="space-y-2">
               {navLinks.map((link) => (
                 <Link
@@ -195,7 +195,7 @@ function Footer() {
     <footer className="border-t border-[var(--brand-border-soft)] py-10">
       <div className="page-container">
         {/* Newsletter Section */}
-        <div className="surface-panel-strong rounded-[32px] px-6 py-10 md:px-10 md:py-12 mb-8 relative overflow-hidden">
+        <div className="marketing-footer-newsletter surface-panel-strong mb-8 relative overflow-hidden">
           <div className="brand-grid absolute inset-0 opacity-10" />
           <div className="relative z-10 flex flex-col items-center gap-6 text-center md:flex-row md:text-left md:justify-between">
             <div className="max-w-md">
@@ -223,7 +223,7 @@ function Footer() {
         </div>
 
         {/* Main Footer */}
-        <div className="surface-panel rounded-[32px] px-6 py-8 md:px-8">
+        <div className="marketing-footer-main surface-panel">
           <div className="grid gap-10 lg:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
             <div className="space-y-4">
               <Logo
@@ -415,7 +415,7 @@ export function MarketingLayout() {
 
   return (
     <MarketingScrollViewportContext.Provider value={scrollViewportRef}>
-      <div className="app-shell h-[100dvh] overflow-hidden">
+      <div className="app-shell marketing-shell h-[100dvh] overflow-hidden">
         <BrandBackdrop />
         <Navbar />
         <ScrollArea

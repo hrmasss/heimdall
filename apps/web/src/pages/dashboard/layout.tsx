@@ -148,7 +148,8 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 					className={cn(
 						"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/75 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
 						sidebarTransitionClass,
-						compact && "lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
+						compact &&
+							"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
 					)}
 					aria-label={
 						compact
@@ -243,9 +244,9 @@ function Sidebar({
 
 			<aside
 				className={cn(
-					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[286px] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-4 py-4 backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-4 lg:py-4 lg:backdrop-blur-none",
+					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-4 py-4 backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-4 lg:py-4 lg:backdrop-blur-none",
 					sidebarTransitionClass,
-					collapsed && "lg:w-[92px]",
+					collapsed && "lg:w-[var(--density-dashboard-sidebar-collapsed-width)]",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
 					"lg:translate-x-0",
 				)}
@@ -325,7 +326,7 @@ function Sidebar({
 										"flex w-full items-center gap-3 overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-3 text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
 										sidebarTransitionClass,
 										collapsed &&
-											"lg:mx-auto lg:size-16 lg:justify-center lg:gap-0",
+											"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
 									)}
 									aria-label={collapsed ? currentUser.fullName : undefined}
 									title={collapsed ? currentUser.fullName : undefined}
@@ -433,7 +434,7 @@ function TopBar({
 
 	return (
 		<header className="dashboard-topbar relative z-20 flex-none">
-			<div className="relative z-10 flex h-[72px] items-center gap-4 px-3 sm:px-4 lg:pl-0 lg:pr-4">
+			<div className="relative z-10 flex h-[var(--density-dashboard-topbar-height)] items-center gap-4 px-3 sm:px-4 lg:pl-0 lg:pr-[var(--density-dashboard-topbar-pr)]">
 				<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
 					<Button
 						variant="outline"
@@ -616,7 +617,7 @@ export function DashboardLayout() {
 	]);
 
 	return (
-		<div className="app-shell dashboard-shell h-[100dvh] overflow-hidden">
+		<div className="app-shell dashboard-shell customer-dashboard-shell h-[100dvh] overflow-hidden">
 			<div className="dashboard-shell-surface relative flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
 				<Sidebar
 					collapsed={collapsed}
@@ -630,8 +631,8 @@ export function DashboardLayout() {
 						onToggleSidebar={() => setCollapsed((value) => !value)}
 						onOpenAssistant={() => setAssistantOpen(true)}
 					/>
-					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-3 pt-0 pb-3 sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
-						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col rounded-[30px]">
+					<main className="dashboard-main flex min-h-0 flex-1 flex-col px-[var(--density-dashboard-main-px)] pt-0 pb-[var(--density-dashboard-main-pb)] sm:px-4 sm:pt-0 sm:pb-4 lg:pl-0">
+						<div className="dashboard-content-frame relative z-10 flex min-h-0 flex-1 flex-col">
 							<ScrollArea
 								type="scroll"
 								scrollHideDelay={180}
@@ -639,7 +640,7 @@ export function DashboardLayout() {
 								scrollbarClassName="dashboard-content-scrollbar"
 								thumbClassName="dashboard-content-scrollbar-thumb"
 							>
-								<div className="flex min-h-full flex-col px-4 py-6 sm:px-6 sm:pr-8 lg:px-8 lg:pr-10">
+								<div className="flex min-h-full flex-col px-[var(--density-dashboard-content-px)] py-[var(--density-dashboard-content-py)] sm:px-6 sm:pr-8 lg:px-8 lg:pr-[var(--density-dashboard-content-pr)]">
 									{customerSession?.impersonator ? (
 										<div className="mb-4 rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
 											Support impersonation active. Acting as{" "}

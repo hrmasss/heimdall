@@ -117,9 +117,9 @@ type PlannedTimeDraft = {
 	meridiem: "AM" | "PM";
 };
 
-const longTextareaClassName = `${adminTextareaClassName} min-h-40`;
-const mediumTextareaClassName = `${adminTextareaClassName} min-h-28`;
-const compactTextareaClassName = `${adminTextareaClassName} min-h-24`;
+const longTextareaClassName = `${adminTextareaClassName} dashboard-textarea-large`;
+const mediumTextareaClassName = `${adminTextareaClassName} dashboard-textarea-medium`;
+const compactTextareaClassName = `${adminTextareaClassName} dashboard-textarea-medium`;
 const DEFAULT_HOUR = 9;
 const DEFAULT_MINUTE = 0;
 
@@ -1735,8 +1735,8 @@ export function DashboardNewPost() {
 				</>
 			}
 			aside={
-				<div className="space-y-6 xl:sticky xl:top-24">
-					<SurfaceCard className="space-y-4 p-5">
+				<div className="dashboard-page-stack space-y-6 xl:sticky xl:self-start dashboard-sticky-rail">
+					<SurfaceCard className="dashboard-card space-y-4">
 						<div className="text-lg font-semibold">
 							{title || "Untitled post"}
 						</div>
@@ -1754,20 +1754,20 @@ export function DashboardNewPost() {
 				</div>
 			}
 		>
-			<div className="space-y-6">
+			<div className="dashboard-page-stack space-y-6">
 				{error ? (
-					<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+					<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
 						{error}
 					</SurfaceCard>
 				) : null}
 				{dataWarning ? (
-					<SurfaceCard className="flex items-start gap-3 border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-700">
+					<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-amber-500/20 bg-amber-500/10 text-sm text-amber-700">
 						<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 						<div>{dataWarning}</div>
 					</SurfaceCard>
 				) : null}
 
-				<SurfaceCard className="space-y-5 p-5 md:p-6">
+				<SurfaceCard className="dashboard-card space-y-5">
 					<div className="flex flex-wrap items-start justify-between gap-4">
 						<div>
 							<div className="text-lg font-semibold">Post shell</div>
@@ -1827,7 +1827,7 @@ export function DashboardNewPost() {
 							</Select>
 						</AdminFormField>
 					</AdminFormGrid>
-					<div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+					<div className="dashboard-grid-gap grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
 						<AdminFormField>
 							<Label htmlFor="post-notes">Internal notes</Label>
 							<Textarea
@@ -1840,7 +1840,7 @@ export function DashboardNewPost() {
 						</AdminFormField>
 						<AdminFormField>
 							<Label htmlFor="requires-approval">Require approval</Label>
-							<div className="flex min-h-28 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+							<div className="dashboard-card-sm dashboard-textarea-medium flex border border-[var(--brand-border-soft)] bg-background/55">
 								<div className="flex w-full items-start justify-between gap-4">
 									<div className="pr-3">
 										<div className="font-medium">Approval gate</div>
@@ -1860,7 +1860,7 @@ export function DashboardNewPost() {
 					</div>
 				</SurfaceCard>
 
-				<SurfaceCard className="space-y-5 p-5 md:p-6">
+				<SurfaceCard className="dashboard-card space-y-5">
 					<div>
 						<div className="text-lg font-semibold">Composer tabs</div>
 						<div className="text-sm text-muted-foreground">
@@ -1881,7 +1881,7 @@ export function DashboardNewPost() {
 					>
 						<TabsList
 							variant="default"
-							className="!h-auto min-h-[4.5rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
+							className="dashboard-tabs-min-height !h-auto w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
 						>
 							<TabsTrigger
 								value="shared"
@@ -1910,9 +1910,9 @@ export function DashboardNewPost() {
 							})}
 						</TabsList>
 						<TabsContent value="shared" className="mt-5">
-							<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+							<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
 								<div className="space-y-5">
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="flex flex-wrap items-start justify-between gap-3">
 											<div>
 												<div className="flex items-center gap-2 text-sm font-medium">
@@ -2249,7 +2249,7 @@ export function DashboardNewPost() {
 							if (!variant || !snapshot) {
 								return (
 									<TabsContent key={platform} value={platform} className="mt-5">
-										<SurfaceCard className="rounded-[28px] border border-dashed border-[var(--brand-border-soft)] px-5 py-8 text-sm text-muted-foreground">
+										<SurfaceCard className="dashboard-card border border-dashed border-[var(--brand-border-soft)] text-sm text-muted-foreground">
 											Open this tab to create the first{" "}
 											{formatPlatformLabel(platform)} variant.
 										</SurfaceCard>
@@ -2505,7 +2505,7 @@ export function DashboardNewPost() {
 															<Button
 																type="button"
 																variant="outline"
-																className="h-11 w-full justify-between rounded-2xl px-4 text-left font-normal"
+																className="dashboard-input-height w-full justify-between rounded-2xl px-4 text-left font-normal"
 															>
 																<span className="flex items-center gap-3">
 																	<CalendarDays className="size-4 text-muted-foreground" />
@@ -2554,7 +2554,7 @@ export function DashboardNewPost() {
 													</div>
 													<div
 														id={`planned-time-${platform}`}
-														className="flex h-11 items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
+														className="dashboard-input-height flex items-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/60 px-3 shadow-sm"
 													>
 														<Input
 															aria-label="Planned hour"
@@ -3023,7 +3023,7 @@ export function DashboardNewPost() {
 				</SurfaceCard>
 
 				{legacyVariants.length > 0 ? (
-					<SurfaceCard className="p-5 md:p-6">
+					<SurfaceCard className="dashboard-card">
 						<details className="group">
 							<summary className="cursor-pointer list-none">
 								<div className="flex items-center justify-between gap-4">

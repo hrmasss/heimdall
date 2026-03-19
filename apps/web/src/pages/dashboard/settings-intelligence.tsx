@@ -469,7 +469,7 @@ export function DashboardSettingsIntelligencePage() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
 				eyebrow="Workspace Intelligence"
 				title="Intelligence"
@@ -495,7 +495,7 @@ export function DashboardSettingsIntelligencePage() {
 			/>
 
 			{context?.readiness ? (
-				<SurfaceCard className="p-5">
+				<SurfaceCard className="dashboard-card">
 					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 						<div className="space-y-2">
 							<div className="flex items-center gap-2 text-sm font-medium">
@@ -529,7 +529,7 @@ export function DashboardSettingsIntelligencePage() {
 			) : null}
 
 			{error ? (
-				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+				<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
 					{error}
 				</SurfaceCard>
 			) : null}
@@ -537,7 +537,7 @@ export function DashboardSettingsIntelligencePage() {
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList
 					variant="default"
-					className="!h-auto min-h-[4.5rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
+					className="dashboard-tabs-min-height !h-auto w-full flex-wrap items-stretch justify-start gap-2 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/50 p-2.5"
 				>
 					<TabsTrigger value="business" className="rounded-[18px] px-4 py-3">
 						<BrainCircuit className="size-4" />
@@ -571,9 +571,9 @@ export function DashboardSettingsIntelligencePage() {
 							</Button>
 						}
 					>
-						<div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+						<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
 							<div className="space-y-5">
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div className="space-y-2">
 										<Label htmlFor="business-narrative">
 											Business description
@@ -584,7 +584,7 @@ export function DashboardSettingsIntelligencePage() {
 											onChange={(event) =>
 												setBusinessNarrative(event.target.value)
 											}
-											className="min-h-44 rounded-[24px]"
+											className="dashboard-textarea-xl rounded-[24px]"
 											placeholder="Describe what the business does, who it serves, what outcomes it helps create, what makes it different, and any constraints AI should respect."
 											disabled={loading}
 										/>
@@ -600,7 +600,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setBusinessSummary(event.target.value)
 												}
-												className="min-h-24 rounded-[24px]"
+												className="dashboard-textarea-medium rounded-[24px]"
 												disabled={loading}
 											/>
 										</div>
@@ -617,7 +617,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setUnderstandingScore(event.target.value)
 												}
-												className="h-11 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 												disabled={loading}
 											/>
 										</div>
@@ -630,14 +630,14 @@ export function DashboardSettingsIntelligencePage() {
 											onChange={(event) =>
 												setMissingGapsInput(event.target.value)
 											}
-											className="min-h-24 rounded-[24px]"
+											className="dashboard-textarea-medium rounded-[24px]"
 											placeholder="One gap per line"
 											disabled={loading}
 										/>
 									</div>
 								</SurfaceCard>
 
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div className="flex items-center justify-between gap-3">
 										<div>
 											<div className="text-sm font-medium">
@@ -664,7 +664,7 @@ export function DashboardSettingsIntelligencePage() {
 											<SurfaceCard
 												key={`${fact.key}-${index}`}
 												tone="muted"
-												className="space-y-4 p-4"
+											className="dashboard-card-sm space-y-4"
 											>
 												<div className="grid gap-4 md:grid-cols-3">
 													<div className="space-y-2">
@@ -680,7 +680,7 @@ export function DashboardSettingsIntelligencePage() {
 																	),
 																)
 															}
-															className="h-10 rounded-2xl"
+															className="dashboard-input-height rounded-2xl"
 														/>
 													</div>
 													<div className="space-y-2">
@@ -696,7 +696,7 @@ export function DashboardSettingsIntelligencePage() {
 																	),
 																)
 															}
-															className="h-10 rounded-2xl"
+															className="dashboard-input-height rounded-2xl"
 														/>
 													</div>
 													<div className="space-y-2">
@@ -812,7 +812,7 @@ export function DashboardSettingsIntelligencePage() {
 								</SurfaceCard>
 							</div>
 
-							<SurfaceCard className="space-y-4 p-5">
+							<SurfaceCard className="dashboard-card space-y-4">
 								<div className="flex items-center gap-2 text-sm font-medium">
 									<Sparkles className="size-4 text-primary" />
 									How this gets used
@@ -851,9 +851,9 @@ export function DashboardSettingsIntelligencePage() {
 							</Button>
 						}
 					>
-						<div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+						<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_360px]">
 							<div className="space-y-5">
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div className="space-y-2">
 										<Label htmlFor="brand-narrative">
 											Brand and design description
@@ -864,7 +864,7 @@ export function DashboardSettingsIntelligencePage() {
 											onChange={(event) =>
 												setBrandNarrative(event.target.value)
 											}
-											className="min-h-40 rounded-[24px]"
+											className="dashboard-textarea-large rounded-[24px]"
 											placeholder="Describe how the brand should feel visually, what it should avoid, and what a strong visual system looks like."
 										/>
 									</div>
@@ -874,7 +874,7 @@ export function DashboardSettingsIntelligencePage() {
 											id="brand-summary"
 											value={brandSummary}
 											onChange={(event) => setBrandSummary(event.target.value)}
-											className="min-h-24 rounded-[24px]"
+											className="dashboard-textarea-medium rounded-[24px]"
 										/>
 									</div>
 									<div className="space-y-2">
@@ -903,7 +903,7 @@ export function DashboardSettingsIntelligencePage() {
 									</div>
 								</SurfaceCard>
 
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div>
 										<div className="text-sm font-medium">Concrete tokens</div>
 										<div className="text-sm text-muted-foreground">
@@ -919,7 +919,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setPrimaryColor(event.target.value)
 												}
-												className="h-10 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 											/>
 										</div>
 										<div className="space-y-2">
@@ -929,7 +929,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setSecondaryColor(event.target.value)
 												}
-												className="h-10 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 											/>
 										</div>
 										<div className="space-y-2">
@@ -937,7 +937,7 @@ export function DashboardSettingsIntelligencePage() {
 											<Input
 												value={accentColor}
 												onChange={(event) => setAccentColor(event.target.value)}
-												className="h-10 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 											/>
 										</div>
 										<div className="space-y-2">
@@ -945,7 +945,7 @@ export function DashboardSettingsIntelligencePage() {
 											<Input
 												value={typography}
 												onChange={(event) => setTypography(event.target.value)}
-												className="h-10 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 											/>
 										</div>
 										<div className="space-y-2 md:col-span-2">
@@ -953,7 +953,7 @@ export function DashboardSettingsIntelligencePage() {
 											<Input
 												value={visualStyle}
 												onChange={(event) => setVisualStyle(event.target.value)}
-												className="h-10 rounded-2xl"
+												className="dashboard-input-height rounded-2xl"
 											/>
 										</div>
 										<div className="space-y-2 md:col-span-2">
@@ -963,7 +963,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setCompositionCues(event.target.value)
 												}
-												className="min-h-24 rounded-[20px]"
+												className="dashboard-textarea-medium rounded-[20px]"
 											/>
 										</div>
 										<div className="space-y-2 md:col-span-2">
@@ -973,7 +973,7 @@ export function DashboardSettingsIntelligencePage() {
 												onChange={(event) =>
 													setProhibitedMotifs(event.target.value)
 												}
-												className="min-h-24 rounded-[20px]"
+												className="dashboard-textarea-medium rounded-[20px]"
 											/>
 										</div>
 									</div>
@@ -981,7 +981,7 @@ export function DashboardSettingsIntelligencePage() {
 							</div>
 
 							<div className="space-y-5">
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div className="space-y-2">
 										<Label>Visual guardrails</Label>
 										<Textarea
@@ -989,7 +989,7 @@ export function DashboardSettingsIntelligencePage() {
 											onChange={(event) =>
 												setVisualGuardrailsInput(event.target.value)
 											}
-											className="min-h-28 rounded-[24px]"
+											className="dashboard-textarea-large rounded-[24px]"
 											placeholder="One guardrail per line"
 										/>
 									</div>
@@ -1000,7 +1000,7 @@ export function DashboardSettingsIntelligencePage() {
 											onChange={(event) =>
 												setBrandMissingGapsInput(event.target.value)
 											}
-											className="min-h-24 rounded-[24px]"
+											className="dashboard-textarea-medium rounded-[24px]"
 											placeholder="One gap per line"
 										/>
 									</div>
@@ -1029,7 +1029,7 @@ export function DashboardSettingsIntelligencePage() {
 						}
 					>
 						<div className="space-y-5">
-							<SurfaceCard className="space-y-4 p-5">
+							<SurfaceCard className="dashboard-card space-y-4">
 								<div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
 									<div className="space-y-2">
 										<Label>Default mode</Label>
@@ -1039,7 +1039,7 @@ export function DashboardSettingsIntelligencePage() {
 												setDefaultMode(value as "native" | "byok")
 											}
 										>
-											<SelectTrigger className="h-11 rounded-2xl">
+											<SelectTrigger className="dashboard-input-height rounded-2xl">
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
@@ -1056,7 +1056,7 @@ export function DashboardSettingsIntelligencePage() {
 								</div>
 							</SurfaceCard>
 
-							<SurfaceCard className="space-y-4 p-5">
+							<SurfaceCard className="dashboard-card space-y-4">
 								<div>
 									<div className="text-sm font-medium">Capability defaults</div>
 									<div className="text-sm text-muted-foreground">
@@ -1100,7 +1100,7 @@ export function DashboardSettingsIntelligencePage() {
 															})
 														}
 													>
-														<SelectTrigger className="h-10 rounded-2xl">
+													<SelectTrigger className="dashboard-input-height rounded-2xl">
 															<SelectValue />
 														</SelectTrigger>
 														<SelectContent>
@@ -1134,7 +1134,7 @@ export function DashboardSettingsIntelligencePage() {
 															}))
 														}
 													>
-														<SelectTrigger className="h-10 rounded-2xl">
+														<SelectTrigger className="dashboard-input-height rounded-2xl">
 															<SelectValue />
 														</SelectTrigger>
 														<SelectContent>
@@ -1152,7 +1152,7 @@ export function DashboardSettingsIntelligencePage() {
 								</div>
 							</SurfaceCard>
 
-							<div className="grid gap-5 xl:grid-cols-2">
+							<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-2">
 								{providerEntries.map((provider) => {
 									const drafts = credentialDrafts[provider.provider] ?? [
 										createBlankCredential(),
@@ -1160,7 +1160,7 @@ export function DashboardSettingsIntelligencePage() {
 									return (
 										<SurfaceCard
 											key={provider.provider}
-											className="space-y-4 p-5"
+											className="dashboard-card space-y-4"
 										>
 											<div className="flex items-start justify-between gap-3">
 												<div>
@@ -1232,7 +1232,7 @@ export function DashboardSettingsIntelligencePage() {
 																		? "Leave blank to keep existing key"
 																		: "Paste provider API key"
 																}
-																className="h-11 rounded-2xl"
+														className="dashboard-input-height rounded-2xl"
 															/>
 														</div>
 													</div>
@@ -1288,9 +1288,9 @@ export function DashboardSettingsIntelligencePage() {
 							</Button>
 						}
 					>
-						<div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+						<div className="dashboard-grid-gap grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
 							<div className="space-y-5">
-								<SurfaceCard className="space-y-4 p-5">
+								<SurfaceCard className="dashboard-card space-y-4">
 									<div className="space-y-2">
 										<Label>Shared base prompt</Label>
 										<Textarea
@@ -1301,14 +1301,14 @@ export function DashboardSettingsIntelligencePage() {
 													base: event.target.value,
 												}))
 											}
-											className="min-h-28 rounded-[24px]"
+											className="dashboard-textarea-large rounded-[24px]"
 											placeholder="High-level brand, safety, factuality, or operator constraints that should apply everywhere."
 										/>
 									</div>
 								</SurfaceCard>
 
 								<div className="grid gap-4 md:grid-cols-2">
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="space-y-2">
 											<Label>Automations override</Label>
 											<Textarea
@@ -1319,12 +1319,12 @@ export function DashboardSettingsIntelligencePage() {
 														automations: event.target.value,
 													}))
 												}
-												className="min-h-28 rounded-[24px]"
+												className="dashboard-textarea-large rounded-[24px]"
 												placeholder="Extra instructions for automation and workflow runs."
 											/>
 										</div>
 									</SurfaceCard>
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="space-y-2">
 											<Label>Studio image override</Label>
 											<Textarea
@@ -1335,12 +1335,12 @@ export function DashboardSettingsIntelligencePage() {
 														studioImage: event.target.value,
 													}))
 												}
-												className="min-h-28 rounded-[24px]"
+												className="dashboard-textarea-large rounded-[24px]"
 												placeholder="Image generation direction, style guardrails, and visual constraints."
 											/>
 										</div>
 									</SurfaceCard>
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="space-y-2">
 											<Label>Studio PDF override</Label>
 											<Textarea
@@ -1351,12 +1351,12 @@ export function DashboardSettingsIntelligencePage() {
 														studioPdf: event.target.value,
 													}))
 												}
-												className="min-h-28 rounded-[24px]"
+												className="dashboard-textarea-large rounded-[24px]"
 												placeholder="Document structure, tone, or layout expectations for Studio PDF runs."
 											/>
 										</div>
 									</SurfaceCard>
-									<SurfaceCard className="space-y-4 p-5">
+									<SurfaceCard className="dashboard-card space-y-4">
 										<div className="space-y-2">
 											<Label>Studio reel override</Label>
 											<Textarea
@@ -1367,7 +1367,7 @@ export function DashboardSettingsIntelligencePage() {
 														studioReel: event.target.value,
 													}))
 												}
-												className="min-h-28 rounded-[24px]"
+												className="dashboard-textarea-large rounded-[24px]"
 												placeholder="Motion, pacing, caption, and storytelling direction for Studio reel runs."
 											/>
 										</div>
@@ -1375,7 +1375,7 @@ export function DashboardSettingsIntelligencePage() {
 								</div>
 							</div>
 
-							<SurfaceCard className="space-y-4 p-5">
+							<SurfaceCard className="dashboard-card space-y-4">
 								<div className="flex items-center gap-2 text-sm font-medium">
 									<Sparkles className="size-4 text-primary" />
 									How prompts stack

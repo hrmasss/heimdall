@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router";
 import { AppRoutes } from "@/app-routes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
+import { DisplayDensityProvider } from "@/lib/display-density";
 
 import "./index.css";
 
@@ -17,11 +18,13 @@ if (!root) {
 const app = (
   <StrictMode>
     <TooltipProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
+      <DisplayDensityProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </DisplayDensityProvider>
     </TooltipProvider>
   </StrictMode>
 );

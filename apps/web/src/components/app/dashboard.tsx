@@ -16,7 +16,7 @@ export function DashboardPageHeader({
 	actions?: ReactNode;
 }) {
 	return (
-		<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+		<div className="dashboard-page-header flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 			<div className="space-y-3">
 				{eyebrow ? (
 					<div className="text-xs font-medium uppercase tracking-[0.24em] text-[var(--brand-accent)]">
@@ -24,10 +24,10 @@ export function DashboardPageHeader({
 					</div>
 				) : null}
 				<div className="space-y-2">
-					<h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+					<h1 className="dashboard-page-title text-3xl font-semibold tracking-tight md:text-4xl">
 						{title}
 					</h1>
-					<p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+					<p className="dashboard-page-copy max-w-2xl text-sm text-muted-foreground md:text-base">
 						{description}
 					</p>
 				</div>

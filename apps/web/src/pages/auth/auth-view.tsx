@@ -166,19 +166,19 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 					<div className="auth-main-grid">
 						<SurfaceCard
 							tone="strong"
-							className="auth-shell-card relative overflow-hidden p-4 sm:p-5 lg:p-6"
+							className="auth-shell-card relative overflow-hidden"
 						>
 							<div className="brand-grid absolute inset-0 opacity-10" />
 							<div className="hero-halo right-0 top-0 h-36 w-36 bg-[var(--brand-glow-strong)] opacity-35" />
 							<div className="absolute inset-0 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--brand-highlight)_18%,transparent),transparent_58%)]" />
 
 							<div className="auth-shell-sections relative z-10">
-								<section className="auth-pane auth-companion p-5 sm:p-6 lg:p-7">
+								<section className="auth-pane auth-companion">
 									<SectionTag>
 										<Sparkles className="size-3.5" />
 										{isSignup ? "Start the workspace" : "Operator access"}
 									</SectionTag>
-									<h1 className="mt-5 text-[clamp(2.15rem,2.55vw,3.2rem)] font-semibold leading-[0.98] tracking-[-0.04em]">
+									<h1 className="mt-5 text-[var(--density-auth-hero-size)] font-semibold leading-[0.98] tracking-[-0.04em]">
 										<span className="block">The marketing</span>
 										<span className="block text-gradient-brand">
 											command center
@@ -190,7 +190,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 										calm workspace designed for teams that need fewer handoffs.
 									</p>
 
-									<div className="auth-card-group mt-4 p-4">
+									<div className="auth-card-group mt-4">
 										<div className="grid gap-3 sm:grid-cols-2">
 											{companionStats.map((stat) => (
 												<StatChip
@@ -202,7 +202,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 											))}
 										</div>
 
-										<div className="auth-card-subsection mt-3 p-4">
+										<div className="auth-card-subsection mt-3">
 											<div className="text-xs uppercase tracking-[0.22em] text-[var(--brand-accent)]">
 												Why teams switch
 											</div>
@@ -215,7 +215,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 									</div>
 								</section>
 
-								<section className="auth-pane auth-card p-5 sm:p-6">
+								<section className="auth-pane auth-card">
 									<div className="inline-flex w-fit self-start rounded-full border border-[var(--brand-border-soft)] bg-background/75 p-1 backdrop-blur-sm">
 										<Link
 											to="/login"
@@ -248,7 +248,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 										{description}
 									</p>
 
-									<div className="auth-card-group mt-4 p-4 sm:p-5">
+									<div className="auth-card-group mt-4">
 										<div className="auth-social-grid gap-2">
 											<Button
 												variant="outline"

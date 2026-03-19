@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summary";
 import type { WorkspaceSummary } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
+import { useDisplayDensity } from "@/lib/display-density";
 import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
 
 const preferenceCards = [
@@ -45,6 +46,7 @@ const preferenceCards = [
 export function DashboardSettings() {
 	const { activeWorkspaceId, customerRequest, hasCustomerPermission } =
 		useAuth();
+	const { density, setDensity } = useDisplayDensity();
 	const { loading: loadingConnections, summary } = useSocialConnectionSummary();
 	const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
 	const [name, setName] = useState("");
@@ -106,6 +108,60 @@ export function DashboardSettings() {
 				title="Settings"
 				description="Manage workspace identity, connection setup, governance controls, and billing visibility from a cleaner hub."
 			/>
+
+			<DashboardPanel
+				title="Display preferences"
+				description="Choose how spacious Heimdall feels across the dashboard, auth, and marketing surfaces on this device."
+			>
+				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+					<SurfaceCard tone="muted" className="space-y-4 p-5">
+						<div className="space-y-2">
+							<div className="text-sm font-medium">Display density</div>
+							<div className="text-sm text-muted-foreground">
+								Comfortable keeps the current roomy feel. Compact trims padding,
+								radii, and large shell sizing so more fits on smaller screens.
+							</div>
+						</div>
+						<div
+							className="dashboard-density-toggle w-fit"
+							role="tablist"
+							aria-label="Display density"
+						>
+							<button
+								type="button"
+								role="tab"
+								aria-selected={density === "comfortable"}
+								data-active={density === "comfortable"}
+								className="dashboard-density-toggle__option"
+								onClick={() => setDensity("comfortable")}
+							>
+								Comfortable
+							</button>
+							<button
+								type="button"
+								role="tab"
+								aria-selected={density === "compact"}
+								data-active={density === "compact"}
+								className="dashboard-density-toggle__option"
+								onClick={() => setDensity("compact")}
+							>
+								Compact
+							</button>
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard tone="muted" className="space-y-3 p-5">
+						<div className="text-sm font-medium">Active mode</div>
+						<div className="text-lg font-semibold tracking-tight">
+							{density === "compact" ? "Compact" : "Comfortable"}
+						</div>
+						<div className="text-sm text-muted-foreground">
+							This preference is saved locally and applied immediately across
+							user-facing Heimdall pages.
+						</div>
+					</SurfaceCard>
+				</div>
+			</DashboardPanel>
 
 			<DashboardPanel
 				title="Workspace profile"

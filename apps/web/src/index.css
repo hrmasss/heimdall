@@ -57,6 +57,150 @@
 	--sidebar-accent-foreground: #251b17;
 	--sidebar-border: rgba(72, 42, 30, 0.08);
 	--sidebar-ring: rgba(168, 106, 78, 0.22);
+	--density-page-container-px: 1rem;
+	--density-section-spacing: 4.5rem;
+	--density-section-spacing-sm: 3rem;
+	--density-surface-radius: 1.75rem;
+	--density-surface-radius-md: 1.5rem;
+	--density-surface-radius-sm: 1.25rem;
+	--density-surface-padding-sm: 0.875rem;
+	--density-surface-padding: 1.5rem;
+	--density-surface-padding-lg: 2rem;
+	--density-page-header-gap: 1.25rem;
+	--density-page-title-size: 2.25rem;
+	--density-page-title-size-sm: 1.875rem;
+	--density-page-copy-size: 1rem;
+	--density-kpi-icon-size: 2.75rem;
+	--density-kpi-icon-radius: 1rem;
+	--density-assistant-height: 2.5rem;
+	--density-assistant-title-size: 0.9rem;
+	--density-dashboard-topbar-height: 72px;
+	--density-dashboard-sidebar-width: 286px;
+	--density-dashboard-sidebar-collapsed-width: 92px;
+	--density-dashboard-sidebar-compact-size: 64px;
+	--density-dashboard-content-radius: 30px;
+	--density-dashboard-main-px: 0.75rem;
+	--density-dashboard-main-pb: 0.75rem;
+	--density-dashboard-topbar-pr: 1rem;
+	--density-dashboard-content-px: 1rem;
+	--density-dashboard-content-py: 1.5rem;
+	--density-dashboard-content-pr: 2.5rem;
+	--density-dashboard-stack-gap: 1.5rem;
+	--density-dashboard-grid-gap: 1.25rem;
+	--density-dashboard-card-padding: 1.5rem;
+	--density-dashboard-card-padding-sm: 1rem;
+	--density-dashboard-card-radius: 1.5rem;
+	--density-dashboard-card-radius-sm: 1.125rem;
+	--density-dashboard-sticky-top: 6rem;
+	--density-dashboard-input-height: 2.75rem;
+	--density-dashboard-tabs-min-height: 4.5rem;
+	--density-dashboard-tall-empty-height: 24rem;
+	--density-dashboard-textarea-medium: 7rem;
+	--density-dashboard-textarea-large: 10rem;
+	--density-dashboard-textarea-xl: 11rem;
+	--density-auth-shell-card-max: 40rem;
+	--density-auth-shell-card-max-xl: 72rem;
+	--density-auth-card-padding: 1rem;
+	--density-auth-card-padding-lg: 1.25rem;
+	--density-auth-pane-padding: 1.25rem;
+	--density-auth-pane-padding-lg: 1.5rem;
+	--density-auth-hero-size: clamp(2.15rem, 2.55vw, 3.2rem);
+	--density-marketing-nav-shell-px: 1rem;
+	--density-marketing-nav-shell-md-px: 1.25rem;
+	--density-marketing-nav-height: 4rem;
+	--density-marketing-footer-newsletter-px: 1.5rem;
+	--density-marketing-footer-newsletter-py: 2.5rem;
+	--density-marketing-footer-main-px: 1.5rem;
+	--density-marketing-footer-main-py: 2rem;
+	--density-marketing-home-hero-title: 2.75rem;
+	--density-marketing-home-hero-title-lg: 4.5rem;
+	--density-marketing-feature-icon: 3rem;
+	--density-marketing-card-min-height: 10rem;
+	--density-density-toggle-height: 2.5rem;
+	--density-density-toggle-radius: 999px;
+}
+
+[data-density="compact"] {
+	--density-page-container-px: 0.875rem;
+	--density-section-spacing: 3.75rem;
+	--density-section-spacing-sm: 2.5rem;
+	--density-surface-radius: 1.5rem;
+	--density-surface-radius-md: 1.25rem;
+	--density-surface-radius-sm: 1.125rem;
+	--density-surface-padding-sm: 0.75rem;
+	--density-surface-padding: 1.25rem;
+	--density-surface-padding-lg: 1.5rem;
+	--density-page-header-gap: 1rem;
+	--density-page-title-size: 2rem;
+	--density-page-title-size-sm: 1.625rem;
+	--density-page-copy-size: 0.95rem;
+	--density-kpi-icon-size: 2.4rem;
+	--density-kpi-icon-radius: 0.9rem;
+	--density-assistant-height: 2.35rem;
+	--density-assistant-title-size: 0.84rem;
+	--density-dashboard-topbar-height: 64px;
+	--density-dashboard-sidebar-width: 258px;
+	--density-dashboard-sidebar-collapsed-width: 84px;
+	--density-dashboard-sidebar-compact-size: 56px;
+	--density-dashboard-content-radius: 26px;
+	--density-dashboard-main-px: 0.625rem;
+	--density-dashboard-main-pb: 0.625rem;
+	--density-dashboard-topbar-pr: 0.75rem;
+	--density-dashboard-content-px: 0.875rem;
+	--density-dashboard-content-py: 1.125rem;
+	--density-dashboard-content-pr: 2rem;
+	--density-dashboard-stack-gap: 1.25rem;
+	--density-dashboard-grid-gap: 1rem;
+	--density-dashboard-card-padding: 1.25rem;
+	--density-dashboard-card-padding-sm: 0.875rem;
+	--density-dashboard-card-radius: 1.25rem;
+	--density-dashboard-card-radius-sm: 1rem;
+	--density-dashboard-sticky-top: 5.25rem;
+	--density-dashboard-input-height: 2.6rem;
+	--density-dashboard-tabs-min-height: 4rem;
+	--density-dashboard-tall-empty-height: 20rem;
+	--density-dashboard-textarea-medium: 6rem;
+	--density-dashboard-textarea-large: 8.75rem;
+	--density-dashboard-textarea-xl: 9.75rem;
+	--density-auth-shell-card-max: 36rem;
+	--density-auth-shell-card-max-xl: 64rem;
+	--density-auth-card-padding: 0.875rem;
+	--density-auth-card-padding-lg: 1rem;
+	--density-auth-pane-padding: 1rem;
+	--density-auth-pane-padding-lg: 1.125rem;
+	--density-auth-hero-size: clamp(1.9rem, 2.2vw, 2.8rem);
+	--density-marketing-nav-shell-px: 0.875rem;
+	--density-marketing-nav-shell-md-px: 1rem;
+	--density-marketing-nav-height: 3.6rem;
+	--density-marketing-footer-newsletter-px: 1.25rem;
+	--density-marketing-footer-newsletter-py: 2rem;
+	--density-marketing-footer-main-px: 1.25rem;
+	--density-marketing-footer-main-py: 1.5rem;
+	--density-marketing-home-hero-title: 2.45rem;
+	--density-marketing-home-hero-title-lg: 4rem;
+	--density-marketing-feature-icon: 2.625rem;
+	--density-marketing-card-min-height: 8.75rem;
+	--density-density-toggle-height: 2.3rem;
+}
+
+@media (min-width: 640px) {
+	:root {
+		--density-page-container-px: 1.5rem;
+	}
+
+	[data-density="compact"] {
+		--density-page-container-px: 1.25rem;
+	}
+}
+
+@media (min-width: 1024px) {
+	:root {
+		--density-page-container-px: 2rem;
+	}
+
+	[data-density="compact"] {
+		--density-page-container-px: 1.5rem;
+	}
 }
 
 .dark {
@@ -517,6 +661,7 @@ body {
 
 .surface-panel {
 	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-surface-radius);
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--card) 96%, transparent) 0%,
@@ -528,6 +673,7 @@ body {
 
 .surface-panel-strong {
 	border: 1px solid var(--brand-border-strong);
+	border-radius: var(--density-surface-radius);
 	background: linear-gradient(
 		150deg,
 		color-mix(in srgb, var(--card) 96%, transparent) 0%,
@@ -538,6 +684,7 @@ body {
 
 .surface-panel-muted {
 	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-surface-radius);
 	background: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 
@@ -565,7 +712,10 @@ body {
 }
 
 .page-container {
-	@apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+	margin-inline: auto;
+	width: 100%;
+	max-width: 80rem;
+	padding-inline: var(--density-page-container-px);
 }
 
 .auth-shell {
@@ -581,7 +731,7 @@ body {
 
 .auth-shell-card {
 	width: 100%;
-	max-width: 40rem;
+	max-width: var(--density-auth-shell-card-max);
 }
 
 .auth-shell-sections {
@@ -597,7 +747,7 @@ body {
 
 .auth-card-group {
 	border: 1px solid var(--brand-border-soft);
-	border-radius: 26px;
+	border-radius: calc(var(--density-surface-radius) - 2px);
 	background: color-mix(in srgb, var(--background) 72%, transparent);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 	backdrop-filter: blur(12px);
@@ -606,7 +756,7 @@ body {
 
 .auth-card-subsection {
 	border: 1px solid var(--brand-border-soft);
-	border-radius: 22px;
+	border-radius: var(--density-surface-radius-sm);
 	background: color-mix(in srgb, var(--card) 90%, transparent);
 }
 
@@ -628,7 +778,7 @@ body {
 
 @media (min-width: 1280px) and (min-height: 820px) {
 	.auth-shell-card {
-		max-width: 72rem;
+		max-width: var(--density-auth-shell-card-max-xl);
 	}
 
 	.auth-companion {
@@ -648,16 +798,17 @@ body {
 }
 
 .section-spacing {
-	@apply py-18 md:py-24;
+	padding-block: var(--density-section-spacing);
 }
 
 .section-spacing-sm {
-	@apply py-12 md:py-16;
+	padding-block: var(--density-section-spacing-sm);
 }
 
 .dashboard-section {
-	@apply rounded-3xl p-4 md:p-6;
+	padding: var(--density-surface-padding);
 	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-surface-radius);
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--card) 96%, transparent) 0%,
@@ -667,8 +818,9 @@ body {
 }
 
 .kpi-card {
-	@apply rounded-3xl p-4;
+	padding: var(--density-surface-padding);
 	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-surface-radius);
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--card) 96%, transparent) 0%,
@@ -678,12 +830,19 @@ body {
 }
 
 .kpi-icon {
-	@apply flex size-11 items-center justify-center rounded-2xl;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--density-kpi-icon-size);
+	height: var(--density-kpi-icon-size);
+	border-radius: var(--density-kpi-icon-radius);
 	background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
 .kpi-value {
-	@apply text-2xl font-semibold tracking-tight;
+	font-size: clamp(1.45rem, 1.2rem + 0.45vw, 1.85rem);
+	font-weight: 600;
+	letter-spacing: -0.02em;
 }
 
 .kpi-label {
@@ -847,8 +1006,10 @@ body {
 }
 
 .form-section {
-	@apply space-y-6 rounded-3xl p-6 md:p-8;
+	@apply space-y-6;
+	padding: var(--density-surface-padding);
 	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-surface-radius);
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--card) 96%, transparent) 0%,
@@ -1380,6 +1541,7 @@ body {
 	isolation: isolate;
 	overflow: hidden;
 	gap: 0.55rem;
+	min-height: var(--density-assistant-height);
 	border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, var(--border));
 	color: color-mix(in srgb, var(--foreground) 78%, var(--brand-primary) 22%);
 	background: linear-gradient(
@@ -1451,9 +1613,208 @@ body {
 .assistant-launch__title {
 	position: relative;
 	z-index: 1;
-	font-size: 0.9rem;
+	font-size: var(--density-assistant-title-size);
 	font-weight: 700;
 	letter-spacing: -0.01em;
+}
+
+.dashboard-density-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.25rem;
+	border: 1px solid var(--brand-border-soft);
+	border-radius: var(--density-density-toggle-radius);
+	background: color-mix(in srgb, var(--background) 78%, transparent);
+}
+
+.dashboard-density-toggle__option {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: var(--density-density-toggle-height);
+	padding-inline: 0.95rem;
+	border-radius: calc(var(--density-density-toggle-radius) - 0.3rem);
+	font-size: 0.84rem;
+	font-weight: 600;
+	color: var(--muted-foreground);
+	transition: background-color 180ms ease, color 180ms ease,
+		box-shadow 180ms ease;
+}
+
+.dashboard-density-toggle__option[data-active="true"] {
+	color: var(--foreground);
+	background: color-mix(in srgb, var(--card) 92%, transparent);
+	box-shadow: 0 12px 26px -20px color-mix(in srgb, var(--brand-ink) 45%, transparent);
+}
+
+.auth-shell .auth-shell-card {
+	padding: var(--density-auth-card-padding);
+}
+
+.auth-shell .auth-pane {
+	padding: var(--density-auth-pane-padding);
+}
+
+.auth-shell .auth-card {
+	padding: var(--density-auth-pane-padding);
+}
+
+.auth-shell .auth-card-group {
+	padding: var(--density-auth-card-padding);
+}
+
+.auth-shell .auth-card-subsection {
+	padding: var(--density-auth-card-padding);
+}
+
+.auth-shell .auth-companion h1 {
+	font-size: var(--density-auth-hero-size);
+}
+
+.marketing-shell .marketing-navbar-shell {
+	padding-inline: var(--density-marketing-nav-shell-px);
+}
+
+.marketing-shell .marketing-navbar-inner {
+	min-height: var(--density-marketing-nav-height);
+}
+
+.marketing-shell .marketing-mobile-menu {
+	border-radius: var(--density-surface-radius);
+	padding: var(--density-surface-padding);
+}
+
+.marketing-shell .marketing-footer-newsletter {
+	padding-inline: var(--density-marketing-footer-newsletter-px);
+	padding-block: var(--density-marketing-footer-newsletter-py);
+	border-radius: calc(var(--density-surface-radius) + 0.25rem);
+}
+
+.marketing-shell .marketing-footer-main {
+	padding-inline: var(--density-marketing-footer-main-px);
+	padding-block: var(--density-marketing-footer-main-py);
+	border-radius: calc(var(--density-surface-radius) + 0.25rem);
+}
+
+.marketing-shell .marketing-home-hero-title {
+	font-size: var(--density-marketing-home-hero-title);
+}
+
+@media (min-width: 1024px) {
+	.marketing-shell .marketing-home-hero-title {
+		font-size: var(--density-marketing-home-hero-title-lg);
+	}
+}
+
+.marketing-shell .marketing-feature-icon {
+	width: var(--density-marketing-feature-icon);
+	height: var(--density-marketing-feature-icon);
+}
+
+.marketing-shell .marketing-min-card-height {
+	min-height: var(--density-marketing-card-min-height);
+}
+
+.customer-dashboard-shell .density-surface-card,
+.auth-shell .density-surface-card,
+.marketing-shell .density-surface-card {
+	border-radius: var(--density-surface-radius);
+}
+
+.customer-dashboard-shell .dashboard-page-header {
+	row-gap: var(--density-page-header-gap);
+}
+
+.customer-dashboard-shell .dashboard-page-title {
+	font-size: var(--density-page-title-size-sm);
+	line-height: 1.05;
+}
+
+.customer-dashboard-shell .dashboard-page-copy {
+	font-size: var(--density-page-copy-size);
+	line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+	.customer-dashboard-shell .dashboard-page-title {
+		font-size: var(--density-page-title-size);
+	}
+
+	.auth-shell .auth-shell-card {
+		padding: var(--density-auth-card-padding-lg);
+	}
+
+	.auth-shell .auth-pane,
+	.auth-shell .auth-card {
+		padding: var(--density-auth-pane-padding-lg);
+	}
+
+	.auth-shell .auth-card-group {
+		padding: var(--density-auth-card-padding-lg);
+	}
+
+	.auth-shell .auth-card-subsection {
+		padding: var(--density-auth-card-padding);
+	}
+
+	.marketing-shell .marketing-navbar-shell {
+		padding-inline: var(--density-marketing-nav-shell-md-px);
+	}
+}
+
+.customer-dashboard-shell .dashboard-shell-surface {
+	border-radius: calc(var(--density-dashboard-content-radius) + 0.375rem);
+}
+
+.customer-dashboard-shell .dashboard-content-frame {
+	border-radius: var(--density-dashboard-content-radius);
+}
+
+.customer-dashboard-shell .dashboard-page-stack {
+	gap: var(--density-dashboard-stack-gap);
+}
+
+.customer-dashboard-shell .dashboard-grid-gap {
+	gap: var(--density-dashboard-grid-gap);
+}
+
+.customer-dashboard-shell .dashboard-card {
+	padding: var(--density-dashboard-card-padding);
+	border-radius: var(--density-dashboard-card-radius);
+}
+
+.customer-dashboard-shell .dashboard-card-sm {
+	padding: var(--density-dashboard-card-padding-sm);
+	border-radius: var(--density-dashboard-card-radius-sm);
+}
+
+.customer-dashboard-shell .dashboard-sticky-rail {
+	top: var(--density-dashboard-sticky-top);
+}
+
+.customer-dashboard-shell .dashboard-input-height {
+	height: var(--density-dashboard-input-height);
+}
+
+.customer-dashboard-shell .dashboard-tabs-min-height {
+	min-height: var(--density-dashboard-tabs-min-height);
+}
+
+.customer-dashboard-shell .dashboard-tall-empty {
+	min-height: var(--density-dashboard-tall-empty-height);
+}
+
+.customer-dashboard-shell .dashboard-textarea-medium {
+	min-height: var(--density-dashboard-textarea-medium);
+}
+
+.customer-dashboard-shell .dashboard-textarea-large {
+	min-height: var(--density-dashboard-textarea-large);
+}
+
+.customer-dashboard-shell .dashboard-textarea-xl {
+	min-height: var(--density-dashboard-textarea-xl);
 }
 
 /* ============================================================

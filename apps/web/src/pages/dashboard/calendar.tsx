@@ -2249,8 +2249,8 @@ export function DashboardCalendar() {
 	const setupNeeded = !summary.hasHealthySelectedTarget;
 
 	return (
-		<div className="space-y-6">
-			<SurfaceCard className="rounded-[32px] border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(255,255,255,0.7))] p-4 sm:p-5 lg:p-6">
+		<div className="dashboard-page-stack space-y-6">
+			<SurfaceCard className="dashboard-card border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(255,255,255,0.7))]">
 				<div className="space-y-5">
 					<div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
 						<div className="space-y-4">
@@ -2333,7 +2333,7 @@ export function DashboardCalendar() {
 					</div>
 
 					{setupNeeded ? (
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),rgba(255,255,255,0.82)] p-4">
+						<div className="dashboard-card-sm border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),rgba(255,255,255,0.82)]">
 							<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 								<div>
 									<div className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--brand-accent)]">
@@ -2359,7 +2359,7 @@ export function DashboardCalendar() {
 						</div>
 					) : null}
 
-					<div className="space-y-4 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/70 p-4 shadow-[0_22px_44px_-36px_rgba(15,23,42,0.56)]">
+					<div className="dashboard-card space-y-4 border border-[var(--brand-border-soft)] bg-background/70 shadow-[0_22px_44px_-36px_rgba(15,23,42,0.56)]">
 						<CalendarCampaignStrip campaigns={calendar?.campaigns ?? []} />
 						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 							<div className="flex flex-wrap items-center gap-3">
@@ -2416,7 +2416,7 @@ export function DashboardCalendar() {
 								>
 									<TabsList
 										variant="default"
-										className="!h-auto min-h-[4rem] w-full flex-wrap items-stretch justify-start gap-2 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-2 sm:w-auto xl:flex-nowrap"
+										className="dashboard-tabs-min-height !h-auto w-full flex-wrap items-stretch justify-start gap-2 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-2 sm:w-auto xl:flex-nowrap"
 									>
 										<TabsTrigger
 											value="week"
@@ -2556,7 +2556,7 @@ export function DashboardCalendar() {
 												startTransition(() => setSearch(event.target.value))
 											}
 											placeholder="Search titles, captions..."
-											className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/88 pl-10"
+											className="dashboard-input-height rounded-full border-[var(--brand-border-soft)] bg-background/88 pl-10"
 										/>
 									</div>
 									<Select
@@ -2570,7 +2570,7 @@ export function DashboardCalendar() {
 										<SelectTrigger
 											id="calendar-status-filter"
 											aria-label="Filter calendar by status"
-											className="h-10 rounded-full border-[var(--brand-border-soft)] bg-background/88 px-3.5 xl:w-[8rem]"
+											className="dashboard-input-height rounded-full border-[var(--brand-border-soft)] bg-background/88 px-3.5 xl:w-[8rem]"
 										>
 											<SelectValue />
 										</SelectTrigger>
@@ -2606,18 +2606,18 @@ export function DashboardCalendar() {
 						</div>
 					</div>
 					{loading ? (
-						<div className="flex min-h-[24rem] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] bg-background/45">
+						<div className="dashboard-tall-empty flex items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] bg-background/45">
 							<div className="flex items-center gap-3 text-sm text-muted-foreground">
 								<LoaderCircle className="size-4 animate-spin" />
 								Loading content calendar...
 							</div>
 						</div>
 					) : error ? (
-						<div className="rounded-[24px] border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-700 dark:text-red-200">
+						<div className="dashboard-card-sm border border-red-500/30 bg-red-500/10 text-sm text-red-700 dark:text-red-200">
 							{error}
 						</div>
 					) : (
-						<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+						<div className="dashboard-grid-gap grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
 							<div className="space-y-4">
 								{view === "week" ? (
 									<div
