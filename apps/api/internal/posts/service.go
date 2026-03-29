@@ -1221,6 +1221,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	if err != nil {
 		return nil, err
 	}
+	canSelfPublish := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish") == nil
 
 	postIDs := make([]uuid.UUID, 0, len(posts))
 	campaignIDs := make([]uuid.UUID, 0, len(posts))
@@ -1329,6 +1330,10 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 		legacyVariants := make([]PostVariant, 0)
 		seenPlatforms := map[string]struct{}{}
 		for _, variantRecord := range postVariantRecords {
+			requiresApproval := workspaceRequiresApproval || record.RequiresApproval
+			if canSelfPublish {
+				requiresApproval = false
+			}
 			variant := s.buildHydratedVariant(
 				variantRecord,
 				resolutionContext,
@@ -1338,7 +1343,7 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 				publicationsByVariant,
 				tentativePlansByVariant,
 				metricSnapshotsByPublication,
-				workspaceRequiresApproval || record.RequiresApproval,
+				requiresApproval,
 			)
 			allVariants = append(allVariants, variant)
 			if _, exists := seenPlatforms[variantRecord.Platform]; exists {

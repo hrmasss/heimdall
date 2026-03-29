@@ -7,11 +7,16 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Clock3,
+	CircleAlert,
+	CircleCheckBig,
+	CircleSlash,
 	Globe2,
 	LoaderCircle,
+	PanelRightOpen,
 	Plus,
 	Save,
 	Send,
+	Settings2,
 	Trash2,
 	WandSparkles,
 	XCircle,
@@ -42,6 +47,13 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -66,6 +78,8 @@ import type {
 	ResourceSetDetail,
 	ResourceSetSummary,
 	ReviewRecord,
+	SocialConnectionsResponse,
+	SocialTargetRecord,
 	VariantReadiness,
 	WorkspaceAISettings,
 	WorkspaceContextResponse,
@@ -73,6 +87,7 @@ import type {
 import { useAuth } from "@/lib/auth-context";
 import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
 import { normalizePostDetail } from "@/lib/post-models";
+import { isHealthyStatus } from "@/lib/social-connections";
 import { cn } from "@/lib/utils";
 
 type ContentKind = "text" | "article" | "thread";
@@ -115,6 +130,27 @@ type PlannedTimeDraft = {
 	hour: string;
 	minute: string;
 	meridiem: "AM" | "PM";
+};
+
+type DestinationStatus = "ready" | "attention" | "blocked" | "not_connected";
+
+type DestinationView = {
+	platform: string;
+	target: SocialTargetRecord | null;
+	variant: DraftVariant | null;
+	snapshot: VariantSnapshot | null;
+	status: DestinationStatus;
+	label: string;
+	summary: string;
+	blockers: ReadinessIssue[];
+	warnings: ReadinessIssue[];
+};
+
+type BulkActionSummary = {
+	action: "publish" | "schedule" | "submit";
+	succeeded: { platform: string; detail: string }[];
+	skipped: { platform: string; detail: string }[];
+	failed: { platform: string; detail: string }[];
 };
 
 const longTextareaClassName = `${adminTextareaClassName} dashboard-textarea-large`;
@@ -814,12 +850,202 @@ function resolveVariantSnapshot(
 	};
 }
 
+function targetPlatform(target: SocialTargetRecord) {
+	if (target.provider === "meta") {
+		if (target.targetType === "facebook_page") {
+			return "facebook";
+		}
+		if (target.targetType === "instagram_professional") {
+			return "instagram";
+		}
+	}
+	return target.provider;
+}
+
+function healthySelectedTargetsByPlatform(targets: SocialTargetRecord[]) {
+	const result = new Map<string, SocialTargetRecord>();
+	for (const target of targets) {
+		if (!target.isSelected || !isHealthyStatus(target.status)) {
+			continue;
+		}
+		const platform = targetPlatform(target);
+		if (!platform || result.has(platform)) {
+			continue;
+		}
+		result.set(platform, target);
+	}
+	return result;
+}
+
+function pickBestRuleForPlatform(
+	platform: string,
+	capabilities: ResourceCapabilityMatrix | null,
+	content: DraftContent,
+	assets: ResourceRecord[],
+) {
+	const rules = surfaceOptions(capabilities, platform);
+	if (rules.length === 0) {
+		return undefined;
+	}
+	const assetKinds = assets.map((asset) => asset.mediaKind);
+	const assetCount = assets.length;
+	const allImages = assetCount > 0 && assetKinds.every((kind) => kind === "image");
+	const allVideos = assetCount > 0 && assetKinds.every((kind) => kind === "video");
+
+	const scored = rules.map((rule) => {
+		let score = 0;
+		const supportsCurrentKind = rule.supportedContentKinds.includes(content.kind);
+		if (supportsCurrentKind) {
+			score += 18;
+		}
+		if (assetCount === 0) {
+			if (!rule.assetRequired) {
+				score += 24;
+			}
+			if (/text|feed|post/i.test(rule.surface) || /text|feed/i.test(rule.label)) {
+				score += 12;
+			}
+		} else {
+			const acceptedCount = assets.filter((asset) =>
+				rule.accepts.includes(asset.mediaKind),
+			).length;
+			score += acceptedCount * 8;
+			if (acceptedCount === assetCount) {
+				score += 36;
+			}
+			if (!rule.assetRequired) {
+				score += 4;
+			}
+			if (typeof rule.minItems === "number" && assetCount >= rule.minItems) {
+				score += 6;
+			}
+			if (typeof rule.maxItems === "number" && assetCount <= rule.maxItems) {
+				score += 6;
+			}
+			if (allImages && /image|photo|carousel|multi/i.test(`${rule.surface} ${rule.label}`)) {
+				score += 10;
+			}
+			if (allVideos && /video|reel|short/i.test(`${rule.surface} ${rule.label}`)) {
+				score += 10;
+			}
+		}
+		return { rule, score };
+	});
+
+	scored.sort((left, right) => right.score - left.score);
+	return scored[0]?.rule;
+}
+
+function createAutoVariant(
+	platform: string,
+	capabilities: ResourceCapabilityMatrix | null,
+	sharedDraft: DraftContent,
+	rootAssets: ResourceRecord[],
+): DraftVariant {
+	const rule = pickBestRuleForPlatform(
+		platform,
+		capabilities,
+		sharedDraft,
+		rootAssets,
+	);
+	const defaultModes = preferredVariantModes(sharedDraft, rootAssets);
+	return {
+		id: undefined,
+		platform,
+		surface: rule?.surface ?? surfaceOptions(capabilities, platform)[0]?.surface ?? "feed_post",
+		inheritSource: "shared",
+		contentMode: defaultModes.contentMode,
+		content: coerceDraftContentForRule(createDraftContent(sharedDraft.kind), rule),
+		assetMode: defaultModes.assetMode,
+		assetIds: [],
+		removedInheritedResourceIds: [],
+		approvalState: "draft",
+		reviewHistory: [],
+		latestPublication: undefined,
+		notes: "",
+	};
+}
+
+function destinationWarnings(
+	destination: Pick<DestinationView, "platform" | "snapshot" | "variant">,
+) {
+	const warnings: ReadinessIssue[] = [];
+	if (!destination.snapshot || !destination.variant) {
+		return warnings;
+	}
+	const content = contentFromDestination(destination.variant, destination.snapshot);
+	const bodyLength = extractCaptionFromDraftContent(content).trim().length;
+	if (destination.platform === "x" && bodyLength > 240) {
+		warnings.push({
+			code: "x_compactness_warning",
+			message:
+				bodyLength > 280
+					? "X will likely need a shorter rewrite or a thread before publishing cleanly."
+					: "X is nearing the compact post limit and may need a shorter rewrite.",
+		});
+	}
+	if (
+		destination.snapshot.rule &&
+		destination.snapshot.contentKind !== destination.variant.content.kind
+	) {
+		warnings.push({
+			code: "content_coerced",
+			message: `${destination.snapshot.rule.label} will use a compact caption-style version of this content.`,
+		});
+	}
+	return warnings;
+}
+
+function contentFromDestination(
+	variant: DraftVariant,
+	snapshot: VariantSnapshot,
+): DraftContent {
+	return variant.contentMode === "custom"
+		? variant.content
+		: extractDraftContent(snapshot.contentKind, snapshot.contentPayload);
+}
+
+function buildBulkPlannedAt(
+	date: Date | null,
+	time: PlannedTimeDraft,
+) {
+	if (!date) {
+		return undefined;
+	}
+	const hourValue = time.hour === "" ? DEFAULT_HOUR : Number(time.hour);
+	const minuteValue = time.minute === "" ? DEFAULT_MINUTE : Number(time.minute);
+	const hour12 = clamp(
+		Number.isFinite(hourValue) ? hourValue : DEFAULT_HOUR,
+		1,
+		12,
+	);
+	const minute = clamp(
+		Number.isFinite(minuteValue) ? minuteValue : DEFAULT_MINUTE,
+		0,
+		59,
+	);
+	return new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+		to24Hour(hour12, time.meridiem),
+		minute,
+		0,
+		0,
+	).toISOString();
+}
+
 export function DashboardNewPost() {
 	const navigate = useNavigate();
 	const { id } = useParams();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const isEditMode = Boolean(id);
-	const { activeWorkspaceId, customerRequest } = useAuth();
+	const {
+		activeWorkspaceId,
+		activeWorkspaceMembership,
+		customerRequest,
+		hasCustomerPermission,
+	} = useAuth();
 	const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
@@ -832,9 +1058,21 @@ export function DashboardNewPost() {
 	const [postId, setPostId] = useState<string | null>(id ?? null);
 	const [baseline, setBaseline] = useState("");
 	const [activeTab, setActiveTab] = useState("shared");
+	const [socialTargets, setSocialTargets] = useState<SocialTargetRecord[]>([]);
 	const [plannedTimeDrafts, setPlannedTimeDrafts] = useState<
 		Record<string, PlannedTimeDraft>
 	>({});
+	const [bulkScheduleDate, setBulkScheduleDate] = useState<Date | null>(null);
+	const [bulkScheduleTime, setBulkScheduleTime] = useState<PlannedTimeDraft>({
+		hour: padNumber(DEFAULT_HOUR),
+		minute: padNumber(DEFAULT_MINUTE),
+		meridiem: "AM",
+	});
+	const [bulkActionSummary, setBulkActionSummary] =
+		useState<BulkActionSummary | null>(null);
+	const [showAdvanced, setShowAdvanced] = useState(false);
+	const [selectedDestinationPlatform, setSelectedDestinationPlatform] =
+		useState<string | null>(null);
 
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
@@ -864,6 +1102,15 @@ export function DashboardNewPost() {
 		[capabilities],
 	);
 	const aiProviders = aiCatalog?.providers ?? [];
+	const workspacePermissions = useMemo(
+		() =>
+			activeWorkspaceMembership?.roles.flatMap((role) => role.permissions) ?? [],
+		[activeWorkspaceMembership],
+	);
+	const canPublish = hasCustomerPermission(
+		"content.posts.publish",
+		workspacePermissions,
+	);
 	const activeAIProviderConfig = useMemo(
 		() => aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
 		[aiProvider, aiProviders],
@@ -915,6 +1162,105 @@ export function DashboardNewPost() {
 	});
 	const hasUnsavedChanges =
 		!loading && baseline !== "" && baseline !== signature;
+	const selectedTargetsByPlatform = useMemo(
+		() => healthySelectedTargetsByPlatform(socialTargets),
+		[socialTargets],
+	);
+	const allDestinationPlatforms = useMemo(
+		() =>
+			Array.from(
+				new Set([
+					...platformOptions,
+					...variants.map((variant) => variant.platform),
+					...selectedTargetsByPlatform.keys(),
+				]),
+			).sort(),
+		[platformOptions, variants, selectedTargetsByPlatform],
+	);
+	const destinationViews = useMemo<DestinationView[]>(
+		() =>
+			allDestinationPlatforms.map((platform) => {
+				const target = selectedTargetsByPlatform.get(platform) ?? null;
+				const variant = variants.find((entry) => entry.platform === platform) ?? null;
+				const snapshot = variant ? snapshots.get(platform) ?? null : null;
+				const blockers = snapshot
+					? summarizeIssues(snapshot.readiness.publishBlockers)
+					: [];
+				const initialView: DestinationView = {
+					platform,
+					target,
+					variant,
+					snapshot,
+					status: "ready",
+					label: formatPlatformLabel(platform),
+					summary: "Ready to publish.",
+					blockers,
+					warnings: [],
+				};
+				if (!target) {
+					return {
+						...initialView,
+						status: "not_connected",
+						summary: "Connect and select a healthy target to include this platform.",
+					};
+				}
+				if (!variant || !snapshot) {
+					return {
+						...initialView,
+						status: "blocked",
+						summary: "Variant setup is still loading for this connected platform.",
+						blockers: [
+							{
+								code: "variant_missing",
+								message: "Variant setup is still loading for this connected platform.",
+							},
+						],
+					};
+				}
+				const warnings = destinationWarnings(initialView);
+				if (blockers.length > 0) {
+					return {
+						...initialView,
+						status: "blocked",
+						summary: blockers[0]?.message ?? "Blocked for publish.",
+						warnings,
+					};
+				}
+				if (warnings.length > 0) {
+					return {
+						...initialView,
+						status: "attention",
+						summary: warnings[0]?.message ?? "Needs attention before you publish.",
+						warnings,
+					};
+				}
+				return initialView;
+			}),
+		[allDestinationPlatforms, selectedTargetsByPlatform, variants, snapshots],
+	);
+	const readyDestinations = destinationViews.filter(
+		(destination) => destination.status === "ready",
+	);
+	const attentionDestinations = destinationViews.filter(
+		(destination) => destination.status === "attention",
+	);
+	const blockedDestinations = destinationViews.filter(
+		(destination) => destination.status === "blocked",
+	);
+	const notConnectedDestinations = destinationViews.filter(
+		(destination) => destination.status === "not_connected",
+	);
+	const selectedDestination = useMemo(
+		() =>
+			selectedDestinationPlatform
+				? destinationViews.find(
+						(destination) => destination.platform === selectedDestinationPlatform,
+					) ?? null
+				: null,
+		[destinationViews, selectedDestinationPlatform],
+	);
+	const selectedVariant = selectedDestination?.variant ?? null;
+	const selectedSnapshot = selectedDestination?.snapshot ?? null;
 
 	const loadEditor = useCallback(
 		async (nextId?: string | null, requestedTab?: string | null) => {
@@ -929,6 +1275,7 @@ export function DashboardNewPost() {
 					resourceResponse,
 					setResponse,
 					capabilityResponse,
+					socialResponse,
 					aiCatalogResponse,
 					aiSettingsResponse,
 					aiContextResponse,
@@ -940,6 +1287,7 @@ export function DashboardNewPost() {
 						"/resource-sets",
 					),
 					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
+					customerRequest<SocialConnectionsResponse>("/social/connections"),
 					customerRequest<AIProviderCatalog>(
 						`/workspaces/${activeWorkspaceId}/ai/catalog`,
 					).catch(() => null),
@@ -959,6 +1307,7 @@ export function DashboardNewPost() {
 				setResources(resourceResponse.items);
 				setResourceSets(setResponse.items);
 				setCapabilities(normalizedCapabilities);
+				setSocialTargets(socialResponse.targets);
 				setAICatalog(aiCatalogResponse);
 				setAISettings(aiSettingsResponse);
 				setAIContext(aiContextResponse);
@@ -1046,6 +1395,7 @@ export function DashboardNewPost() {
 					setLegacyVariants([]);
 					setDeletedVariantIds([]);
 					setPlannedTimeDrafts({});
+					setBulkActionSummary(null);
 					setActiveTab(requestedPlatform || "shared");
 					setBaseline(JSON.stringify(emptyState));
 					setDataWarning(null);
@@ -1104,6 +1454,7 @@ export function DashboardNewPost() {
 				setLegacyVariants(post.legacyVariants);
 				setDeletedVariantIds([]);
 				setPlannedTimeDrafts({});
+				setBulkActionSummary(null);
 				const defaultTab =
 					nextState.startsFromPlatform ||
 					nextState.variants[0]?.platform ||
@@ -1163,6 +1514,37 @@ export function DashboardNewPost() {
 				: new URLSearchParams(window.location.search).get("tab");
 		void loadEditor(id ?? null, requestedTab);
 	}, [id, loadEditor]);
+
+	useEffect(() => {
+		if (loading || !capabilities) {
+			return;
+		}
+		const connectedPlatforms = Array.from(selectedTargetsByPlatform.keys());
+		if (connectedPlatforms.length === 0) {
+			return;
+		}
+		setVariants((current) => {
+			const existingPlatforms = new Set(current.map((variant) => variant.platform));
+			const missing = connectedPlatforms.filter(
+				(platform) => !existingPlatforms.has(platform),
+			);
+			if (missing.length === 0) {
+				return current;
+			}
+			return [
+				...current,
+				...missing.map((platform) =>
+					createAutoVariant(platform, capabilities, sharedDraft, rootAssets),
+				),
+			];
+		});
+	}, [
+		capabilities,
+		loading,
+		selectedTargetsByPlatform,
+		sharedDraft,
+		rootAssets,
+	]);
 
 	useEffect(() => {
 		if (!activeAIProviderConfig) {
@@ -1352,10 +1734,10 @@ export function DashboardNewPost() {
 		}
 	}
 
-	async function saveDraft() {
+	async function persistDraft(requestedPlatform = activeTab || "shared") {
 		if (!title.trim()) {
 			setError("Post title is required.");
-			return;
+			return null;
 		}
 		setSaving(true);
 		setError(null);
@@ -1371,6 +1753,7 @@ export function DashboardNewPost() {
 				requiresApproval,
 				notes,
 			};
+			const savedVariantsByPlatform = new Map<string, PostVariant>();
 			const post = postId
 				? await customerRequest<PostDetail>(`/posts/${postId}`, {
 						method: "PATCH",
@@ -1436,6 +1819,7 @@ export function DashboardNewPost() {
 								notes: variant.notes,
 							},
 						});
+				savedVariantsByPlatform.set(variant.platform, savedVariant);
 				await customerRequest(`/posts/variants/${savedVariant.id}/assets`, {
 					method: "PUT",
 					body: {
@@ -1450,23 +1834,32 @@ export function DashboardNewPost() {
 					method: "DELETE",
 				});
 			}
+			const nextHref =
+				requestedPlatform === "shared"
+					? `/dashboard/posts/${post.id}/edit`
+					: `/dashboard/posts/${post.id}/edit?tab=${requestedPlatform}`;
 			if (!postId) {
-				navigate(
-					activeTab === "shared"
-						? `/dashboard/posts/${post.id}/edit`
-						: `/dashboard/posts/${post.id}/edit?tab=${activeTab}`,
-				);
-				return;
+				navigate(nextHref, { replace: true });
 			}
-			await loadEditor(post.id);
+			setPostId(post.id);
+			await loadEditor(post.id, requestedPlatform);
+			return { postId: post.id, savedVariantsByPlatform };
 		} catch (saveError) {
 			setError(
 				saveError instanceof Error
 					? saveError.message
 					: "Unable to save the draft.",
 			);
+			return null;
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	async function saveDraft() {
+		const result = await persistDraft(activeTab || "shared");
+		if (result) {
+			toast.success("Draft saved.");
 		}
 	}
 
@@ -1475,32 +1868,43 @@ export function DashboardNewPost() {
 		action:
 			| "submit"
 			| "approve"
+			| "publish"
 			| "changes"
 			| "schedule"
 			| "unschedule"
 			| "record",
 	) {
-		if (!variant.id) {
-			setError("Save the draft once before using review or publish actions.");
-			return;
-		}
-		if (hasUnsavedChanges) {
-			setError(
-				"Save your unsaved changes before running review or publish actions.",
-			);
-			return;
-		}
 		setSaving(true);
 		setError(null);
 		try {
+			let variantId = variant.id;
+			let latestPlannedAt = variant.latestPublication?.plannedAt;
+			if (!variantId || hasUnsavedChanges) {
+				const persisted = await persistDraft(variant.platform);
+				if (!persisted) {
+					return;
+				}
+				const savedVariant = persisted.savedVariantsByPlatform.get(variant.platform);
+				variantId = savedVariant?.id;
+				latestPlannedAt = savedVariant?.latestPublication?.plannedAt;
+			}
+			if (!variantId) {
+				setError("Save the draft once before using review or publish actions.");
+				return;
+			}
 			if (action === "submit") {
-				await customerRequest(`/posts/variants/${variant.id}/reviews/submit`, {
+				await customerRequest(`/posts/variants/${variantId}/reviews/submit`, {
 					method: "POST",
 					body: { comment: "" },
 				});
+			} else if (action === "publish") {
+				await customerRequest(`/social/variants/${variantId}/publish`, {
+					method: "POST",
+					body: { source: "social_api" },
+				});
 			} else if (action === "approve" || action === "changes") {
 				await customerRequest(
-					`/posts/variants/${variant.id}/reviews/decision`,
+					`/posts/variants/${variantId}/reviews/decision`,
 					{
 						method: "POST",
 						body: {
@@ -1512,25 +1916,25 @@ export function DashboardNewPost() {
 				);
 			} else if (action === "schedule") {
 				await customerRequest(
-					`/posts/variants/${variant.id}/publication/schedule`,
+					`/posts/variants/${variantId}/publication/schedule`,
 					{
 						method: "POST",
 						body: {
-							plannedAt: variant.latestPublication?.plannedAt,
+							plannedAt: latestPlannedAt,
 							source: "manual",
 						},
 					},
 				);
 			} else if (action === "unschedule") {
 				await customerRequest(
-					`/posts/variants/${variant.id}/publication/unschedule`,
+					`/posts/variants/${variantId}/publication/unschedule`,
 					{
 						method: "POST",
 					},
 				);
 			} else {
 				await customerRequest(
-					`/posts/variants/${variant.id}/publication/record-published`,
+					`/posts/variants/${variantId}/publication/record-published`,
 					{ method: "POST" },
 				);
 			}
@@ -1540,6 +1944,117 @@ export function DashboardNewPost() {
 				actionError instanceof Error
 					? actionError.message
 					: "Unable to update this variant.",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	async function runBulkAction(action: BulkActionSummary["action"]) {
+		setBulkActionSummary(null);
+		setError(null);
+		const executable =
+			action === "submit"
+				? destinationViews.filter(
+						(destination) => destination.target && destination.variant,
+					)
+				: [...readyDestinations, ...attentionDestinations];
+		if (executable.length === 0) {
+			setError(
+				action === "submit"
+					? "No connected destination is ready to submit."
+					: "No eligible destinations are ready for this action.",
+			);
+			return;
+		}
+		const bulkPlannedAt = buildBulkPlannedAt(bulkScheduleDate, bulkScheduleTime);
+		if (action === "schedule" && !bulkPlannedAt) {
+			setError("Choose a date and time before scheduling.");
+			return;
+		}
+
+		setSaving(true);
+		try {
+			const persisted = await persistDraft(activeTab || "shared");
+			if (!persisted) {
+				return;
+			}
+
+			const summary: BulkActionSummary = {
+				action,
+				succeeded: [],
+				skipped: [],
+				failed: [],
+			};
+
+			for (const destination of executable) {
+				const savedVariant = persisted.savedVariantsByPlatform.get(
+					destination.platform,
+				);
+				if (!savedVariant?.id) {
+					summary.failed.push({
+						platform: destination.platform,
+						detail: "Variant could not be saved for execution.",
+					});
+					continue;
+				}
+				try {
+					if (action === "publish") {
+						await customerRequest(`/social/variants/${savedVariant.id}/publish`, {
+							method: "POST",
+							body: { source: "social_api" },
+						});
+					} else if (action === "schedule") {
+						await customerRequest(
+							`/posts/variants/${savedVariant.id}/publication/schedule`,
+							{
+								method: "POST",
+								body: { plannedAt: bulkPlannedAt, source: "manual" },
+							},
+						);
+					} else {
+						await customerRequest(`/posts/variants/${savedVariant.id}/reviews/submit`, {
+							method: "POST",
+							body: { comment: "" },
+						});
+					}
+					summary.succeeded.push({
+						platform: destination.platform,
+						detail:
+							action === "publish"
+								? "Queued for direct publish."
+								: action === "schedule"
+									? "Scheduled successfully."
+									: "Submitted for review.",
+					});
+				} catch (actionError) {
+					summary.failed.push({
+						platform: destination.platform,
+						detail:
+							actionError instanceof Error
+								? actionError.message
+								: "This destination could not be processed.",
+					});
+				}
+			}
+
+			if (action !== "submit") {
+				for (const destination of [...blockedDestinations, ...notConnectedDestinations]) {
+					summary.skipped.push({
+						platform: destination.platform,
+						detail: destination.summary,
+					});
+				}
+			}
+
+			setBulkActionSummary(summary);
+			await loadEditor(persisted.postId, activeTab || "shared");
+			toast.success(
+				action === "publish"
+					? "Bulk publish finished."
+					: action === "schedule"
+						? "Bulk schedule finished."
+						: "Submitted for review.",
 			);
 		} finally {
 			setSaving(false);
@@ -1701,6 +2216,38 @@ export function DashboardNewPost() {
 		setPlannedTime(platform, { hour12, minute, meridiem: draft.meridiem });
 	}
 
+	function updateBulkScheduleTime(patch: Partial<PlannedTimeDraft>) {
+		setBulkScheduleTime((current) => ({
+			...current,
+			...patch,
+		}));
+	}
+
+	function commitBulkScheduleTime() {
+		setBulkScheduleTime((current) => {
+			const hourValue = current.hour === "" ? DEFAULT_HOUR : Number(current.hour);
+			const minuteValue =
+				current.minute === "" ? DEFAULT_MINUTE : Number(current.minute);
+			return {
+				hour: padNumber(
+					clamp(
+						Number.isFinite(hourValue) ? hourValue : DEFAULT_HOUR,
+						1,
+						12,
+					),
+				),
+				minute: padNumber(
+					clamp(
+						Number.isFinite(minuteValue) ? minuteValue : DEFAULT_MINUTE,
+						0,
+						59,
+					),
+				),
+				meridiem: current.meridiem,
+			};
+		});
+	}
+
 	function updateThreadItem(platform: string, index: number, value: string) {
 		const variant = variants.find((entry) => entry.platform === platform);
 		if (!variant) {
@@ -1712,6 +2259,851 @@ export function DashboardNewPost() {
 			content: { ...variant.content, threadItems: next },
 		});
 	}
+
+	const bulkEligibleCount =
+		readyDestinations.length + attentionDestinations.length;
+	const primaryActionLabel = canPublish ? "Publish now" : "Submit for review";
+	const primaryActionDescription = canPublish
+		? bulkEligibleCount === 0
+			? "No connected destinations are eligible yet."
+			: `${bulkEligibleCount} eligible destination${bulkEligibleCount === 1 ? "" : "s"} will go out together.`
+		: bulkEligibleCount === 0
+			? "No connected destinations are ready to send for review yet."
+			: `${bulkEligibleCount} destination${bulkEligibleCount === 1 ? "" : "s"} will move into review together.`;
+	const selectedDestinationAssets = selectedSnapshot?.effectiveAssets ?? [];
+	const selectedDestinationContent =
+		selectedVariant && selectedSnapshot
+			? selectedVariant.contentMode === "custom"
+				? selectedVariant.content
+				: contentFromSnapshot(selectedSnapshot)
+			: null;
+
+	function renderDestinationStatusIcon(status: DestinationStatus) {
+		if (status === "ready") {
+			return <CircleCheckBig className="size-4 text-emerald-600" />;
+		}
+		if (status === "attention") {
+			return <CircleAlert className="size-4 text-amber-600" />;
+		}
+		if (status === "blocked") {
+			return <CircleSlash className="size-4 text-rose-600" />;
+		}
+		return <CircleSlash className="size-4 text-slate-500" />;
+	}
+
+	return (
+		<>
+			<AdminFormPage
+				eyebrow="Compose"
+				title={
+					isEditMode
+						? "Publish everywhere from one composer"
+						: "Create once, publish everywhere"
+				}
+				description="Build the shared post first, then let Heimdall fan it out to every connected destination that can support it."
+				actions={
+					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}>
+								<ArrowLeft className="size-4" />
+								Back
+							</Link>
+						</Button>
+					</>
+				}
+				aside={
+					<div className="dashboard-page-stack space-y-6 xl:sticky xl:self-start dashboard-sticky-rail">
+						<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-gradient-to-br from-white via-white to-orange-50/70 p-5">
+							<div>
+								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+									Command deck
+								</div>
+								<div className="mt-2 text-2xl font-semibold">
+									{title.trim() || "Untitled post"}
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									{primaryActionDescription}
+								</div>
+							</div>
+							<div className="grid grid-cols-2 gap-3">
+								<div className="rounded-[20px] border border-emerald-200/70 bg-emerald-50/80 p-4">
+									<div className="text-xs uppercase tracking-[0.2em] text-emerald-700">
+										Ready
+									</div>
+									<div className="mt-2 text-3xl font-semibold text-emerald-900">
+										{readyDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[20px] border border-amber-200/70 bg-amber-50/80 p-4">
+									<div className="text-xs uppercase tracking-[0.2em] text-amber-700">
+										Attention
+									</div>
+									<div className="mt-2 text-3xl font-semibold text-amber-900">
+										{attentionDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[20px] border border-rose-200/70 bg-rose-50/80 p-4">
+									<div className="text-xs uppercase tracking-[0.2em] text-rose-700">
+										Blocked
+									</div>
+									<div className="mt-2 text-3xl font-semibold text-rose-900">
+										{blockedDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[20px] border border-slate-200/70 bg-slate-50/80 p-4">
+									<div className="text-xs uppercase tracking-[0.2em] text-slate-600">
+										Not connected
+									</div>
+									<div className="mt-2 text-3xl font-semibold text-slate-900">
+										{notConnectedDestinations.length}
+									</div>
+								</div>
+							</div>
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
+								<div className="text-sm font-medium">Shared preview</div>
+								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
+									{renderContentPreview(
+										sharedDraft.kind,
+										buildContentPayload(sharedDraft),
+									)}
+								</pre>
+								<div className="mt-4">
+									<TagBadgeRow tags={sharedDraft.tags} />
+								</div>
+							</div>
+							{bulkActionSummary ? (
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4 text-sm text-muted-foreground">
+									<div className="font-medium text-foreground">
+										Latest bulk action
+									</div>
+									<div className="mt-2">
+										{bulkActionSummary.succeeded.length} succeeded,{" "}
+										{bulkActionSummary.skipped.length} skipped,{" "}
+										{bulkActionSummary.failed.length} failed.
+									</div>
+								</div>
+							) : null}
+						</SurfaceCard>
+					</div>
+				}
+			>
+				<div className="dashboard-page-stack space-y-6 pb-32">
+					{error ? (
+						<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
+							{error}
+						</SurfaceCard>
+					) : null}
+					{dataWarning ? (
+						<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-amber-500/20 bg-amber-500/10 text-sm text-amber-700">
+							<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+							<div>{dataWarning}</div>
+						</SurfaceCard>
+					) : null}
+
+					<SurfaceCard className="space-y-6 border-[var(--brand-border-soft)] bg-gradient-to-br from-white via-white to-orange-50/60 p-6">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+									Unified composer
+								</div>
+								<div className="mt-2 text-2xl font-semibold">
+									Compose the source once
+								</div>
+								<div className="mt-1 text-sm text-muted-foreground">
+									Every healthy selected destination is included by default.
+								</div>
+							</div>
+							<Badge variant="outline" className="rounded-full px-3 py-1">
+								{bulkEligibleCount} included by default
+							</Badge>
+						</div>
+
+						<AdminFormGrid>
+							<AdminFormField>
+								<Label>Post title</Label>
+								<Input
+									value={title}
+									onChange={(event) => setTitle(event.target.value)}
+									className={adminInputClassName}
+									placeholder="Q2 product launch story"
+								/>
+							</AdminFormField>
+							<AdminFormField>
+								<Label>Campaign</Label>
+								<Select
+									value={campaignId || "none"}
+									onValueChange={(value) =>
+										setCampaignId(value === "none" ? "" : value)
+									}
+								>
+									<SelectTrigger className={adminSelectTriggerClassName}>
+										<SelectValue placeholder="No campaign" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">No campaign</SelectItem>
+										{campaigns.map((campaign) => (
+											<SelectItem key={campaign.id} value={campaign.id}>
+												{campaign.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</AdminFormField>
+						</AdminFormGrid>
+
+						<div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.95fr)]">
+							<div className="space-y-6">
+								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
+									<div className="flex flex-wrap items-center justify-between gap-3">
+										<div>
+											<div className="text-sm font-medium">Shared content</div>
+											<div className="text-sm text-muted-foreground">
+												This becomes the default for every destination.
+											</div>
+										</div>
+										<Select
+											value={sharedDraft.kind}
+											onValueChange={(value) =>
+												setSharedDraft(createDraftContent(value as ContentKind))
+											}
+										>
+											<SelectTrigger className="w-[170px] rounded-full">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="text">Text post</SelectItem>
+												<SelectItem value="article">Article</SelectItem>
+												<SelectItem value="thread">Thread</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+
+									{sharedDraft.kind === "article" ? (
+										<div className="space-y-4">
+											<Input
+												value={sharedDraft.articleTitle}
+												onChange={(event) =>
+													setSharedDraft({
+														...sharedDraft,
+														articleTitle: event.target.value,
+													})
+												}
+												className={adminInputClassName}
+												placeholder="Article headline"
+											/>
+											<Textarea
+												value={sharedDraft.articleBody}
+												onChange={(event) =>
+													setSharedDraft({
+														...sharedDraft,
+														articleBody: event.target.value,
+													})
+												}
+												className={longTextareaClassName}
+												placeholder="Write the long-form source version once."
+											/>
+										</div>
+									) : sharedDraft.kind === "thread" ? (
+										<div className="space-y-3">
+											{sharedDraft.threadItems.map((item, index) => (
+												<Textarea
+													key={`shared-thread-${index}`}
+													value={item}
+													onChange={(event) => {
+														const next = [...sharedDraft.threadItems];
+														next[index] = event.target.value;
+														setSharedDraft({
+															...sharedDraft,
+															threadItems: next,
+														});
+													}}
+													className={compactTextareaClassName}
+													placeholder={`Thread item ${index + 1}`}
+												/>
+											))}
+											<Button
+												type="button"
+												variant="outline"
+												className="rounded-full"
+												onClick={() =>
+													setSharedDraft({
+														...sharedDraft,
+														threadItems: [...sharedDraft.threadItems, ""],
+													})
+												}
+											>
+												<Plus className="size-4" />
+												Add thread item
+											</Button>
+										</div>
+									) : (
+										<Textarea
+											value={sharedDraft.textBody}
+											onChange={(event) =>
+												setSharedDraft({
+													...sharedDraft,
+													textBody: event.target.value,
+												})
+											}
+											className={longTextareaClassName}
+											placeholder="Write the master caption or body once."
+										/>
+									)}
+
+									<Textarea
+										value={sharedTagInput}
+										onChange={(event) => updateSharedTags(event.target.value)}
+										onBlur={() =>
+											setSharedTagInput(
+												formatTagsForEditor(sharedDraft.tags),
+											)
+										}
+										className={compactTextareaClassName}
+										placeholder="#launch, #product, #behindthescenes"
+									/>
+									<TagBadgeRow tags={sharedDraft.tags} />
+
+									<div className="flex flex-wrap items-center justify-between gap-3">
+										<div className="text-sm text-muted-foreground">
+											Shared assets travel with every inheriting destination.
+										</div>
+										<ResourcePicker
+											resources={resources}
+											resourceSets={resourceSets}
+											resolveResourceSetIds={resolveResourceSetIds}
+											value={rootAssetIds}
+											onChange={setRootAssetIds}
+											triggerLabel="Attach assets"
+										/>
+									</div>
+									<ResourceChipList
+										resources={rootAssets}
+										onRemove={(resourceId) =>
+											setRootAssetIds((current) =>
+												current.filter((item) => item !== resourceId),
+											)
+										}
+									/>
+								</SurfaceCard>
+
+								<details
+									open={showAdvanced}
+									onToggle={(event) =>
+										setShowAdvanced(event.currentTarget.open)
+									}
+									className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-5"
+								>
+									<summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+										<div>
+											<div className="text-sm font-medium">Advanced options</div>
+											<div className="text-sm text-muted-foreground">
+												Approval, notes, and AI help stay out of the main flow.
+											</div>
+										</div>
+										<Settings2 className="size-4 text-muted-foreground" />
+									</summary>
+									<div className="mt-5 space-y-4">
+										<Textarea
+											value={notes}
+											onChange={(event) => setNotes(event.target.value)}
+											className={mediumTextareaClassName}
+											placeholder="Internal notes"
+										/>
+										<div className="flex items-start justify-between gap-4 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+											<div>
+												<div className="text-sm font-medium">Approval gate</div>
+												<div className="text-sm text-muted-foreground">
+													Only enable this when a reviewer should stay in the loop.
+												</div>
+											</div>
+											<Switch
+												checked={requiresApproval}
+												onCheckedChange={setRequiresApproval}
+											/>
+										</div>
+										<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+											<div className="flex items-center justify-between gap-3">
+												<div className="text-sm font-medium">AI draft assist</div>
+												<Button
+													type="button"
+													variant="outline"
+													className="rounded-full"
+													onClick={generateAIDraft}
+													disabled={aiGenerating}
+												>
+													{aiGenerating ? (
+														<LoaderCircle className="size-4 animate-spin" />
+													) : (
+														<WandSparkles className="size-4" />
+													)}
+													Generate
+												</Button>
+											</div>
+											<Textarea
+												value={aiPrompt}
+												onChange={(event) => setAIPrompt(event.target.value)}
+												className={compactTextareaClassName}
+												placeholder="Describe what the post should do."
+											/>
+										</div>
+									</div>
+								</details>
+							</div>
+
+							<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
+								<div>
+									<div className="text-sm font-medium">Destinations</div>
+									<div className="text-sm text-muted-foreground">
+										Ready and warning-only destinations are included by default.
+									</div>
+								</div>
+								{[
+									{
+										label: "Ready",
+										items: readyDestinations,
+										tone: "border-emerald-200/70 bg-emerald-50/70",
+									},
+									{
+										label: "Needs attention",
+										items: attentionDestinations,
+										tone: "border-amber-200/70 bg-amber-50/70",
+									},
+									{
+										label: "Blocked",
+										items: blockedDestinations,
+										tone: "border-rose-200/70 bg-rose-50/70",
+									},
+									{
+										label: "Not connected",
+										items: notConnectedDestinations,
+										tone: "border-slate-200/70 bg-slate-50/70",
+									},
+								].map((group) => (
+									<div
+										key={group.label}
+										className={cn("rounded-[22px] border p-4", group.tone)}
+									>
+										<div className="flex items-center justify-between gap-3">
+											<div className="text-sm font-medium">{group.label}</div>
+											<Badge variant="secondary" className="rounded-full">
+												{group.items.length}
+											</Badge>
+										</div>
+										<div className="mt-3 grid gap-3">
+											{group.items.length > 0 ? (
+												group.items.map((destination) => (
+													<button
+														key={destination.platform}
+														type="button"
+														onClick={() => {
+															setActiveTab(destination.platform);
+															setSelectedDestinationPlatform(
+																destination.platform,
+															);
+														}}
+														className="flex w-full items-start justify-between gap-3 rounded-[20px] border border-white/80 bg-white/90 px-4 py-4 text-left transition hover:-translate-y-0.5"
+													>
+														<div className="flex min-w-0 items-start gap-3">
+															<div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+																{platformIcon(destination.platform)}
+															</div>
+															<div className="min-w-0">
+																<div className="font-medium">
+																	{destination.label}
+																</div>
+																<div className="mt-1 text-sm text-muted-foreground">
+																	{destination.summary}
+																</div>
+															</div>
+														</div>
+														<div className="flex items-center gap-2">
+															{renderDestinationStatusIcon(destination.status)}
+															<PanelRightOpen className="size-4 text-muted-foreground" />
+														</div>
+													</button>
+												))
+											) : (
+												<div className="rounded-[18px] border border-dashed border-[var(--brand-border-soft)] bg-background/70 px-4 py-5 text-sm text-muted-foreground">
+													No destinations here yet.
+												</div>
+											)}
+										</div>
+									</div>
+								))}
+							</SurfaceCard>
+						</div>
+					</SurfaceCard>
+
+					<div className="sticky bottom-4 z-20">
+						<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-4 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
+							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+								<div>
+									<div className="text-sm font-medium">{primaryActionLabel}</div>
+									<div className="text-sm text-muted-foreground">
+										{primaryActionDescription}
+									</div>
+								</div>
+								<div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+									<div className="flex flex-wrap items-center gap-3">
+										<Popover>
+											<PopoverTrigger asChild>
+												<Button type="button" variant="outline" className="rounded-full">
+													<CalendarDays className="size-4" />
+													{bulkScheduleDate
+														? bulkScheduleDate.toLocaleDateString()
+														: "Pick schedule date"}
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent className="w-auto p-0" align="end">
+												<Calendar
+													mode="single"
+													selected={bulkScheduleDate ?? undefined}
+													onSelect={(date) => setBulkScheduleDate(date ?? null)}
+												/>
+											</PopoverContent>
+										</Popover>
+										<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-2">
+											<Input
+												value={bulkScheduleTime.hour}
+												onChange={(event) =>
+													updateBulkScheduleTime({
+														hour: event.target.value,
+													})
+												}
+												onBlur={commitBulkScheduleTime}
+												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+											/>
+											<span className="text-muted-foreground">:</span>
+											<Input
+												value={bulkScheduleTime.minute}
+												onChange={(event) =>
+													updateBulkScheduleTime({
+														minute: event.target.value,
+													})
+												}
+												onBlur={commitBulkScheduleTime}
+												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+											/>
+											<Select
+												value={bulkScheduleTime.meridiem}
+												onValueChange={(value) =>
+													setBulkScheduleTime((current) => ({
+														...current,
+														meridiem: value as "AM" | "PM",
+													}))
+												}
+											>
+												<SelectTrigger className="h-8 w-[76px] rounded-full border-0 bg-muted/50 px-3 shadow-none">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="AM">AM</SelectItem>
+													<SelectItem value="PM">PM</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										<Button
+											type="button"
+											variant="outline"
+											className="rounded-full"
+											onClick={saveDraft}
+											disabled={saving || loading}
+										>
+											<Save className="size-4" />
+											Save draft
+										</Button>
+										{canPublish ? (
+											<Button
+												type="button"
+												variant="outline"
+												className="rounded-full"
+												onClick={() => runBulkAction("schedule")}
+												disabled={
+													saving ||
+													loading ||
+													!bulkScheduleDate ||
+													bulkEligibleCount === 0
+												}
+											>
+												<CalendarClock className="size-4" />
+												Schedule
+											</Button>
+										) : null}
+										<Button
+											type="button"
+											className="rounded-full"
+											onClick={() =>
+												runBulkAction(canPublish ? "publish" : "submit")
+											}
+											disabled={saving || loading || bulkEligibleCount === 0}
+										>
+											{canPublish ? (
+												<Send className="size-4" />
+											) : (
+												<CheckCircle2 className="size-4" />
+											)}
+											{primaryActionLabel}
+										</Button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</AdminFormPage>
+
+			<Sheet
+				open={Boolean(selectedDestinationPlatform)}
+				onOpenChange={(open) =>
+					setSelectedDestinationPlatform(open ? selectedDestinationPlatform : null)
+				}
+			>
+				<SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+					<SheetHeader>
+						<SheetTitle className="flex items-center gap-3">
+							{selectedDestination
+								? platformIcon(selectedDestination.platform)
+								: null}
+							<span>{selectedDestination?.label ?? "Destination details"}</span>
+						</SheetTitle>
+						<SheetDescription>
+							Keep the shared version by default, and only customize this destination when you need to.
+						</SheetDescription>
+					</SheetHeader>
+					{selectedDestination ? (
+						<div className="mt-6 space-y-5">
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
+								<div className="flex items-center gap-2 font-medium">
+									{renderDestinationStatusIcon(selectedDestination.status)}
+									<span>{selectedDestination.summary}</span>
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									{selectedDestination.target?.displayName ??
+										"No healthy selected target connected yet."}
+								</div>
+							</div>
+
+							{selectedDestination.warnings.map((warning) => (
+								<div
+									key={warning.code}
+									className="rounded-[20px] border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800"
+								>
+									{warning.message}
+								</div>
+							))}
+							{selectedDestination.blockers.map((blocker) => (
+								<div
+									key={blocker.code}
+									className="rounded-[20px] border border-rose-200/70 bg-rose-50/70 p-4 text-sm text-rose-800"
+								>
+									{blocker.message}
+								</div>
+							))}
+
+							{selectedVariant ? (
+								<>
+									<div className="grid gap-4 md:grid-cols-2">
+										<div className="space-y-2">
+											<Label>Surface</Label>
+											<Select
+												value={selectedVariant.surface}
+												onValueChange={(value) => {
+													const nextRule = findRule(
+														capabilities,
+														selectedVariant.platform,
+														value,
+													);
+													updateVariant(selectedVariant.platform, {
+														surface: value,
+														content: coerceDraftContentForRule(
+															selectedVariant.content,
+															nextRule,
+														),
+													});
+												}}
+											>
+												<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													{surfaceOptions(capabilities, selectedVariant.platform).map(
+														(option) => (
+															<SelectItem key={option.surface} value={option.surface}>
+																{formatSurfaceLabel(option)}
+															</SelectItem>
+														),
+													)}
+												</SelectContent>
+											</Select>
+										</div>
+										<div className="space-y-2">
+											<Label>Content mode</Label>
+											<Select
+												value={selectedVariant.contentMode}
+												onValueChange={(value) =>
+													updateVariant(selectedVariant.platform, {
+														contentMode: value as "inherit" | "custom",
+													})
+												}
+											>
+												<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="inherit">Use shared version</SelectItem>
+													<SelectItem value="custom">Customize here</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+									</div>
+
+									{selectedVariant.contentMode === "custom" ? (
+										selectedVariant.content.kind === "article" ? (
+											<div className="space-y-4">
+												<Input
+													value={selectedVariant.content.articleTitle}
+													onChange={(event) =>
+														updateVariant(selectedVariant.platform, {
+															content: {
+																...selectedVariant.content,
+																articleTitle: event.target.value,
+															},
+														})
+													}
+													className={adminInputClassName}
+												/>
+												<Textarea
+													value={selectedVariant.content.articleBody}
+													onChange={(event) =>
+														updateVariant(selectedVariant.platform, {
+															content: {
+																...selectedVariant.content,
+																articleBody: event.target.value,
+															},
+														})
+													}
+													className={mediumTextareaClassName}
+												/>
+											</div>
+										) : selectedVariant.content.kind === "thread" ? (
+											<div className="space-y-3">
+												{selectedVariant.content.threadItems.map((item, index) => (
+													<Textarea
+														key={`drawer-thread-${index}`}
+														value={item}
+														onChange={(event) =>
+															updateThreadItem(
+																selectedVariant.platform,
+																index,
+																event.target.value,
+															)
+														}
+														className={compactTextareaClassName}
+													/>
+												))}
+											</div>
+										) : (
+											<Textarea
+												value={selectedVariant.content.textBody}
+												onChange={(event) =>
+													updateVariant(selectedVariant.platform, {
+														content: {
+															...selectedVariant.content,
+															textBody: event.target.value,
+														},
+													})
+												}
+												className={mediumTextareaClassName}
+											/>
+										)
+									) : null}
+
+									<div className="space-y-2">
+										<Label>Asset mode</Label>
+										<Select
+											value={selectedVariant.assetMode}
+											onValueChange={(value) =>
+												updateVariant(selectedVariant.platform, {
+													assetMode: value as "inherit" | "replace",
+												})
+											}
+										>
+											<SelectTrigger className={adminSelectTriggerClassName}>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="inherit">Use shared assets</SelectItem>
+												<SelectItem value="replace">Replace for this destination</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+									{selectedVariant.assetMode === "replace" ? (
+										<ResourcePicker
+											resources={resources}
+											resourceSets={resourceSets}
+											resolveResourceSetIds={resolveResourceSetIds}
+											value={selectedVariant.assetIds}
+											onChange={(next) =>
+												updateVariant(selectedVariant.platform, {
+													assetIds: next,
+												})
+											}
+											triggerLabel="Choose override assets"
+										/>
+									) : null}
+									<ResourceChipList
+										resources={
+											selectedVariant.assetMode === "replace"
+												? selectedVariant.assetIds
+														.map((assetId) => resourcesById.get(assetId))
+														.filter(
+															(asset): asset is ResourceRecord => Boolean(asset),
+														)
+												: selectedDestinationAssets
+										}
+										onRemove={
+											selectedVariant.assetMode === "replace"
+												? (resourceId) =>
+														updateVariant(selectedVariant.platform, {
+															assetIds: selectedVariant.assetIds.filter(
+																(item) => item !== resourceId,
+															),
+														})
+												: undefined
+										}
+									/>
+									<Textarea
+										value={selectedVariant.notes}
+										onChange={(event) =>
+											updateVariant(selectedVariant.platform, {
+												notes: event.target.value,
+											})
+										}
+										className={compactTextareaClassName}
+										placeholder="Optional note for this destination"
+									/>
+								</>
+							) : null}
+
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
+								<div className="text-sm font-medium">Preview</div>
+								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
+									{selectedDestinationContent
+										? renderContentPreview(
+												selectedDestinationContent.kind,
+												buildContentPayload(selectedDestinationContent),
+											)
+										: "No destination preview yet."}
+								</pre>
+							</div>
+						</div>
+					) : null}
+				</SheetContent>
+			</Sheet>
+		</>
+	);
 
 	return (
 		<AdminFormPage
@@ -1927,9 +3319,9 @@ export function DashboardNewPost() {
 											</div>
 											{aiContext?.readiness ? (
 												<Badge variant="outline" className="rounded-full">
-													{aiContext.readiness.complete
+													{aiContext?.readiness.complete
 														? "Workspace intelligence ready"
-														: `Missing: ${aiContext.readiness.missing.join(", ")}`}
+														: `Missing: ${aiContext?.readiness.missing.join(", ")}`}
 												</Badge>
 											) : null}
 											{aiSettings?.fallbackPoolEnabled ? (
@@ -2048,9 +3440,9 @@ export function DashboardNewPost() {
 										) : null}
 										{lastAIDraft ? (
 											<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-												Generated with {lastAIDraft.provider} / {lastAIDraft.model}
-												{lastAIDraft.runEvent
-													? ` · run ${lastAIDraft.runEvent.id.slice(0, 8)}`
+												Generated with {lastAIDraft?.provider} / {lastAIDraft?.model}
+												{lastAIDraft?.runEvent
+													? ` · run ${lastAIDraft?.runEvent?.id?.slice(0, 8) ?? ""}`
 													: ""}
 											</div>
 										) : null}
