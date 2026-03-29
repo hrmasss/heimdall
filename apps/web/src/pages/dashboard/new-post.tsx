@@ -264,6 +264,16 @@ function hasMeaningfulDraftContent(content: DraftContent) {
 	return extractCaptionFromDraftContent(content).trim().length > 0;
 }
 
+function hasMeaningfulCustomContent(content: DraftContent) {
+	if (hasMeaningfulDraftContent(content)) {
+		return true;
+	}
+	if (content.tags.some((tag) => tag.trim().length > 0)) {
+		return true;
+	}
+	return false;
+}
+
 function preferredVariantModes(
 	sourceContent: DraftContent,
 	sourceAssets: ResourceRecord[],
@@ -1773,16 +1783,29 @@ export function DashboardNewPost() {
 					snapshot ? contentFromSnapshot(snapshot) : sharedDraft,
 					snapshot?.sourceAssets ?? rootAssets,
 				);
+				const shouldPromoteContentInheritance =
+					variant.contentMode === "custom" &&
+					normalizedModes.contentMode === "inherit" &&
+					!hasMeaningfulCustomContent(variant.content);
+				const shouldPromoteAssetInheritance =
+					variant.assetMode === "replace" &&
+					normalizedModes.assetMode === "inherit" &&
+					variant.assetIds.length === 0 &&
+					variant.removedInheritedResourceIds.length === 0;
 				const effectiveContentMode =
-					variant.contentMode === "inherit" &&
-					normalizedModes.contentMode === "custom"
-						? "custom"
-						: variant.contentMode;
+					shouldPromoteContentInheritance
+						? "inherit"
+						: variant.contentMode === "inherit" &&
+							  normalizedModes.contentMode === "custom"
+							? "custom"
+							: variant.contentMode;
 				const effectiveAssetMode =
-					variant.assetMode === "inherit" &&
-					normalizedModes.assetMode === "replace"
-						? "replace"
-						: variant.assetMode;
+					shouldPromoteAssetInheritance
+						? "inherit"
+						: variant.assetMode === "inherit" &&
+							  normalizedModes.assetMode === "replace"
+							? "replace"
+							: variant.assetMode;
 				const savedVariant = variant.id
 					? await customerRequest<PostVariant>(
 							`/posts/variants/${variant.id}`,
@@ -1823,7 +1846,8 @@ export function DashboardNewPost() {
 				await customerRequest(`/posts/variants/${savedVariant.id}/assets`, {
 					method: "PUT",
 					body: {
-						resourceIds: variant.assetIds,
+						resourceIds:
+							effectiveAssetMode === "inherit" ? [] : variant.assetIds,
 						assetMode: effectiveAssetMode,
 						removedInheritedResourceIds: variant.removedInheritedResourceIds,
 					},
