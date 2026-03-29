@@ -20,6 +20,13 @@ type metaAdapter struct {
 	cfg config.SocialConfig
 }
 
+var metaInstagramPublishRetryDelays = []time.Duration{
+	2 * time.Second,
+	4 * time.Second,
+	6 * time.Second,
+	8 * time.Second,
+}
+
 func newMetaAdapter(cfg config.SocialConfig) providerAdapter {
 	return &metaAdapter{cfg: cfg}
 }
@@ -393,19 +400,8 @@ func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSess
 	if err != nil {
 		return nil, err
 	}
-	values := url.Values{
-		"creation_id":  []string{creationID},
-		"access_token": []string{token},
-	}
-	resp, err := postForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s/media_publish", a.cfg.MetaAPIVersion, target.ExternalAccountID), values, nil)
+	publishResp, err := a.publishInstagramMedia(ctx, token, target.ExternalAccountID, creationID)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	var publishResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&publishResp); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(creationID) == "" || strings.TrimSpace(publishResp.ID) == "" {
@@ -420,6 +416,71 @@ func (a *metaAdapter) publishInstagram(ctx context.Context, session providerSess
 			"externalPostUrl": a.instagramPermalink(ctx, token, publishResp.ID),
 		},
 	}, nil
+}
+
+type instagramPublishResponse struct {
+	ID string `json:"id"`
+}
+
+func (a *metaAdapter) publishInstagramMedia(ctx context.Context, accessToken, accountID, creationID string) (*instagramPublishResponse, error) {
+	values := url.Values{
+		"creation_id":  []string{creationID},
+		"access_token": []string{accessToken},
+	}
+	endpoint := fmt.Sprintf("https://graph.facebook.com/%s/%s/media_publish", a.cfg.MetaAPIVersion, accountID)
+
+	delays := append([]time.Duration{0}, metaInstagramPublishRetryDelays...)
+	for attempt, delay := range delays {
+		if delay > 0 {
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return nil, err
+			}
+		}
+		resp, err := postForm(ctx, endpoint, values, nil)
+		if err != nil {
+			if isInstagramMediaNotReadyError(err) && attempt < len(delays)-1 {
+				continue
+			}
+			if isInstagramMediaNotReadyError(err) {
+				return nil, fmt.Errorf("meta instagram media was not ready for publishing after %d attempts: %w", len(delays), err)
+			}
+			return nil, err
+		}
+		var publishResp instagramPublishResponse
+		if err := json.NewDecoder(resp.Body).Decode(&publishResp); err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
+		resp.Body.Close()
+		return &publishResp, nil
+	}
+
+	return nil, fmt.Errorf("meta instagram publish did not complete")
+}
+
+func isInstagramMediaNotReadyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "media id is not available") ||
+		strings.Contains(message, "2207027") ||
+		(strings.Contains(message, "cannot publish") && strings.Contains(message, "not ready")) ||
+		(strings.Contains(message, "oauthexception") && strings.Contains(message, "9007"))
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (a *metaAdapter) targetAccessToken(target database.SocialTarget, fallback string) string {
