@@ -18,6 +18,7 @@ import {
 	SurfaceCard,
 } from "@/components/app/brand";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { usePublicAuthRedirect } from "@/components/auth/public-auth-redirect";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 	const isSignup = mode === "signup";
 	const navigate = useNavigate();
 	const { signInCustomer, signUpCustomer } = useAuth();
+	const { bootstrapping, redirecting } = usePublicAuthRedirect("customer");
 	const formId = `${mode}-form`;
 	const nameFieldId = `${mode}-name`;
 	const workspaceFieldId = `${mode}-workspace`;
@@ -113,6 +115,10 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 		}
 		setWorkspaceName(defaultWorkspaceName(fullName));
 	}, [fullName, isSignup, workspaceNameTouched]);
+
+	if (bootstrapping || redirecting) {
+		return <div className="min-h-screen bg-background" />;
+	}
 
 	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
