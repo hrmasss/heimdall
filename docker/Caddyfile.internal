@@ -20,6 +20,7 @@ http://app.heimdall.social {
 
 	header {
 		Cache-Control "no-store, max-age=0"
+		Clear-Site-Data "\"cache\""
 	}
 
 	@app_static {
@@ -44,6 +45,7 @@ http://heimdall.social, http://www.heimdall.social {
 
 	header {
 		Cache-Control "no-store, max-age=0"
+		Clear-Site-Data "\"cache\""
 	}
 
 	@marketing_static {
