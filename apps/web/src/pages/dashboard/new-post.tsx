@@ -1779,9 +1779,17 @@ export function DashboardNewPost() {
 			});
 			for (const variant of variants) {
 				const snapshot = snapshots.get(variant.platform);
+				const inheritanceSourceContent =
+					variant.inheritSource === "shared" || !snapshot
+						? sharedDraft
+						: contentFromSnapshot(snapshot);
+				const inheritanceSourceAssets =
+					variant.inheritSource === "shared" || !snapshot
+						? rootAssets
+						: snapshot.sourceAssets;
 				const normalizedModes = preferredVariantModes(
-					snapshot ? contentFromSnapshot(snapshot) : sharedDraft,
-					snapshot?.sourceAssets ?? rootAssets,
+					inheritanceSourceContent,
+					inheritanceSourceAssets,
 				);
 				const shouldPromoteContentInheritance =
 					variant.contentMode === "custom" &&
