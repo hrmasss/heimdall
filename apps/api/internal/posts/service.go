@@ -1111,8 +1111,8 @@ func (s *Service) buildHydratedVariant(
 		Surface:                     variantRecord.Surface,
 		InheritSource:               variantRecord.InheritSource,
 		ContentMode:                 variantRecord.ContentMode,
-		ContentKind:                 derefString(variantRecord.ContentKind),
-		ContentPayload:              parseMetadata(variantRecord.ContentPayload),
+		ContentKind:                 resolved.contentKind,
+		ContentPayload:              cloneContentPayload(resolved.contentPayload),
 		AssetMode:                   variantRecord.AssetMode,
 		RemovedInheritedResourceIDs: ensureStringSlice(resolutionContext.removedByVariant[variantRecord.ID.String()]),
 		Assets:                      ensureResourceItems(resolutionContext.variantAssets[variantRecord.ID.String()]),
@@ -2830,6 +2830,21 @@ func parseMetadata(payload string) map[string]any {
 	metadata := map[string]any{}
 	_ = json.Unmarshal([]byte(payload), &metadata)
 	return metadata
+}
+
+func cloneContentPayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return map[string]any{}
+	}
+	cloned := map[string]any{}
+	if err := json.Unmarshal(encoded, &cloned); err != nil {
+		return map[string]any{}
+	}
+	return cloned
 }
 
 func publicationExternalPostURL(record database.PostVariantPublication) string {
