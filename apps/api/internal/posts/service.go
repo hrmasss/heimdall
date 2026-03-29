@@ -1221,7 +1221,8 @@ func (s *Service) hydratePostDetails(ctx context.Context, principal *iam.Princip
 	if err != nil {
 		return nil, err
 	}
-	canSelfPublish := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish") == nil
+	_, publishPermissionErr := s.authorizer.RequireWorkspacePermission(ctx, principal, workspaceID, "content.posts.publish")
+	canSelfPublish := publishPermissionErr == nil
 
 	postIDs := make([]uuid.UUID, 0, len(posts))
 	campaignIDs := make([]uuid.UUID, 0, len(posts))
