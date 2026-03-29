@@ -18,6 +18,15 @@ http://app.heimdall.social {
 	}
 	redir @app_marketing https://heimdall.social{uri} 302
 
+	header {
+		Cache-Control "no-store, max-age=0"
+	}
+
+	@app_static {
+		path /assets/* /branding/*
+	}
+	header @app_static Cache-Control "public, max-age=31536000, immutable"
+
 	root * /srv/heimdall/web/dist
 	try_files {path} {path}/ /index.html
 	file_server
@@ -32,6 +41,15 @@ http://heimdall.social, http://www.heimdall.social {
 	@marketing_home {
 		path /
 	}
+
+	header {
+		Cache-Control "no-store, max-age=0"
+	}
+
+	@marketing_static {
+		path /assets/* /branding/*
+	}
+	header @marketing_static Cache-Control "public, max-age=31536000, immutable"
 
 	root * /srv/heimdall/web/dist
 	rewrite @marketing_home /home/
