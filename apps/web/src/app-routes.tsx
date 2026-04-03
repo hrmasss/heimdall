@@ -40,6 +40,11 @@ const DashboardOnboarding = lazy(async () =>
 		default: module.DashboardOnboardingPage,
 	})),
 );
+const DashboardSetup = lazy(async () =>
+	import("@/pages/dashboard/setup").then((module) => ({
+		default: module.DashboardSetupPage,
+	})),
+);
 const DashboardPosts = lazy(async () =>
 	import("@/pages/dashboard/posts").then((module) => ({
 		default: module.DashboardPosts,
@@ -297,6 +302,7 @@ export function AppRoutes() {
 					>
 						<Route index element={<DashboardOverview />} />
 						<Route path="onboarding" element={<DashboardOnboarding />} />
+						<Route path="setup" element={<DashboardSetup />} />
 						<Route path="campaigns" element={<DashboardCampaigns />} />
 						<Route path="campaigns/new" element={<DashboardCampaignForm />} />
 						<Route path="campaigns/:id" element={<DashboardCampaignDetail />} />

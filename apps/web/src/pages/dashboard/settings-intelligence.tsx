@@ -1,5 +1,6 @@
 import {
 	AlertTriangle,
+	ArrowLeft,
 	ArrowRight,
 	BrainCircuit,
 	CheckCircle2,
@@ -9,7 +10,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { SurfaceCard } from "@/components/app/brand";
@@ -175,8 +176,6 @@ function normalizeCapabilityDefaults(
 }
 
 export function DashboardSettingsIntelligencePage() {
-	const [searchParams] = useSearchParams();
-	const onboardingMode = searchParams.get("onboarding") === "1";
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [activeTab, setActiveTab] = useState("business");
 	const [loading, setLoading] = useState(true);
@@ -473,24 +472,25 @@ export function DashboardSettingsIntelligencePage() {
 			<DashboardPageHeader
 				eyebrow="Workspace Intelligence"
 				title="Intelligence"
-				description="Give Heimdall the shortest possible set of facts that actually changes AI decisions: what the business does, what the brand should look like, and how the workspace can access AI."
+				description="Start with business context and AI access. Brand guidance and prompt policy stay available, but they do not need to crowd the first usable setup path."
 				actions={
-					onboardingMode ? (
-						<>
-							<Button variant="outline" className="rounded-full" asChild>
-								<Link to="/dashboard">Skip for now</Link>
-							</Button>
-							<Button
-								className="rounded-full border-0 bg-gradient-brand text-white"
-								asChild
-							>
-								<Link to="/dashboard/posts/new">
-									Try AI post draft
-									<ArrowRight className="size-4" />
-								</Link>
-							</Button>
-						</>
-					) : undefined
+					<>
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link to="/dashboard/settings">
+								<ArrowLeft className="size-4" />
+								Back to settings
+							</Link>
+						</Button>
+						<Button
+							className="rounded-full border-0 bg-gradient-brand text-white"
+							asChild
+						>
+							<Link to="/dashboard/setup">
+								Guided setup
+								<ArrowRight className="size-4" />
+							</Link>
+						</Button>
+					</>
 				}
 			/>
 
@@ -506,12 +506,12 @@ export function DashboardSettingsIntelligencePage() {
 								)}
 								Setup readiness
 							</div>
-							<div className="text-sm text-muted-foreground">
-								{context.readiness.complete
-									? "Business context and AI access are in place. Brand guidance can keep improving results, especially for image and reel workflows."
-									: `Still missing: ${context.readiness.missing.join(", ")}.`}
-							</div>
+						<div className="text-sm text-muted-foreground">
+							{context.readiness.complete
+								? "Business context and AI access are in place. Brand guidance and prompt policy can keep improving output later, especially for image and reel workflows."
+								: `Still missing from the basics: ${context.readiness.missing.join(", ")}.`}
 						</div>
+					</div>
 						<div className="flex flex-wrap gap-2">
 							<Badge variant="outline" className="rounded-full">
 								Business{" "}
@@ -541,15 +541,15 @@ export function DashboardSettingsIntelligencePage() {
 				>
 					<TabsTrigger value="business" className="rounded-[18px] px-4 py-3">
 						<BrainCircuit className="size-4" />
-						Business Context
+						Basics
 					</TabsTrigger>
 					<TabsTrigger value="brand" className="rounded-[18px] px-4 py-3">
 						<Palette className="size-4" />
-						Brand System
+						Brand Guidance
 					</TabsTrigger>
 					<TabsTrigger value="access" className="rounded-[18px] px-4 py-3">
 						<KeyRound className="size-4" />
-						AI Access
+						Advanced AI
 					</TabsTrigger>
 					<TabsTrigger value="prompts" className="rounded-[18px] px-4 py-3">
 						<Sparkles className="size-4" />
@@ -559,8 +559,8 @@ export function DashboardSettingsIntelligencePage() {
 
 				<TabsContent value="business" className="mt-5">
 					<DashboardPanel
-						title="Business context"
-						description="Write the business in natural language, then tighten the extracted facts so they stay compact and decision-relevant."
+						title="Basics"
+						description="Start with the minimum intelligence inputs that materially improve output: what the business does and the facts Heimdall should keep in mind."
 						action={
 							<Button
 								className="rounded-full border-0 bg-gradient-brand text-white"
@@ -839,8 +839,8 @@ export function DashboardSettingsIntelligencePage() {
 
 				<TabsContent value="brand" className="mt-5">
 					<DashboardPanel
-						title="Brand system"
-						description="Capture visual identity in a form AI can use later for posts, images, reels, and campaign materials."
+						title="Brand guidance"
+						description="Optional visual direction for posts, images, reels, and campaign materials. Add this when you want output to feel more on-brand."
 						action={
 							<Button
 								className="rounded-full border-0 bg-gradient-brand text-white"
@@ -1016,8 +1016,8 @@ export function DashboardSettingsIntelligencePage() {
 
 				<TabsContent value="access" className="mt-5">
 					<DashboardPanel
-						title="AI access"
-						description="Choose whether the workspace runs on Heimdall-managed AI or on its own provider keys. Models stay server-approved either way."
+						title="Advanced AI access"
+						description="Control access mode, model defaults, and provider keys. Heimdall-managed AI stays the fastest path; bring-your-own-key and model routing live here when you need them."
 						action={
 							<Button
 								className="rounded-full border-0 bg-gradient-brand text-white"

@@ -1,6 +1,7 @@
 const dashboardLabels: Record<string, string> = {
 	"/dashboard": "Overview",
 	"/dashboard/onboarding": "Create workspace",
+	"/dashboard/setup": "Setup",
 	"/dashboard/campaigns": "Campaigns",
 	"/dashboard/campaigns/new": "Create campaign",
 	"/dashboard/posts": "Posts",

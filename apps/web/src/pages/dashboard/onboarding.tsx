@@ -63,7 +63,7 @@ export function DashboardOnboardingPage() {
 				workspaceId: null,
 			});
 			await reloadCustomerSession();
-			navigate("/dashboard/settings/intelligence?onboarding=1", {
+			navigate("/dashboard/setup", {
 				replace: true,
 			});
 		} catch (submitError) {
@@ -115,8 +115,8 @@ export function DashboardOnboardingPage() {
 								What happens next
 							</div>
 							<div className="mt-2">
-								You become the first workspace owner and the dashboard will
-								switch into the normal workspace-scoped experience.
+								You become the first workspace owner and continue into the
+								guided setup flow for publishing and intelligence basics.
 							</div>
 						</div>
 						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
