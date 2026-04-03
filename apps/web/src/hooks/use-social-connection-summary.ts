@@ -8,6 +8,7 @@ import {
 } from "@/lib/social-connections";
 
 type UseSocialConnectionSummaryResult = {
+	hydrated: boolean;
 	loading: boolean;
 	error: string | null;
 	summary: SocialConnectionSummary;
@@ -18,7 +19,7 @@ export function useSocialConnectionSummary(): UseSocialConnectionSummaryResult {
 	const [response, setResponse] = useState<SocialConnectionsResponse | null>(
 		null,
 	);
-	const [loading, setLoading] = useState(false);
+	const [loading, setLoading] = useState(Boolean(activeWorkspaceId));
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -67,5 +68,7 @@ export function useSocialConnectionSummary(): UseSocialConnectionSummaryResult {
 		[response],
 	);
 
-	return { loading, error, summary };
+	const hydrated = !activeWorkspaceId || Boolean(response || error);
+
+	return { hydrated, loading, error, summary };
 }

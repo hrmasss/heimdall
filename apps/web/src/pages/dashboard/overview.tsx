@@ -102,8 +102,12 @@ const riskItems = [
 ];
 
 export function DashboardOverview() {
-	const { loading: loadingConnections, summary } = useSocialConnectionSummary();
-	const setupNeeded = !summary.hasHealthySelectedTarget;
+	const {
+		hydrated: socialHydrated,
+		loading: loadingConnections,
+		summary,
+	} = useSocialConnectionSummary();
+	const setupNeeded = socialHydrated && !summary.hasHealthySelectedTarget;
 
 	return (
 		<div className="dashboard-page-stack space-y-6">
@@ -148,12 +152,16 @@ export function DashboardOverview() {
 				<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 					<div className="space-y-2">
 						<div className="text-lg font-medium">
-							{setupNeeded
+							{!socialHydrated
+								? "Checking workspace publishing health."
+								: setupNeeded
 								? "Connect platforms before your team starts scheduling and publishing."
 								: "Platform connections are ready for day-to-day publishing."}
 						</div>
 						<div className="max-w-3xl text-sm text-muted-foreground">
-							{setupNeeded
+							{!socialHydrated
+								? "Loading connected providers and selected publishing destinations for this workspace."
+								: setupNeeded
 								? "Planning and approvals already work without this, but connecting platforms unlocks posting on behalf of the workspace, scheduling into real channels, validation, and smoother operational follow-through."
 								: loadingConnections
 									? "Refreshing workspace publishing health."
@@ -164,13 +172,13 @@ export function DashboardOverview() {
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<span className="pill pill-info">
-							{loadingConnections
+							{!socialHydrated || loadingConnections
 								? "Checking connection health..."
 								: `${summary.healthyConnectionCount} healthy connection${summary.healthyConnectionCount === 1 ? "" : "s"}`}
 						</span>
 						<span className="pill pill-muted">
-							{summary.selectedTargetCount} selected target
-							{summary.selectedTargetCount === 1 ? "" : "s"}
+							{socialHydrated ? summary.selectedTargetCount : "—"} selected target
+							{socialHydrated && summary.selectedTargetCount === 1 ? "" : "s"}
 						</span>
 					</div>
 				</div>

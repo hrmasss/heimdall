@@ -14,6 +14,7 @@ import {
 } from "@/lib/workspace-setup";
 
 type WorkspaceSetupReadinessResult = {
+	hydrated: boolean;
 	loading: boolean;
 	error: string | null;
 	workspace: WorkspaceSummary | null;
@@ -28,7 +29,7 @@ export function useWorkspaceSetupReadiness(): WorkspaceSetupReadinessResult {
 	const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
 	const [context, setContext] = useState<WorkspaceContextResponse | null>(null);
 	const [social, setSocial] = useState<SocialConnectionsResponse | null>(null);
-	const [loading, setLoading] = useState(false);
+	const [loading, setLoading] = useState(Boolean(activeWorkspaceId));
 	const [error, setError] = useState<string | null>(null);
 
 	const reload = useCallback(async () => {
@@ -71,6 +72,9 @@ export function useWorkspaceSetupReadiness(): WorkspaceSetupReadinessResult {
 	}, [reload]);
 
 	const readiness = useMemo(() => {
+		if (!activeWorkspaceId) {
+			return createEmptySetupReadiness();
+		}
 		if (!workspace && !context && !social) {
 			return createEmptySetupReadiness();
 		}
@@ -79,7 +83,18 @@ export function useWorkspaceSetupReadiness(): WorkspaceSetupReadinessResult {
 			context,
 			summary: summarizeSocialConnections(social),
 		});
-	}, [context, social, workspace]);
+	}, [activeWorkspaceId, context, social, workspace]);
 
-	return { loading, error, workspace, context, social, readiness, reload };
+	const hydrated = !activeWorkspaceId || Boolean(workspace || context || social || error);
+
+	return {
+		hydrated,
+		loading,
+		error,
+		workspace,
+		context,
+		social,
+		readiness,
+		reload,
+	};
 }

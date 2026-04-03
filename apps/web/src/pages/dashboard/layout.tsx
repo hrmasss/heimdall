@@ -550,7 +550,7 @@ export function DashboardLayout() {
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
 	const location = useLocation();
-	const { readiness } = useWorkspaceSetupReadiness();
+	const { hydrated, readiness } = useWorkspaceSetupReadiness();
 	const {
 		customerSession,
 		activeWorkspaceId,
@@ -611,7 +611,8 @@ export function DashboardLayout() {
 											{activeWorkspaceMembership?.workspaceName ?? "workspace"}.
 										</div>
 									) : null}
-									{!readiness.complete &&
+									{hydrated &&
+									!readiness.complete &&
 									!setupBannerDismissed &&
 									location.pathname !== "/dashboard/setup" ? (
 										<div className="dashboard-notice mb-4 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-800 dark:text-sky-200">
