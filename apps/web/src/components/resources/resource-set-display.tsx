@@ -35,7 +35,7 @@ function capitalize(value: string) {
 
 function SetPlaceholder({ compact = false }: { compact?: boolean }) {
 	return (
-		<div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(183,118,79,0.16),transparent_55%),linear-gradient(180deg,#171311,#0d0b0a)]">
+		<div className="media-thumb-fallback flex h-full w-full items-center justify-center">
 			<div className="flex flex-col items-center gap-3 text-white/90">
 				<div className="flex size-12 items-center justify-center rounded-2xl border border-white/12 bg-white/10">
 					<Images className="size-5" />
@@ -72,7 +72,7 @@ export function ResourceSetCover({
 					variant={compact ? "compact" : "minimal"}
 					className="h-full w-full"
 				/>
-				<div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(12,8,6,0.32)_70%,rgba(12,8,6,0.55))]" />
+				<div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(12,8,6,0.24)_70%,rgba(12,8,6,0.5))]" />
 				<div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
 					<Badge
 						variant="outline"

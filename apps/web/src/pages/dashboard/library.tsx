@@ -60,10 +60,11 @@ import type {
 } from "@/lib/api-types";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { useAuth } from "@/lib/auth-context";
+import {
+	MAX_CLIENT_UPLOAD_BYTES,
+	isSupportedResourceFile,
+} from "@/lib/resource-upload";
 import { cn } from "@/lib/utils";
-
-const MAX_CLIENT_UPLOAD_BYTES = 1024 * 1024 * 512;
-const documentExtensions = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx"]);
 
 type UploadQueueItem = {
 	id: string;
@@ -78,15 +79,8 @@ type LibraryMode = "resources" | "sets";
 
 const LIBRARY_MODE_STORAGE_KEY = "dashboard-library-mode";
 
-function getFileExtension(name: string) {
-	return name.slice(name.lastIndexOf(".")).toLowerCase();
-}
-
 function isSupportedFile(file: File) {
-	if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
-		return true;
-	}
-	return documentExtensions.has(getFileExtension(file.name));
+	return isSupportedResourceFile(file);
 }
 
 function getResourceHealth(resource: ResourceRecord) {
@@ -108,9 +102,11 @@ function QueueStatusBadge({ item }: { item: UploadQueueItem }) {
 			variant="outline"
 			className={cn(
 				"rounded-full capitalize",
-				item.status === "done" && "border-emerald-500/25 text-emerald-600",
+				item.status === "done" &&
+					"border-emerald-500/25 text-emerald-600 dark:text-emerald-300",
 				item.status === "uploading" && "border-primary/25 text-primary",
-				item.status === "error" && "border-red-500/25 text-red-600",
+				item.status === "error" &&
+					"border-red-500/25 text-red-600 dark:text-red-300",
 			)}
 		>
 			{item.status}
@@ -1035,7 +1031,7 @@ export function DashboardLibrary() {
 				</SurfaceCard>
 			) : null}
 			{notice ? (
-				<SurfaceCard className="dashboard-card-sm border border-emerald-500/20 bg-emerald-500/10 text-sm text-emerald-700">
+				<SurfaceCard className="dashboard-card-sm border border-emerald-500/20 bg-emerald-500/10 text-sm text-emerald-700 dark:text-emerald-300">
 					{notice}
 				</SurfaceCard>
 			) : null}

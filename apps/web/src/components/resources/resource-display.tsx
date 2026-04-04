@@ -18,6 +18,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useResourcePreviewUrl } from "@/hooks/use-resource-preview-url";
 import type { ResourceRecord } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
@@ -200,7 +201,7 @@ function DocumentPoster({
 	return (
 		<div
 			className={cn(
-				"relative flex h-full w-full overflow-hidden rounded-[inherit] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(183,118,79,0.2),transparent_55%),linear-gradient(180deg,#1d1a18,#0d0b0a)] text-white",
+				"media-poster-surface relative flex h-full w-full overflow-hidden rounded-[inherit] border text-white",
 				className,
 			)}
 		>
@@ -254,6 +255,7 @@ function PdfPagePreview({
 	pageClassName,
 	width = 360,
 	minimal = false,
+	onLoadError,
 }: {
 	file: string;
 	pageNumber?: number;
@@ -265,6 +267,7 @@ function PdfPagePreview({
 	pageClassName?: string;
 	width?: number;
 	minimal?: boolean;
+	onLoadError?: () => void;
 }) {
 	const isClient = useClientReady();
 
@@ -300,6 +303,7 @@ function PdfPagePreview({
 					loading={null}
 					error={null}
 					noData={null}
+					onLoadError={onLoadError}
 					externalLinkTarget="_blank"
 				>
 					<Page
@@ -318,6 +322,51 @@ function PdfPagePreview({
 	);
 }
 
+function PreviewUnavailableState({
+	label,
+	description,
+	downloadUrl,
+	compact = false,
+	className,
+}: {
+	label: string;
+	description?: string;
+	downloadUrl?: string;
+	compact?: boolean;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"media-thumb-fallback flex h-full w-full flex-col items-center justify-center gap-3 rounded-[inherit] border px-4 py-5 text-center",
+				compact && "gap-2 px-3 py-4",
+				className,
+			)}
+		>
+			<div className="flex size-10 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground">
+				<TriangleAlert className="size-4" />
+			</div>
+			<div className="space-y-1">
+				<div className="text-sm font-medium text-foreground">
+					{compact ? "Preview unavailable" : label}
+				</div>
+				{compact ? null : (
+					<div className="text-xs text-muted-foreground">
+						{description ?? "Refresh the resource or open the original file."}
+					</div>
+				)}
+			</div>
+			{downloadUrl && !compact ? (
+				<Button variant="outline" size="sm" className="rounded-full" asChild>
+					<a href={downloadUrl} target="_blank" rel="noreferrer">
+						Open original
+					</a>
+				</Button>
+			) : null}
+		</div>
+	);
+}
+
 function ResourceDocumentPoster({
 	resource,
 	className,
@@ -327,10 +376,26 @@ function ResourceDocumentPoster({
 	className?: string;
 	variant?: "default" | "minimal";
 }) {
+	const { url, broken, handleError } = useResourcePreviewUrl(resource);
+
 	if (resource.mimeType === "application/pdf") {
+		if (broken) {
+			return (
+				<DocumentPoster
+					label="PDF"
+					title={resource.displayName}
+					subtitle="Preview unavailable"
+					pageCount={resource.pageCount}
+					className={className}
+					showPageCount={variant !== "minimal"}
+					showDetails={variant !== "minimal"}
+				/>
+			);
+		}
+
 		return (
 			<PdfPagePreview
-				file={resource.previewUrl}
+				file={url || resource.previewUrl}
 				label="PDF"
 				title={resource.displayName}
 				subtitle={formatBytes(resource.sizeBytes)}
@@ -338,6 +403,9 @@ function ResourceDocumentPoster({
 				className={className}
 				pageClassName="translate-y-5 scale-[1.06] [&_canvas]:rounded-[18px]"
 				minimal={variant === "minimal"}
+				onLoadError={() => {
+					void handleError();
+				}}
 			/>
 		);
 	}
@@ -404,7 +472,7 @@ function CompactDocumentThumb({
 	return (
 		<div
 			className={cn(
-				"flex h-full w-full items-center justify-center rounded-[inherit] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(183,118,79,0.18),transparent_55%),linear-gradient(180deg,#171311,#0d0b0a)]",
+				"media-thumb-fallback flex h-full w-full items-center justify-center rounded-[inherit] border",
 				className,
 			)}
 		>
@@ -439,7 +507,7 @@ function ViewerSurface({
 		<div
 			ref={surfaceRef}
 			className={cn(
-				"flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/75",
+				"media-viewer-shell flex min-h-0 flex-col overflow-hidden rounded-[28px] border",
 				className,
 			)}
 		>
@@ -461,6 +529,7 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 	const [zoom, setZoom] = useState(1);
 	const [fitMode, setFitMode] = useState<"contain" | "edge">("contain");
 	const { isFullscreen, targetRef, toggleFullscreen } = useFullscreenTarget();
+	const { url, broken, refreshing, handleError } = useResourcePreviewUrl(resource);
 
 	return (
 		<ViewerSurface
@@ -469,11 +538,9 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 			description="Zoom, inspect, and expand the original image without leaving the library."
 			className={cn(
 				isFullscreen &&
-					"h-screen w-screen rounded-none border-0 bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]",
+					"h-screen w-screen rounded-none border-0",
 			)}
-			contentClassName={cn(
-				isFullscreen && "bg-[linear-gradient(180deg,#f4eee9,#ece4dc)]",
-			)}
+			contentClassName={cn(isFullscreen && "media-preview-canvas")}
 			controls={
 				<>
 					<Button
@@ -546,7 +613,7 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 		>
 			<div
 				className={cn(
-					"relative bg-[radial-gradient(circle_at_top,rgba(183,118,79,0.18),transparent_46%),linear-gradient(180deg,#f4eee9,#ece4dc)]",
+					"media-preview-canvas relative",
 					isFullscreen ? "h-full" : "h-[min(74vh,920px)]",
 				)}
 			>
@@ -558,24 +625,40 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 					showHorizontalScrollbar
 				>
 					<div className="flex min-h-full min-w-full items-center justify-center p-6">
-						<img
-							src={resource.previewUrl}
-							alt={resource.displayName}
-							className={cn(
-								"rounded-[24px] border border-black/5 shadow-[0_30px_80px_rgba(15,10,7,0.12)]",
-								fitMode === "contain"
-									? "h-auto object-contain"
-									: "h-full max-h-none w-full object-cover",
-							)}
-							style={
-								fitMode === "contain"
-									? { maxWidth: "none", width: `${zoom * 100}%` }
-									: {
-											transform: `scale(${zoom})`,
-											transformOrigin: "center center",
-										}
-							}
-						/>
+						{broken ? (
+							<PreviewUnavailableState
+								label={resource.displayName}
+								description={
+									refreshing
+										? "Refreshing the image preview..."
+										: "The preview expired or could not be loaded."
+								}
+								downloadUrl={resource.downloadUrl}
+								className="max-w-md"
+							/>
+						) : (
+							<img
+								src={url || resource.previewUrl}
+								alt={resource.displayName}
+								onError={() => {
+									void handleError();
+								}}
+								className={cn(
+									"rounded-[24px] border border-black/5 shadow-[0_30px_80px_rgba(15,10,7,0.12)]",
+									fitMode === "contain"
+										? "h-auto object-contain"
+										: "h-full max-h-none w-full object-cover",
+								)}
+								style={
+									fitMode === "contain"
+										? { maxWidth: "none", width: `${zoom * 100}%` }
+										: {
+												transform: `scale(${zoom})`,
+												transformOrigin: "center center",
+											}
+								}
+							/>
+						)}
 					</div>
 				</ScrollArea>
 			</div>
@@ -585,6 +668,7 @@ function ImageResourceViewer({ resource }: { resource: ResourceRecord }) {
 
 function VideoResourceViewer({ resource }: { resource: ResourceRecord }) {
 	const { isFullscreen, targetRef, toggleFullscreen } = useFullscreenTarget();
+	const { url, broken, refreshing, handleError } = useResourcePreviewUrl(resource);
 
 	return (
 		<ViewerSurface
@@ -618,21 +702,37 @@ function VideoResourceViewer({ resource }: { resource: ResourceRecord }) {
 					isFullscreen ? "h-full" : "h-[min(74vh,920px)]",
 				)}
 			>
-				<video
-					src={resource.previewUrl}
-					className="h-full w-full object-contain"
-					preload="metadata"
-					controls
-					playsInline
-				>
-					<track
-						default
-						kind="captions"
-						label="Captions unavailable"
-						src={EMPTY_CAPTION_TRACK}
-						srcLang="en"
+				{broken ? (
+					<PreviewUnavailableState
+						label={resource.displayName}
+						description={
+							refreshing
+								? "Refreshing the video preview..."
+								: "The video preview expired or could not be loaded."
+						}
+						downloadUrl={resource.downloadUrl}
+						className="max-w-md"
 					/>
-				</video>
+				) : (
+					<video
+						src={url || resource.previewUrl}
+						onError={() => {
+							void handleError();
+						}}
+						className="h-full w-full object-contain"
+						preload="metadata"
+						controls
+						playsInline
+					>
+						<track
+							default
+							kind="captions"
+							label="Captions unavailable"
+							src={EMPTY_CAPTION_TRACK}
+							srcLang="en"
+						/>
+					</video>
+				)}
 			</div>
 		</ViewerSurface>
 	);
@@ -706,6 +806,7 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 	const isClient = useClientReady();
 	const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
 	const pageNumberRef = useRef(pageNumber);
+	const { url, broken, refreshing, handleError } = useResourcePreviewUrl(resource);
 
 	const availablePages = Math.max(1, numPages);
 	const basePageWidth = Math.max(360, Math.min((width || 920) - 56, 1040));
@@ -876,14 +977,14 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 			description="First-page preview in cards, page navigation in detail, and branded scrollbars inside the reader."
 			className={cn(
 				isFullscreen &&
-					"h-[100dvh] w-[100dvw] rounded-none border-0 bg-[#ece2d9]",
+					"h-[100dvh] w-[100dvw] rounded-none border-0 media-preview-canvas",
 			)}
-			contentClassName={cn(isFullscreen && "bg-[#ece2d9]")}
+			contentClassName={cn(isFullscreen && "media-preview-canvas")}
 			controls={controls}
 		>
 			<div
 				className={cn(
-					"grid min-h-0 gap-4 overflow-hidden bg-[#ece2d9] p-4",
+					"media-preview-canvas grid min-h-0 gap-4 overflow-hidden p-4",
 					isFullscreen
 						? "h-full lg:grid-cols-[220px_minmax(0,1fr)]"
 						: "grid-cols-1",
@@ -891,18 +992,18 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 			>
 				{isClient && isFullscreen ? (
 					<PdfThumbnailRail
-						file={resource.previewUrl}
+						file={url || resource.previewUrl}
 						numPages={availablePages}
 						currentPage={pageNumber}
 						onSelectPage={scrollToPage}
 						isFullscreen={isFullscreen}
 					/>
 				) : null}
-				<ScrollArea
-					className={cn(
-						"min-h-0 rounded-[24px] border border-[var(--brand-border-soft)] bg-[#efe6df]",
-						isFullscreen ? "h-full" : "h-[min(72vh,920px)]",
-					)}
+					<ScrollArea
+						className={cn(
+							"min-h-0 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70",
+							isFullscreen ? "h-full" : "h-[min(72vh,920px)]",
+						)}
 					viewportClassName="h-full w-full"
 					viewportRef={viewportRef}
 					scrollbarClassName="dashboard-content-scrollbar"
@@ -910,10 +1011,24 @@ function PdfResourceViewer({ resource }: { resource: ResourceRecord }) {
 					showHorizontalScrollbar
 				>
 					<div className="flex min-h-full min-w-full items-start justify-center p-6">
-						{isClient ? (
+						{broken ? (
+							<PreviewUnavailableState
+								label={resource.displayName}
+								description={
+									refreshing
+										? "Refreshing the PDF preview..."
+										: "The PDF preview expired or could not be loaded."
+								}
+								downloadUrl={resource.downloadUrl}
+								className="min-h-[420px] w-full max-w-md"
+							/>
+						) : isClient ? (
 							<Document
-								file={resource.previewUrl}
+								file={url || resource.previewUrl}
 								onLoadSuccess={handleLoadSuccess}
+								onLoadError={() => {
+									void handleError();
+								}}
 								loading={
 									<div className="flex h-full min-h-[480px] items-center justify-center text-sm text-muted-foreground">
 										Loading PDF...
@@ -1061,11 +1176,25 @@ export function ResourceThumb({
 	className?: string;
 	variant?: "default" | "compact" | "minimal";
 }) {
+	const { url, broken, handleError } = useResourcePreviewUrl(resource);
+
 	if (resource.mediaKind === "image") {
+		if (broken) {
+			return (
+				<PreviewUnavailableState
+					label={resource.displayName}
+					compact
+					className={className}
+				/>
+			);
+		}
 		return (
 			<img
-				src={resource.previewUrl}
+				src={url || resource.previewUrl}
 				alt={resource.displayName}
+				onError={() => {
+					void handleError();
+				}}
 				className={cn(
 					"pointer-events-none h-full w-full object-cover",
 					className,
@@ -1075,9 +1204,21 @@ export function ResourceThumb({
 	}
 
 	if (resource.mediaKind === "video") {
+		if (broken) {
+			return (
+				<PreviewUnavailableState
+					label={resource.displayName}
+					compact
+					className={className}
+				/>
+			);
+		}
 		return (
 			<video
-				src={resource.previewUrl}
+				src={url || resource.previewUrl}
+				onError={() => {
+					void handleError();
+				}}
 				className={cn(
 					"pointer-events-none h-full w-full object-cover",
 					className,
@@ -1166,7 +1307,7 @@ export function ResourceCompatibilityBadge({
 		return (
 			<Badge
 				variant="outline"
-				className="rounded-full border-red-500/25 text-red-600"
+				className="rounded-full border-red-500/25 text-red-600 dark:text-red-300"
 			>
 				<TriangleAlert className="size-3.5" />
 				{unsupportedCount} blockers
@@ -1177,7 +1318,7 @@ export function ResourceCompatibilityBadge({
 		return (
 			<Badge
 				variant="outline"
-				className="rounded-full border-amber-500/25 text-amber-600"
+				className="rounded-full border-amber-500/25 text-amber-600 dark:text-amber-300"
 			>
 				<TriangleAlert className="size-3.5" />
 				{warningCount} warnings
@@ -1187,7 +1328,7 @@ export function ResourceCompatibilityBadge({
 	return (
 		<Badge
 			variant="outline"
-			className="rounded-full border-emerald-500/25 text-emerald-600"
+			className="rounded-full border-emerald-500/25 text-emerald-600 dark:text-emerald-300"
 		>
 			<Check className="size-3.5" />
 			Ready

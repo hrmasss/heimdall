@@ -1179,6 +1179,15 @@ export function DashboardCalendar() {
 	const [backlogRailOpen, setBacklogRailOpen] = useState(false);
 	const deferredSearch = useDeferredValue(search);
 
+	function addUploadedResources(created: ResourceRecord[]) {
+		setResources((current) => [
+			...created,
+			...current.filter(
+				(resource) => !created.some((item) => item.id === resource.id),
+			),
+		]);
+	}
+
 	useEffect(() => {
 		if (view === "timeline") {
 			startTransition(() => setView("month"));
@@ -2439,7 +2448,7 @@ export function DashboardCalendar() {
 															) : (
 																<div className="text-sm text-muted-foreground">No shared assets attached yet.</div>
 															)}
-															<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" />
+															<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" allowUpload onResourcesCreated={addUploadedResources} />
 														</div>
 
 														<div className="space-y-3">
@@ -2587,7 +2596,7 @@ export function DashboardCalendar() {
 														) : (
 															<div className="text-sm text-muted-foreground">No shared assets attached yet.</div>
 														)}
-														<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" />
+														<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" allowUpload onResourcesCreated={addUploadedResources} />
 													</div>
 												</div>
 											</CollapsibleContent>

@@ -841,6 +841,91 @@ body {
 		);
 }
 
+.customer-dashboard-shell .media-hero-surface {
+	border: 1px solid var(--brand-border-soft);
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-highlight) 18%, transparent),
+			transparent 40%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 96%, transparent) 0%,
+			color-mix(in srgb, var(--card) 86%, var(--background) 14%) 100%
+		);
+	box-shadow: 0 28px 72px -44px color-mix(in srgb, var(--brand-ink) 38%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+
+.customer-dashboard-shell .media-preview-canvas {
+	background:
+		radial-gradient(
+			circle at top,
+			color-mix(in srgb, var(--brand-highlight) 16%, transparent),
+			transparent 46%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--background) 94%, white 6%) 0%,
+			color-mix(in srgb, var(--card) 78%, var(--background) 22%) 100%
+		);
+}
+
+.customer-dashboard-shell .media-viewer-shell {
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--card) 95%, transparent) 0%,
+		color-mix(in srgb, var(--card) 86%, var(--background) 14%) 100%
+	);
+	box-shadow: 0 24px 62px -44px color-mix(in srgb, var(--brand-ink) 38%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+}
+
+.customer-dashboard-shell .media-poster-surface {
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-primary) 22%, transparent),
+			transparent 55%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, #1d1a18 88%, var(--card) 12%) 0%,
+			color-mix(in srgb, #0d0b0a 92%, var(--background) 8%) 100%
+		);
+}
+
+.customer-dashboard-shell .media-thumb-fallback {
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-highlight) 18%, transparent),
+			transparent 55%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 96%, transparent) 0%,
+			color-mix(in srgb, var(--card) 86%, var(--background) 14%) 100%
+		);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+}
+
+.customer-dashboard-shell .media-callout-surface {
+	border: 1px solid var(--brand-border-soft);
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-primary) 14%, transparent),
+			transparent 40%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 94%, transparent) 0%,
+			color-mix(in srgb, var(--brand-highlight) 18%, var(--card) 82%) 100%
+		);
+}
+
 .customer-dashboard-shell .calendar-day-muted {
 	background: color-mix(in srgb, var(--muted) 38%, transparent);
 }

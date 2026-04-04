@@ -145,7 +145,7 @@ export function DashboardSetupPage() {
 				}
 			/>
 
-			<SurfaceCard className="overflow-hidden rounded-[32px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.16),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.78))] p-6 shadow-[0_30px_80px_-48px_rgba(66,32,17,0.45)] md:p-7">
+			<SurfaceCard className="media-hero-surface overflow-hidden rounded-[32px] p-6 md:p-7">
 				<div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
 					<div className="space-y-4">
 						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">

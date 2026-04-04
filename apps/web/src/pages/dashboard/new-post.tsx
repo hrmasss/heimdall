@@ -1107,6 +1107,15 @@ export function DashboardNewPost() {
 	const [aiWarnings, setAIWarnings] = useState<string[]>([]);
 	const [lastAIDraft, setLastAIDraft] = useState<AIGeneratedPostDraft | null>(null);
 
+	function addUploadedResources(created: ResourceRecord[]) {
+		setResources((current) => [
+			...created,
+			...current.filter(
+				(resource) => !created.some((item) => item.id === resource.id),
+			),
+		]);
+	}
+
 	const platformOptions = useMemo(
 		() => uniquePlatforms(capabilities),
 		[capabilities],
@@ -2606,6 +2615,8 @@ export function DashboardNewPost() {
 											value={rootAssetIds}
 											onChange={setRootAssetIds}
 											triggerLabel="Attach assets"
+											allowUpload
+											onResourcesCreated={addUploadedResources}
 										/>
 									</div>
 									<ResourceChipList
@@ -3083,6 +3094,8 @@ export function DashboardNewPost() {
 												})
 											}
 											triggerLabel="Choose override assets"
+											allowUpload
+											onResourcesCreated={addUploadedResources}
 										/>
 									) : null}
 									<ResourceChipList
@@ -3640,6 +3653,8 @@ export function DashboardNewPost() {
 												value={rootAssetIds}
 												onChange={setRootAssetIds}
 												triggerLabel="Attach shared assets"
+												allowUpload
+												onResourcesCreated={addUploadedResources}
 											/>
 										</div>
 										<ResourceChipList
@@ -4374,6 +4389,8 @@ export function DashboardNewPost() {
 															? "Choose assets"
 															: "Append assets"
 													}
+													allowUpload
+													onResourcesCreated={addUploadedResources}
 												/>
 											</div>
 											{variant.assetMode === "inherit" ? (

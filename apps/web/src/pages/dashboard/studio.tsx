@@ -21,6 +21,10 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	refreshResourceDownloadUrl,
+	useDurableUrl,
+} from "@/hooks/use-resource-preview-url";
 import type {
 	ApiListResponse,
 	AutomationDefinition,
@@ -88,7 +92,7 @@ export function DashboardStudio() {
 	const mode = (searchParams.get("mode") as StudioMode) || "image";
 	const currentMode =
 		studioModes.find((item) => item.value === mode) ?? studioModes[0];
-	const { activeWorkspaceId, customerRequest } = useAuth();
+	const { activeWorkspaceId, customerRequest, customerSession } = useAuth();
 
 	const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
 	const [runs, setRuns] = useState<AutomationRun[]>([]);
@@ -219,6 +223,21 @@ export function DashboardStudio() {
 		() => findArtifact(selectedRun, "resource_set"),
 		[selectedRun],
 	);
+	const imageArtifactResourceId = imageArtifact?.resourceId ?? null;
+	const studioPreview = useDurableUrl({
+		initialUrl:
+			typeof imageArtifact?.data?.previewUrl === "string"
+				? imageArtifact.data.previewUrl
+				: null,
+		refresh: imageArtifactResourceId
+			? () =>
+					refreshResourceDownloadUrl({
+						resourceId: imageArtifactResourceId,
+						accessToken: customerSession?.accessToken ?? null,
+						workspaceId: activeWorkspaceId,
+					})
+			: null,
+	});
 
 	async function ensureAutomation() {
 		if (!activeWorkspaceId) {
@@ -257,6 +276,15 @@ export function DashboardStudio() {
 		);
 		setAutomations((current) => [created, ...current]);
 		return created.id;
+	}
+
+	function addUploadedResources(created: ResourceRecord[]) {
+		setResources((current) => [
+			...created,
+			...current.filter(
+				(resource) => !created.some((item) => item.id === resource.id),
+			),
+		]);
 	}
 
 	async function runStudioMode() {
@@ -353,11 +381,11 @@ export function DashboardStudio() {
 						description="Preview the selected run output in the main stage, then move between recent studio runs in the strip below."
 					>
 						<SurfaceCard className="overflow-hidden p-0">
-							<div className="min-h-[420px] bg-[radial-gradient(circle_at_top_left,rgba(206,163,98,0.16),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.8))] p-6">
+							<div className="media-hero-surface min-h-[420px] p-6">
 								<div className="flex items-center justify-between gap-3">
-									<div>
+									<div className="min-w-0">
 										<div className="text-sm font-medium">Active preview</div>
-										<div className="mt-1 text-xs text-muted-foreground">
+										<div className="mt-1 break-words text-xs text-muted-foreground">
 											{selectedRun
 												? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
 												: loading
@@ -377,10 +405,29 @@ export function DashboardStudio() {
 
 								{currentMode.value === "image" && imageArtifact ? (
 									<div className="mt-6">
-										{typeof imageArtifact.data?.previewUrl === "string" ? (
+										{studioPreview.broken ? (
+											<div className="media-preview-canvas flex min-h-[280px] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] px-6 py-10 text-center">
+												<div className="max-w-sm space-y-3">
+													<div className="text-base font-medium">
+														Preview unavailable
+													</div>
+													<div className="text-sm text-muted-foreground">
+														{studioPreview.refreshing
+															? "Refreshing the generated image preview..."
+															: "This studio preview expired or could not be loaded."}
+													</div>
+												</div>
+											</div>
+										) : typeof imageArtifact.data?.previewUrl === "string" ? (
 											<img
-												src={imageArtifact.data.previewUrl}
+												src={
+													studioPreview.url ||
+													imageArtifact.data.previewUrl
+												}
 												alt={imageArtifact.label}
+												onError={() => {
+													void studioPreview.handleError();
+												}}
 												className="w-full rounded-[28px] border object-cover shadow-[0_28px_80px_-40px_rgba(32,20,10,0.45)]"
 											/>
 										) : null}
@@ -563,6 +610,8 @@ export function DashboardStudio() {
 												onChange={setImageReferenceIds}
 												triggerLabel="Choose references"
 												emptyMessage="Upload image assets in the library first."
+												allowUpload
+												onResourcesCreated={addUploadedResources}
 											/>
 										</div>
 									</>
@@ -610,6 +659,8 @@ export function DashboardStudio() {
 												onChange={(next) => setReelVideoIds(next.slice(0, 1))}
 												triggerLabel="Choose video"
 												emptyMessage="Upload a video asset in the library first."
+												allowUpload
+												onResourcesCreated={addUploadedResources}
 											/>
 										</div>
 										<div className="space-y-2">

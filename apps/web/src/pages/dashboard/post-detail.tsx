@@ -580,11 +580,13 @@ function SummaryStat({
 	value: ReactNode;
 }) {
 	return (
-		<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
+		<div className="media-callout-surface min-w-0 rounded-[22px] p-4">
 			<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
 				{label}
 			</div>
-			<div className="mt-2 text-sm font-medium text-foreground">{value}</div>
+			<div className="mt-2 min-w-0 break-all text-sm font-medium text-foreground">
+				{value}
+			</div>
 		</div>
 	);
 }

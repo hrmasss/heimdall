@@ -626,7 +626,7 @@ export function DashboardLayout() {
 													<Button
 														variant="outline"
 														size="sm"
-														className="rounded-full border-sky-500/30 bg-white/70 text-sky-900 hover:bg-white"
+														className="rounded-full border-sky-500/30 bg-background/70 text-sky-900 hover:bg-background dark:bg-background/40 dark:text-sky-100 dark:hover:bg-background/60"
 														asChild
 													>
 														<Link to="/dashboard/setup">Continue setup</Link>
@@ -634,7 +634,7 @@ export function DashboardLayout() {
 													<Button
 														variant="ghost"
 														size="sm"
-														className="rounded-full text-sky-900 hover:bg-white/60"
+														className="rounded-full text-sky-900 hover:bg-background/60 dark:text-sky-100 dark:hover:bg-background/40"
 														onClick={() => {
 															if (!activeWorkspaceId || typeof window === "undefined") {
 																return;
