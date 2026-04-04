@@ -10,9 +10,14 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { SurfaceCard } from "@/components/app/brand";
 import { AssetWorkspaceShell } from "@/components/app/asset-workspace";
-import { DashboardPageHeader } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+	DashboardStatStrip,
+	DashboardStatusStrip,
+} from "@/components/app/dashboard";
 import {
 	ResourceCompatibilityBadge,
 	ResourceThumb,
@@ -26,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
-	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
 	DropdownMenu,
@@ -58,18 +62,18 @@ function getCompatibilitySummary(resource: ResourceDetail) {
 	).length;
 	if (unsupportedCount > 0) {
 		return {
-			label: "Needs fixes before broad publishing",
+			title: "Needs fixes before broad publishing",
 			detail: `${unsupportedCount} blocked surface${unsupportedCount === 1 ? "" : "s"}`,
 		};
 	}
 	if (warningCount > 0) {
 		return {
-			label: "Mostly ready with a few cautions",
+			title: "Mostly ready with a few cautions",
 			detail: `${warningCount} warning surface${warningCount === 1 ? "" : "s"}`,
 		};
 	}
 	return {
-		label: "Ready for most publishing flows",
+		title: "Ready for most publishing flows",
 		detail: "No current compatibility blockers",
 	};
 }
@@ -126,8 +130,6 @@ export function DashboardLibraryDetailPage() {
 					? loadError.message
 					: "Unable to load this asset.",
 			);
-		} finally {
-			// Resource nullability now drives the loading surface.
 		}
 	}, [activeWorkspaceId, customerRequest, id]);
 
@@ -187,30 +189,28 @@ export function DashboardLibraryDetailPage() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Reusable assets"
+				eyebrow="Media"
 				title={resource?.displayName ?? "Asset detail"}
-				description={
-					resource
-						? "Preview the asset, understand how it is reused, and launch the next action without digging through storage detail first."
-						: "Preview this asset and keep it ready for posts, collections, and Studio."
+				description="Inspect the asset quickly, confirm it is usable, then move straight into a post or Studio without digging through storage detail."
+				primaryAction={
+					resource ? (
+						<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
+							<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
+								Use in post
+							</Link>
+						</Button>
+					) : null
 				}
-				actions={
+				secondaryActions={
 					<>
-						<Button variant="outline" className="rounded-full" asChild>
+						<Button variant="outline" size="sm" className="rounded-full" asChild>
 							<Link to="/dashboard/library">
 								<ArrowLeft className="size-4" />
-								Back to library
+								Back to media
 							</Link>
 						</Button>
 						{resource ? (
-							<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
-								<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
-									Use in post
-								</Link>
-							</Button>
-						) : null}
-						{resource ? (
-							<Button variant="outline" className="rounded-full" asChild>
+							<Button variant="outline" size="sm" className="rounded-full" asChild>
 								<Link to={studioHref}>
 									<Sparkles className="size-4" />
 									Open in Studio
@@ -219,7 +219,30 @@ export function DashboardLibraryDetailPage() {
 						) : null}
 					</>
 				}
+				overflowActions={
+					resource
+						? [
+								{
+									label: "Rename",
+									action: (
+										<Link to={`/dashboard/library/${resource.id}/edit`}>
+											Rename
+										</Link>
+									),
+								},
+						  ]
+						: undefined
+				}
 			/>
+
+			{resource && compatibilitySummary ? (
+				<DashboardStatusStrip
+					eyebrow="Publishing state"
+					title={compatibilitySummary.title}
+					description={compatibilitySummary.detail}
+					action={<ResourceCompatibilityBadge resource={resource} />}
+				/>
+			) : null}
 
 			{error ? (
 				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -233,316 +256,301 @@ export function DashboardLibraryDetailPage() {
 			) : null}
 
 			<AssetWorkspaceShell
-				railTitle="Asset context"
-				railDescription="Derivatives and related collections stay nearby without overtaking the main asset view."
-				railTriggerLabel="Open asset context"
+				railTitle="Related assets"
+				railDescription="Variants and collections stay nearby, but the main asset remains the focus."
+				railTriggerLabel="Open context"
 				rail={
-					<>
-						<SurfaceCard className="p-5">
-							<div className="space-y-4">
-								<div className="text-lg font-semibold">Derivatives</div>
-								<div className="text-sm text-muted-foreground">
-									Child variants stay linked here so alternate crops and outputs remain easy to reuse.
-								</div>
-								{resource?.variants.length ? (
-									<div className="space-y-3">
-										{resource.variants.map((variant) => (
-											<Link
-												key={variant.id}
-												to={`/dashboard/library/${variant.id}`}
-												className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
-											>
-												<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-													<ResourceThumb resource={variant} variant="compact" />
-												</div>
-												<div className="min-w-0 flex-1">
-													<div className="truncate font-medium">{variant.displayName}</div>
-													<div className="mt-1 text-sm text-muted-foreground">
-														{formatResourceMeta(variant)}
-													</div>
-												</div>
-											</Link>
-										))}
-									</div>
-								) : (
-									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-										No derivatives yet. Use Studio to create the first reusable variant.
-									</div>
-								)}
-							</div>
-						</SurfaceCard>
-
-						<SurfaceCard className="p-5">
-							<div className="space-y-4">
-								<div className="text-lg font-semibold">Collections</div>
-								<div className="text-sm text-muted-foreground">
-									Ordered bundles that already include this asset.
-								</div>
-								{resource?.sets?.length ? (
-									<div className="space-y-3">
-										{resource.sets.map((set) => (
-											<Link key={set.id} to={`/dashboard/library/sets/${set.id}`}>
-												<ResourceSetSummaryStrip set={set} />
-											</Link>
-										))}
-									</div>
-								) : (
-									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-										This asset is not part of a collection yet.
-									</div>
-								)}
-							</div>
-						</SurfaceCard>
-					</>
-				}
-			>
-				<div className="space-y-6">
-					<SurfaceCard className="overflow-hidden p-0">
-						<div className="p-5">{resource ? <ResourceViewer resource={resource} /> : null}</div>
-						<div className="border-t border-[var(--brand-border-soft)] p-5">
-							<div className="flex flex-wrap items-start justify-between gap-3">
-								<div className="space-y-2">
-									<div className="flex flex-wrap items-center gap-2">
-										{resource ? <ResourceCompatibilityBadge resource={resource} /> : null}
-										<Badge variant="outline" className="rounded-full capitalize">
-											{resource?.mediaKind ?? "asset"}
-										</Badge>
-										{resource?.parentResourceId ? (
-											<Badge variant="outline" className="rounded-full">
-												Derivative
-											</Badge>
-										) : null}
-									</div>
-									<div className="text-sm text-muted-foreground">
-										{resource ? formatResourceMeta(resource) : "Loading..."}
-									</div>
-								</div>
-								{resource ? (
-									<div className="flex flex-wrap items-center gap-2">
-										<Button variant="outline" size="sm" className="rounded-full" asChild>
-											<a href={resource.downloadUrl} target="_blank" rel="noreferrer">
-												<Download className="size-4" />
-												Download original
-											</a>
-										</Button>
-										<Button variant="outline" size="sm" className="rounded-full" asChild>
-											<Link to={`/dashboard/library/${resource.id}/edit`}>
-												<PencilLine className="size-4" />
-												Rename
-											</Link>
-										</Button>
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="icon-sm" className="rounded-full">
-													<MoreHorizontal className="size-4" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
-												<DropdownMenuItem onClick={() => void copyValue(resource.id, "Asset ID")}>
-													<Copy className="size-4" />
-													Copy ID
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() =>
-														void copyValue(resource.downloadUrl, "Signed URL")
-													}
-												>
-													<Copy className="size-4" />
-													Copy URL
-												</DropdownMenuItem>
-												<DropdownMenuSeparator />
-												<DropdownMenuItem
-													variant="destructive"
-													onClick={() => void deleteResource()}
-													disabled={saving}
-												>
-													<Trash2 className="size-4" />
-													Delete
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
-								) : null}
-							</div>
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="asset-summary-band p-5 md:p-6">
-						<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+					<div className="space-y-5">
+						<SurfaceCard className="space-y-4 p-5">
 							<div className="space-y-1">
-								<h2 className="text-lg font-semibold tracking-tight">Reuse summary</h2>
-								<p className="text-sm text-muted-foreground">
-									See how this asset is already working before you create another variant.
-								</p>
+								<div className="text-base font-semibold">Variants</div>
+								<div className="text-sm text-muted-foreground">
+									Alternate crops and derivatives linked to this source.
+								</div>
 							</div>
-							{resource ? (
-								<div className="grid gap-3 sm:grid-cols-3">
-									<StatChip label="Used in posts" value={String(resource.usageCount)} />
-									<StatChip label="In collections" value={String(resource.setCount)} />
-									<StatChip label="Variants" value={String(resource.childCount)} />
+							{resource?.variants.length ? (
+								<div className="space-y-3">
+									{resource.variants.map((variant) => (
+										<Link
+											key={variant.id}
+											to={`/dashboard/library/${variant.id}`}
+											className="flex items-center gap-3 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
+										>
+											<div className="size-14 overflow-hidden rounded-[16px] bg-muted">
+												<ResourceThumb resource={variant} variant="compact" />
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="truncate font-medium">{variant.displayName}</div>
+												<div className="mt-1 text-sm text-muted-foreground">
+													{formatResourceMeta(variant)}
+												</div>
+											</div>
+										</Link>
+									))}
 								</div>
 							) : (
-								<div className="text-sm text-muted-foreground">Loading reuse…</div>
+								<div className="rounded-[22px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+									No variants yet. Open this asset in Studio when you need the first derivative.
+								</div>
 							)}
-						</div>
-					</SurfaceCard>
+						</SurfaceCard>
 
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div>
-								<div className="text-lg font-semibold">Transform</div>
-								<div className="mt-1 text-sm text-muted-foreground">
-									Launch the next prep task without starting from a blank Studio state.
+						<SurfaceCard className="space-y-4 p-5">
+							<div className="space-y-1">
+								<div className="text-base font-semibold">Collections</div>
+								<div className="text-sm text-muted-foreground">
+									Grouped bundles that already include this asset.
 								</div>
 							</div>
-							<div className="grid gap-3 lg:grid-cols-2">
-								{resource
-									? transformTools.map((tool) =>
-											tool.status === "live" ? (
-												<Link
-													key={tool.value}
-													to={buildStudioHref({
-														resourceId: resource.id,
-														mode: getStudioModeForResource(resource),
-														tool: tool.value,
-														source: "detail",
-													})}
-													className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 transition-colors hover:bg-accent/20"
-												>
-													<div className="flex items-center justify-between gap-3">
-														<div className="font-medium">{tool.label}</div>
-														<Sparkles className="size-4 text-primary" />
-													</div>
-													<div className="mt-2 text-sm text-muted-foreground">
-														{tool.description}
-													</div>
-												</Link>
-											) : (
-												<div
-													key={tool.value}
-													className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4"
-												>
-													<div className="flex items-center justify-between gap-3">
-														<div className="font-medium">{tool.label}</div>
-														<Badge variant="outline" className="rounded-full">
-															Soon
-														</Badge>
-													</div>
-													<div className="mt-2 text-sm text-muted-foreground">
-														{tool.description}
-													</div>
-												</div>
-											),
-										)
-									: null}
-							</div>
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5 md:p-6">
-						<div className="space-y-1">
-							<h2 className="text-lg font-semibold tracking-tight">
-								Publishing compatibility
-							</h2>
-							<p className="text-sm text-muted-foreground">
-								Available when you need it, but no longer the first thing on the page.
-							</p>
-						</div>
-						{resource ? (
-							<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-								<div className="flex flex-wrap items-center justify-between gap-3">
-									<div>
-										<div className="font-medium">{compatibilitySummary?.label}</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											{compatibilitySummary?.detail}
-										</div>
-									</div>
-									<Collapsible
-										open={compatibilityOpen}
-										onOpenChange={setCompatibilityOpen}
-									>
-										<CollapsibleTrigger asChild>
-											<Button variant="outline" size="sm" className="rounded-full">
-												{compatibilityOpen ? "Hide details" : "Show details"}
-											</Button>
-										</CollapsibleTrigger>
-										<CollapsibleContent className="mt-4">
-											<div className="grid gap-3 md:grid-cols-2">
-												{resource.compatibility.map((item) => (
-													<CompatibilityRow
-														key={`${item.platform}-${item.surface}`}
-														item={item}
-													/>
-												))}
-											</div>
-										</CollapsibleContent>
-									</Collapsible>
+							{resource?.sets?.length ? (
+								<div className="space-y-3">
+									{resource.sets.map((set) => (
+										<Link key={set.id} to={`/dashboard/library/sets/${set.id}`}>
+											<ResourceSetSummaryStrip set={set} />
+										</Link>
+									))}
 								</div>
+							) : (
+								<div className="rounded-[22px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+									This asset has not been grouped into a collection yet.
+								</div>
+							)}
+						</SurfaceCard>
+					</div>
+				}
+			>
+				<DashboardPanel
+					title="Preview"
+					description="See the asset at useful size, then jump into the next action without leaving this page."
+					action={
+						resource ? (
+							<div className="flex flex-wrap gap-2">
+								<Button variant="outline" size="sm" className="rounded-full" asChild>
+									<a href={resource.downloadUrl} target="_blank" rel="noreferrer">
+										<Download className="size-4" />
+										Download
+									</a>
+								</Button>
+								<Button variant="outline" size="sm" className="rounded-full" asChild>
+									<Link to={`/dashboard/library/${resource.id}/edit`}>
+										<PencilLine className="size-4" />
+										Rename
+									</Link>
+								</Button>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button variant="outline" size="icon-sm" className="rounded-full">
+											<MoreHorizontal className="size-4" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
+										<DropdownMenuItem onClick={() => void copyValue(resource.id, "Asset ID")}>
+											<Copy className="size-4" />
+											Copy ID
+										</DropdownMenuItem>
+										<DropdownMenuItem
+											onClick={() => void copyValue(resource.downloadUrl, "Signed URL")}
+										>
+											<Copy className="size-4" />
+											Copy URL
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											variant="destructive"
+											onClick={() => void deleteResource()}
+											disabled={saving}
+										>
+											<Trash2 className="size-4" />
+											Delete
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
 							</div>
-						) : (
-							<div className="mt-4 text-sm text-muted-foreground">
-								Loading compatibility...
-							</div>
-						)}
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5 md:p-6">
-						<div className="space-y-1">
-							<h2 className="text-lg font-semibold tracking-tight">Technical details</h2>
-							<p className="text-sm text-muted-foreground">
-								Storage and ingestion facts stay available without crowding the main path.
-							</p>
+						) : null
+					}
+				>
+					<div className="space-y-5">
+						<div className="overflow-hidden rounded-[26px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+							{resource ? <ResourceViewer resource={resource} /> : null}
 						</div>
-						{resource ? (
-							<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-								<Collapsible open={technicalOpen} onOpenChange={setTechnicalOpen}>
-									<div className="flex items-center justify-between gap-3">
-										<div className="text-sm text-muted-foreground">
-											{formatBytes(resource.sizeBytes)} · {resource.mimeType} · uploaded{" "}
-											{formatResourceDate(resource.createdAt)}
-										</div>
-										<CollapsibleTrigger asChild>
-											<Button variant="outline" size="sm" className="rounded-full">
-												{technicalOpen ? "Hide details" : "Show details"}
-											</Button>
-										</CollapsibleTrigger>
-									</div>
-									<CollapsibleContent className="mt-4">
-										<div className="grid gap-4 md:grid-cols-2">
-											<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
-												<div>Original name: {resource.originalName}</div>
-												<div className="mt-2 break-all">MIME type: {resource.mimeType}</div>
-												<div className="mt-2">Extension: {resource.fileExtension}</div>
-												<div className="mt-2 break-all">
-													Checksum: {resource.checksumSha256}
-												</div>
+						<div className="flex flex-wrap items-center gap-2">
+							{resource ? <ResourceCompatibilityBadge resource={resource} /> : null}
+							<Badge variant="outline" className="rounded-full capitalize">
+								{resource?.mediaKind ?? "asset"}
+							</Badge>
+							{resource?.parentResourceId ? (
+								<Badge variant="outline" className="rounded-full">
+									Derivative
+								</Badge>
+							) : null}
+							{resource ? (
+								<Badge variant="outline" className="rounded-full">
+									{formatResourceMeta(resource)}
+								</Badge>
+							) : null}
+						</div>
+					</div>
+				</DashboardPanel>
+
+				<DashboardStatStrip
+					items={[
+						{
+							label: "Used in posts",
+							value: resource?.usageCount ?? "—",
+							detail: "How often this file is already reused.",
+						},
+						{
+							label: "In collections",
+							value: resource?.setCount ?? "—",
+							detail: "Grouped bundles that include this asset.",
+						},
+						{
+							label: "Variants",
+							value: resource?.childCount ?? "—",
+							detail: "Derived versions linked to this source.",
+						},
+						{
+							label: "Added",
+							value: resource ? new Date(resource.createdAt).toLocaleDateString() : "—",
+							detail: "When this asset first entered the workspace.",
+						},
+					]}
+				/>
+
+				<DashboardPanel
+					title="Transform in Studio"
+					description="Start with a scoped editing job instead of reopening the asset and choosing tools again."
+				>
+					<div className="grid gap-3 lg:grid-cols-2">
+						{resource
+							? transformTools.map((tool) =>
+									tool.status === "live" ? (
+										<Link
+											key={tool.value}
+											to={buildStudioHref({
+												resourceId: resource.id,
+												mode: getStudioModeForResource(resource),
+												tool: tool.value,
+												source: "detail",
+											})}
+											className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 transition-colors hover:bg-accent/20"
+										>
+											<div className="flex items-center justify-between gap-3">
+												<div className="font-medium">{tool.label}</div>
+												<Sparkles className="size-4 text-primary" />
 											</div>
-											<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
-												{resource.widthPx && resource.heightPx ? (
-													<div>
-														Dimensions: {resource.widthPx} x {resource.heightPx}
-													</div>
-												) : null}
-												{resource.durationMs ? (
-													<div className="mt-2">
-														Duration: {Math.round(resource.durationMs / 1000)}s
-													</div>
-												) : null}
-												{resource.pageCount ? (
-													<div className="mt-2">Pages: {resource.pageCount}</div>
-												) : null}
-												<div className="mt-2">Storage backend: {resource.storageBackend}</div>
-												<div className="mt-2">
-													Last updated: {formatResourceDate(resource.updatedAt)}
-												</div>
+											<div className="mt-2 text-sm text-muted-foreground">
+												{tool.description}
+											</div>
+										</Link>
+									) : (
+										<div
+											key={tool.value}
+											className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4"
+										>
+											<div className="flex items-center justify-between gap-3">
+												<div className="font-medium">{tool.label}</div>
+												<Badge variant="outline" className="rounded-full">
+													Soon
+												</Badge>
+											</div>
+											<div className="mt-2 text-sm text-muted-foreground">
+												{tool.description}
 											</div>
 										</div>
-									</CollapsibleContent>
-								</Collapsible>
+									),
+							  )
+							: null}
+					</div>
+				</DashboardPanel>
+
+				<DashboardPanel
+					title="Compatibility"
+					description="Keep publishing constraints available, but tucked behind a calmer default view."
+					action={
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-full"
+							onClick={() => setCompatibilityOpen((current) => !current)}
+						>
+							{compatibilityOpen ? "Hide details" : "Show details"}
+						</Button>
+					}
+				>
+					{resource ? (
+						<Collapsible open={compatibilityOpen} onOpenChange={setCompatibilityOpen}>
+							<div className="text-sm text-muted-foreground">
+								{compatibilitySummary?.detail}
 							</div>
-						) : null}
-					</SurfaceCard>
-				</div>
+							<CollapsibleContent className="mt-4">
+								<div className="grid gap-3 md:grid-cols-2">
+									{resource.compatibility.map((item) => (
+										<CompatibilityRow
+											key={`${item.platform}-${item.surface}`}
+											item={item}
+										/>
+									))}
+								</div>
+							</CollapsibleContent>
+						</Collapsible>
+					) : (
+						<div className="text-sm text-muted-foreground">Loading compatibility…</div>
+					)}
+				</DashboardPanel>
+
+				<DashboardPanel
+					title="Technical details"
+					description="Keep the raw ingest facts nearby without making them the first thing owners need to read."
+					action={
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-full"
+							onClick={() => setTechnicalOpen((current) => !current)}
+						>
+							{technicalOpen ? "Hide details" : "Show details"}
+						</Button>
+					}
+				>
+					{resource ? (
+						<Collapsible open={technicalOpen} onOpenChange={setTechnicalOpen}>
+							<div className="text-sm text-muted-foreground">
+								{formatBytes(resource.sizeBytes)} · {resource.mimeType} · uploaded{" "}
+								{formatResourceDate(resource.createdAt)}
+							</div>
+							<CollapsibleContent className="mt-4">
+								<div className="grid gap-4 md:grid-cols-2">
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
+										<div>Original name: {resource.originalName}</div>
+										<div className="mt-2 break-all">MIME type: {resource.mimeType}</div>
+										<div className="mt-2">Extension: {resource.fileExtension}</div>
+										<div className="mt-2 break-all">
+											Checksum: {resource.checksumSha256}
+										</div>
+									</div>
+									<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
+										{resource.widthPx && resource.heightPx ? (
+											<div>
+												Dimensions: {resource.widthPx} x {resource.heightPx}
+											</div>
+										) : null}
+										{resource.durationMs ? (
+											<div className="mt-2">Duration: {resource.durationMs} ms</div>
+										) : null}
+										{resource.pageCount ? (
+											<div className="mt-2">Pages: {resource.pageCount}</div>
+										) : null}
+										<div className="mt-2">Updated: {formatResourceDate(resource.updatedAt)}</div>
+										<div className="mt-2 break-all">ID: {resource.id}</div>
+									</div>
+								</div>
+							</CollapsibleContent>
+						</Collapsible>
+					) : (
+						<div className="text-sm text-muted-foreground">Loading details…</div>
+					)}
+				</DashboardPanel>
 			</AssetWorkspaceShell>
 		</div>
 	);

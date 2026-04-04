@@ -3,13 +3,20 @@ import {
 	FolderKanban,
 	LoaderCircle,
 	PencilLine,
+	Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { AdminFormPage, AdminFormSection } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
+import { AssetWorkspaceShell } from "@/components/app/asset-workspace";
 import {
+	DashboardPageHeader,
+	DashboardPanel,
+	DashboardStatusStrip,
+} from "@/components/app/dashboard";
+import {
+	ResourceCompatibilityBadge,
 	ResourceThumb,
 	formatResourceMeta,
 } from "@/components/resources/resource-display";
@@ -39,9 +46,7 @@ export function DashboardLibraryFormPage() {
 			setLoading(true);
 			setError(null);
 			try {
-				const response = await customerRequest<ResourceDetail>(
-					`/resources/${id}`,
-				);
+				const response = await customerRequest<ResourceDetail>(`/resources/${id}`);
 				if (cancelled) {
 					return;
 				}
@@ -52,7 +57,7 @@ export function DashboardLibraryFormPage() {
 					setError(
 						loadError instanceof Error
 							? loadError.message
-							: "Unable to load this resource.",
+							: "Unable to load this asset.",
 					);
 				}
 			} finally {
@@ -82,7 +87,7 @@ export function DashboardLibraryFormPage() {
 			setError(
 				submitError instanceof Error
 					? submitError.message
-					: "Unable to save the resource.",
+					: "Unable to save this asset.",
 			);
 		} finally {
 			setSaving(false);
@@ -90,126 +95,166 @@ export function DashboardLibraryFormPage() {
 	}
 
 	return (
-		<AdminFormPage
-			eyebrow="Workspace resources"
-			title="Edit resource"
-			description="Adjust the shared library label without changing the underlying file or workspace-scoped metadata."
-			actions={
-				<Button variant="outline" className="rounded-full" asChild>
-					<Link to={`/dashboard/library/${id}`}>
-						<ArrowLeft className="size-4" />
-						Back to detail
-					</Link>
-				</Button>
-			}
-			aside={
-				<SurfaceCard className="p-5">
-					<div className="overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-muted">
-						<div className="aspect-[16/10]">
-							{resource ? <ResourceThumb resource={resource} /> : null}
-						</div>
-					</div>
-					<div className="mt-4 space-y-2">
-						<div className="text-lg font-semibold">
-							{resource?.displayName ?? "Resource"}
-						</div>
-						<div className="text-sm text-muted-foreground">
-							{resource
-								? formatResourceMeta(resource)
-								: "Loading resource summary..."}
-						</div>
-					</div>
-					<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-						<div className="font-medium text-foreground">Immutable fields</div>
-						<div className="mt-2">
-							Original file name, MIME type, checksum, and stored binary are
-							fixed after upload. Transform operations should create variants
-							instead of editing the original asset in place.
-						</div>
-					</div>
-				</SurfaceCard>
-			}
-		>
-			<form className="space-y-6" onSubmit={handleSubmit}>
-				<AdminFormSection
-					title="Display settings"
-					description="Rename the reusable asset so it reads well in pickers, lists, and future composer flows."
-				>
-					{loading ? (
-						<div className="flex items-center gap-3 text-sm text-muted-foreground">
-							<LoaderCircle className="size-4 animate-spin" />
-							Loading resource...
-						</div>
-					) : (
-						<div className="grid gap-4 md:grid-cols-2">
-							<div className="grid gap-2 md:col-span-2">
-								<Label htmlFor="resource-display-name">Display name</Label>
-								<Input
-									id="resource-display-name"
-									name="displayName"
-									value={displayName}
-									onChange={(event) => setDisplayName(event.target.value)}
-									className="h-11 rounded-2xl"
-									placeholder="Launch hero crop"
-								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="resource-original-name">Original file</Label>
-								<Input
-									id="resource-original-name"
-									value={resource?.originalName ?? ""}
-									className="h-11 rounded-2xl"
-									readOnly
-								/>
-							</div>
-							<div className="grid gap-2">
-								<Label htmlFor="resource-source-type">Source type</Label>
-								<Input
-									id="resource-source-type"
-									value={resource?.sourceType ?? ""}
-									className="h-11 rounded-2xl"
-									readOnly
-								/>
-							</div>
-						</div>
-					)}
-				</AdminFormSection>
+		<div className="space-y-6">
+			<DashboardPageHeader
+				eyebrow="Media"
+				title={loading ? "Update asset" : `Update ${resource?.displayName ?? "asset"}`}
+				description="Keep the asset name readable in pickers and post flows without changing the source file underneath."
+				primaryAction={
+					<Button
+						type="submit"
+						form="asset-edit-form"
+						disabled={loading || saving}
+						className="rounded-full border-0 bg-gradient-brand text-white"
+					>
+						{saving ? (
+							<>
+								<LoaderCircle className="size-4 animate-spin" />
+								Saving
+							</>
+						) : (
+							<>
+								<PencilLine className="size-4" />
+								Save asset
+							</>
+						)}
+					</Button>
+				}
+				secondaryActions={
+					<>
+						<Button variant="outline" size="sm" className="rounded-full" asChild>
+							<Link to={`/dashboard/library/${id}`}>
+								<ArrowLeft className="size-4" />
+								Back to asset
+							</Link>
+						</Button>
+						{resource ? (
+							<Button variant="outline" size="sm" className="rounded-full" asChild>
+								<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
+									<Sparkles className="size-4" />
+									Use in post
+								</Link>
+							</Button>
+						) : null}
+					</>
+				}
+			/>
 
-				{error ? (
-					<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-						{error}
+			<DashboardStatusStrip
+				eyebrow="Naming pass"
+				title="Rename it once, keep it obvious everywhere"
+				description="This only updates the display label shown in the library, pickers, and future creation flows. The uploaded binary and technical ingest data stay fixed."
+			/>
+
+			{error ? (
+				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+					{error}
+				</SurfaceCard>
+			) : null}
+
+			<AssetWorkspaceShell
+				railTitle="Asset preview"
+				railDescription="Quick context stays nearby while the rename form remains the main task."
+				railTriggerLabel="Open preview"
+				rail={
+					<SurfaceCard className="space-y-4 p-5">
+						<div className="overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-muted">
+							<div className="aspect-[4/3]">
+								{resource ? (
+									<ResourceThumb resource={resource} variant="minimal" />
+								) : null}
+							</div>
+						</div>
+						<div className="space-y-2">
+							<div className="text-lg font-semibold">
+								{resource?.displayName ?? "Asset preview"}
+							</div>
+							<div className="text-sm text-muted-foreground">
+								{resource ? formatResourceMeta(resource) : "Loading summary..."}
+							</div>
+							{resource ? <ResourceCompatibilityBadge resource={resource} /> : null}
+						</div>
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
+							Use variants in Studio for crops, framing changes, or format-specific treatments. The original upload remains untouched here.
+						</div>
 					</SurfaceCard>
-				) : null}
+				}
+			>
+				<form id="asset-edit-form" className="space-y-5" onSubmit={handleSubmit}>
+					<DashboardPanel
+						title="Asset label"
+						description="Choose the name you want owners to see when they search, browse, and reuse this file."
+					>
+						{loading ? (
+							<div className="flex items-center gap-3 text-sm text-muted-foreground">
+								<LoaderCircle className="size-4 animate-spin" />
+								Loading asset...
+							</div>
+						) : (
+							<div className="grid gap-4 md:grid-cols-2">
+								<div className="grid gap-2 md:col-span-2">
+									<Label htmlFor="resource-display-name">Display name</Label>
+									<Input
+										id="resource-display-name"
+										name="displayName"
+										value={displayName}
+										onChange={(event) => setDisplayName(event.target.value)}
+										className="dashboard-input-height rounded-2xl"
+										placeholder="Spring launch hero image"
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="resource-original-name">Original file</Label>
+									<Input
+										id="resource-original-name"
+										value={resource?.originalName ?? ""}
+										className="dashboard-input-height rounded-2xl"
+										readOnly
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="resource-source-type">Source</Label>
+									<Input
+										id="resource-source-type"
+										value={resource?.sourceType ?? ""}
+										className="dashboard-input-height rounded-2xl"
+										readOnly
+									/>
+								</div>
+							</div>
+						)}
+					</DashboardPanel>
 
-				<SurfaceCard className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2 text-sm text-muted-foreground">
-						<FolderKanban className="size-4" />
-						Use variants for crops, aspect-ratio changes, or brand treatments.
-					</div>
-					<div className="flex flex-wrap gap-2">
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to={`/dashboard/library/${id}`}>Cancel</Link>
-						</Button>
-						<Button
-							type="submit"
-							disabled={loading || saving}
-							className="rounded-full border-0 bg-gradient-brand text-white"
-						>
-							{saving ? (
-								<>
-									<LoaderCircle className="size-4 animate-spin" />
-									Saving...
-								</>
-							) : (
-								<>
-									<PencilLine className="size-4" />
-									Save resource
-								</>
-							)}
-						</Button>
-					</div>
-				</SurfaceCard>
-			</form>
-		</AdminFormPage>
+					<SurfaceCard className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-center gap-2 text-sm text-muted-foreground">
+							<FolderKanban className="size-4" />
+							Keep names short and specific so this asset is easy to find in the next 30-second search.
+						</div>
+						<div className="flex flex-wrap gap-2">
+							<Button variant="outline" className="rounded-full" asChild>
+								<Link to={`/dashboard/library/${id}`}>Cancel</Link>
+							</Button>
+							<Button
+								type="submit"
+								disabled={loading || saving}
+								className="rounded-full border-0 bg-gradient-brand text-white"
+							>
+								{saving ? (
+									<>
+										<LoaderCircle className="size-4 animate-spin" />
+										Saving
+									</>
+								) : (
+									<>
+										<PencilLine className="size-4" />
+										Save asset
+									</>
+								)}
+							</Button>
+						</div>
+					</SurfaceCard>
+				</form>
+			</AssetWorkspaceShell>
+		</div>
 	);
 }

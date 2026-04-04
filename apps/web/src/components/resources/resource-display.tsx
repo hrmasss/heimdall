@@ -377,6 +377,7 @@ function ResourceDocumentPoster({
 	variant?: "default" | "minimal";
 }) {
 	const { url, broken, handleError } = useResourcePreviewUrl(resource);
+	const isMinimalVariant = variant === "minimal";
 
 	if (resource.mimeType === "application/pdf") {
 		if (broken) {
@@ -393,6 +394,20 @@ function ResourceDocumentPoster({
 			);
 		}
 
+		if (isMinimalVariant) {
+			return (
+				<DocumentPoster
+					label="PDF"
+					title={resource.displayName}
+					subtitle={formatBytes(resource.sizeBytes)}
+					pageCount={resource.pageCount}
+					className={className}
+					showPageCount={!isMinimalVariant}
+					showDetails={!isMinimalVariant}
+				/>
+			);
+		}
+
 		return (
 			<PdfPagePreview
 				file={url || resource.previewUrl}
@@ -402,7 +417,7 @@ function ResourceDocumentPoster({
 				pageCount={resource.pageCount}
 				className={className}
 				pageClassName="translate-y-5 scale-[1.06] [&_canvas]:rounded-[18px]"
-				minimal={variant === "minimal"}
+				minimal={isMinimalVariant}
 				onLoadError={() => {
 					void handleError();
 				}}
@@ -417,8 +432,8 @@ function ResourceDocumentPoster({
 			subtitle={formatBytes(resource.sizeBytes)}
 			pageCount={resource.pageCount}
 			className={className}
-			showPageCount={variant !== "minimal"}
-			showDetails={variant !== "minimal"}
+			showPageCount={!isMinimalVariant}
+			showDetails={!isMinimalVariant}
 		/>
 	);
 }
@@ -1192,6 +1207,8 @@ export function ResourceThumb({
 			<img
 				src={url || resource.previewUrl}
 				alt={resource.displayName}
+				loading="lazy"
+				decoding="async"
 				onError={() => {
 					void handleError();
 				}}
@@ -1223,7 +1240,7 @@ export function ResourceThumb({
 					"pointer-events-none h-full w-full object-cover",
 					className,
 				)}
-				preload="metadata"
+				preload={variant === "default" ? "metadata" : "none"}
 				muted
 				playsInline
 			>

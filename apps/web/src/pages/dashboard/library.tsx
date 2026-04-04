@@ -1,5 +1,4 @@
 import {
-	ArrowRight,
 	ChevronDown,
 	FilePlus2,
 	FolderKanban,
@@ -24,6 +23,7 @@ import {
 	DashboardPageHeader,
 	DashboardPanel,
 	DashboardStatStrip,
+	DashboardStatusStrip,
 } from "@/components/app/dashboard";
 import {
 	LocalFileThumb,
@@ -134,45 +134,6 @@ function QuietHealthBadge({ resource }: { resource: ResourceRecord }) {
 	return <ResourceCompatibilityBadge resource={resource} />;
 }
 
-function StudioShortcutCard({
-	title,
-	description,
-	href,
-	soon = false,
-}: {
-	title: string;
-	description: string;
-	href?: string;
-	soon?: boolean;
-}) {
-	if (soon) {
-		return (
-			<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4">
-				<div className="flex items-center justify-between gap-3">
-					<div className="font-medium">{title}</div>
-					<Badge variant="outline" className="rounded-full">
-						Soon
-					</Badge>
-				</div>
-				<div className="mt-2 text-sm text-muted-foreground">{description}</div>
-			</div>
-		);
-	}
-
-	return (
-		<Link
-			to={href ?? "/dashboard/studio"}
-			className="group block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4 transition-colors hover:bg-accent/25"
-		>
-			<div className="flex items-center justify-between gap-3">
-				<div className="font-medium">{title}</div>
-				<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-			</div>
-			<div className="mt-2 text-sm text-muted-foreground">{description}</div>
-		</Link>
-	);
-}
-
 function AssetCard({
 	resource,
 	onDelete,
@@ -198,42 +159,41 @@ function AssetCard({
 				<div className="aspect-[4/3] overflow-hidden bg-muted">
 					<ResourceThumb resource={resource} variant="minimal" />
 				</div>
-				<div className="space-y-4 p-4">
+				<div className="space-y-3 p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<div
-								className="truncate text-base font-semibold"
-								title={resource.displayName}
-							>
+							<div className="truncate text-base font-semibold" title={resource.displayName}>
 								{resource.displayName}
 							</div>
-							<div
-								className="mt-1 truncate text-sm text-muted-foreground"
-								title={resource.originalName}
-							>
-								{resource.originalName}
+							<div className="mt-1 truncate text-sm text-muted-foreground">
+								{formatResourceMeta(resource)}
 							</div>
 						</div>
 						<QuietHealthBadge resource={resource} />
 					</div>
-					<div
-						className="truncate text-sm text-muted-foreground"
-						title={`${resource.mediaKind} • ${formatResourceMeta(resource)} • ${resource.usageCount} reuses`}
-					>
-						<span className="capitalize">{resource.mediaKind}</span> •{" "}
-						{formatResourceMeta(resource)} • {resource.usageCount} reuses
+					<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+						<Badge variant="outline" className="rounded-full capitalize">
+							{resource.mediaKind}
+						</Badge>
+						<span>{resource.usageCount} reuse{resource.usageCount === 1 ? "" : "s"}</span>
 					</div>
 				</div>
 			</button>
 			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-4 py-3">
-				<Button
-					variant="outline"
-					size="sm"
-					className="rounded-full"
-					onClick={() => navigate(`/dashboard/library/${resource.id}`)}
-				>
-					Open
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button variant="outline" size="sm" className="rounded-full" asChild>
+						<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
+							<FilePlus2 className="size-4" />
+							Use in post
+						</Link>
+					</Button>
+					<Button variant="ghost" size="sm" className="rounded-full" asChild>
+						<Link to={studioHref}>
+							<Sparkles className="size-4" />
+							Studio
+						</Link>
+					</Button>
+				</div>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant="ghost" size="icon-sm" className="rounded-full">
@@ -242,16 +202,7 @@ function AssetCard({
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
 						<DropdownMenuItem asChild>
-							<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
-								<FilePlus2 className="size-4" />
-								Use in post
-							</Link>
-						</DropdownMenuItem>
-						<DropdownMenuItem asChild>
-							<Link to={studioHref}>
-								<Sparkles className="size-4" />
-								Open in Studio
-							</Link>
+							<Link to={`/dashboard/library/${resource.id}`}>Open detail</Link>
 						</DropdownMenuItem>
 						<DropdownMenuItem asChild>
 							<Link to={`/dashboard/library/${resource.id}/edit`}>
@@ -289,12 +240,10 @@ function CollectionCard({
 				<div className="aspect-[16/10] overflow-hidden bg-muted">
 					<ResourceSetCover set={resourceSet} />
 				</div>
-				<div className="space-y-4 p-4">
+				<div className="space-y-3 p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<div className="truncate text-base font-semibold">
-								{resourceSet.name}
-							</div>
+							<div className="truncate text-base font-semibold">{resourceSet.name}</div>
 							<div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
 								{resourceSet.description ||
 									"Reusable ordered media for a sequence, bundle, or carousel."}
@@ -302,16 +251,16 @@ function CollectionCard({
 						</div>
 						<ResourceSetIntentBadge set={resourceSet} />
 					</div>
-					<ResourceSetMembersPreview
-						resources={resourceSet.membersPreview}
-						max={3}
-					/>
+					<ResourceSetMembersPreview resources={resourceSet.membersPreview} max={3} />
 				</div>
 			</Link>
 			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-4 py-3">
-				<div className="text-sm text-muted-foreground">
-					{resourceSet.itemCount} items
-				</div>
+				<Button variant="outline" size="sm" className="rounded-full" asChild>
+					<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
+						<FilePlus2 className="size-4" />
+						Use in post
+					</Link>
+				</Button>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant="ghost" size="icon-sm" className="rounded-full">
@@ -320,10 +269,7 @@ function CollectionCard({
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
 						<DropdownMenuItem asChild>
-							<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
-								<FilePlus2 className="size-4" />
-								Use in post
-							</Link>
+							<Link to={`/dashboard/library/sets/${resourceSet.id}`}>Open detail</Link>
 						</DropdownMenuItem>
 						<DropdownMenuItem asChild>
 							<Link to={`/dashboard/library/sets/${resourceSet.id}/edit`}>
@@ -414,7 +360,7 @@ export function DashboardLibrary() {
 			setError(
 				loadError instanceof Error
 					? loadError.message
-					: "Unable to load the asset library.",
+					: "Unable to load the media library.",
 			);
 		} finally {
 			setLoading(false);
@@ -701,143 +647,60 @@ export function DashboardLibrary() {
 				.length,
 		[resources],
 	);
-	const recentAssets = useMemo(() => resources.slice(0, 4), [resources]);
-	const recentCollections = useMemo(
-		() => resourceSets.slice(0, 4),
-		[resourceSets],
+	const warningAssets = useMemo(
+		() =>
+			resources.filter((resource) => getResourceHealth(resource) === "warning")
+				.length,
+		[resources],
 	);
-	const uploadReadyCount = queue.filter(
-		(item) => item.status === "pending",
-	).length;
-
-	const rail = (
-		<div className="space-y-5">
-			<DashboardPanel
-				title="Studio shortcuts"
-				description="Open the editor already scoped to the job you want done."
-			>
-				<div className="space-y-3">
-					<StudioShortcutCard
-						title="Crop / resize"
-						description="Prep a reusable image variant with the right aspect ratio."
-						href="/dashboard/studio?mode=image&tool=resize&source=library"
-					/>
-					<StudioShortcutCard
-						title="Expand / fill"
-						description="Guide a wider or taller composition from one source image."
-						href="/dashboard/studio?mode=image&tool=fill&source=library"
-					/>
-					<StudioShortcutCard
-						title="Clip video"
-						description="Turn a longer source video into a tighter social-ready cut."
-						href="/dashboard/studio?mode=reel&tool=clip&source=library"
-					/>
-					<StudioShortcutCard
-						title="Caption video"
-						description="Caption-first video prep will sit here as a faster library shortcut."
-						soon
-					/>
-				</div>
-			</DashboardPanel>
-
-			<DashboardPanel
-				title="Recent collections"
-				description="Grouped assets stay secondary, but still close by when you need sequences."
-				action={
-					<Button
-						variant="outline"
-						size="sm"
-						className="rounded-full"
-						onClick={() => setView("collections")}
-					>
-						Collections
-					</Button>
-				}
-			>
-				<div className="space-y-3">
-					{recentCollections.length > 0 ? (
-						recentCollections.map((resourceSet) => (
-							<Link
-								key={resourceSet.id}
-								to={`/dashboard/library/sets/${resourceSet.id}`}
-								className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
-							>
-								<div className="flex items-center gap-3">
-									<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-										<ResourceSetCover set={resourceSet} compact />
-									</div>
-									<div className="min-w-0 flex-1">
-										<div className="truncate font-medium">
-											{resourceSet.name}
-										</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											{resourceSet.itemCount} items ·{" "}
-											{formatAssetSetIntent(resourceSet)}
-										</div>
-									</div>
-								</div>
-							</Link>
-						))
-					) : (
-						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-							Collections will appear here once you group related uploads.
-						</div>
-					)}
-				</div>
-			</DashboardPanel>
-
-			<DashboardPanel
-				title="Recent uploads"
-				description="The latest reusable assets, kept close without turning the page into a feed."
-			>
-				<div className="space-y-3">
-					{recentAssets.length > 0 ? (
-						recentAssets.map((resource) => (
-							<Link
-								key={resource.id}
-								to={`/dashboard/library/${resource.id}`}
-								className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
-							>
-								<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-									<ResourceThumb resource={resource} variant="compact" />
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="truncate font-medium">
-										{resource.displayName}
-									</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{formatResourceMeta(resource)}
-									</div>
-								</div>
-							</Link>
-						))
-					) : (
-						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-							Uploads and reusable assets will appear here.
-						</div>
-					)}
-				</div>
-			</DashboardPanel>
-		</div>
-	);
+	const recentCollections = useMemo(() => resourceSets.slice(0, 3), [resourceSets]);
+	const uploadReadyCount = queue.filter((item) => item.status === "pending").length;
 
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
 				eyebrow="Asset-first workflow"
 				title="Media"
-				description="Keep reusable assets ready for posts, then jump into upload, Studio, or collections without turning the page into a separate library workspace."
+				description="Find an asset fast, inspect it quickly, and move straight into a post or Studio. Collections stay nearby for grouped reuse when order matters."
 				secondaryActions={
-					<>
+					<Button
+						variant="outline"
+						size="sm"
+						className="rounded-full"
+						onClick={() => void loadData()}
+					>
+						<RefreshCw className="size-4" />
+						Refresh
+					</Button>
+				}
+				primaryAction={
+					<Button
+						size="sm"
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						onClick={() => fileInputRef.current?.click()}
+					>
+						<Upload className="size-4" />
+						Upload asset
+					</Button>
+				}
+			/>
+
+			<DashboardStatusStrip
+				eyebrow="Daily use"
+				title="Search once, reuse fast"
+				description="This library is tuned for quick owner workflows: upload when needed, keep assets tidy enough to find, and only dip into collections when a grouped sequence helps."
+				action={
+					view === "collections" ? (
 						<Button
 							variant="outline"
 							size="sm"
 							className="rounded-full"
-							onClick={() => void loadData()}
+							onClick={() => navigate("/dashboard/library/sets/new")}
 						>
-							<RefreshCw className="size-4" />
-							Refresh
+							<FolderKanban className="size-4" />
+							New collection
 						</Button>
+					) : (
 						<Button
 							variant="outline"
 							size="sm"
@@ -849,17 +712,7 @@ export function DashboardLibrary() {
 								Open Studio
 							</Link>
 						</Button>
-					</>
-				}
-				primaryAction={
-					<Button
-						size="sm"
-						className="rounded-full border-0 bg-gradient-brand text-white"
-						onClick={() => fileInputRef.current?.click()}
-					>
-						<Upload className="size-4" />
-						Upload asset
-					</Button>
+					)
 				}
 			/>
 
@@ -879,33 +732,25 @@ export function DashboardLibrary() {
 			<DashboardStatStrip
 				items={[
 					{
-						label: "Reusable assets",
+						label: "Assets",
 						value: resources.length,
-						detail: "Images, video, and documents ready to reuse.",
+						detail: "Images, videos, and docs ready to reuse.",
 						icon: ImagePlus,
 					},
 					{
 						label: "Ready now",
 						value: readyAssets,
-						detail: "Assets with no current compatibility blockers.",
+						detail: warningAssets
+							? `${warningAssets} need a quick review.`
+							: "No current publishing cautions.",
 						icon: Sparkles,
 						tone: "success",
 					},
 					{
 						label: "Collections",
 						value: resourceSets.length,
-						detail: "Grouped sequences kept nearby, not front-and-center.",
+						detail: "Grouped sequences kept secondary to assets.",
 						icon: FolderKanban,
-					},
-					{
-						label: "Upload tray",
-						value: queue.length,
-						detail:
-							queue.length > 0
-								? `${uploadReadyCount} file${uploadReadyCount === 1 ? "" : "s"} ready to upload.`
-								: "Open the tray when you want to batch new files.",
-						icon: Upload,
-						tone: queue.length > 0 ? "warning" : "default",
 					},
 				]}
 			/>
@@ -941,9 +786,7 @@ export function DashboardLibrary() {
 										onClick={() => setUploadTrayOpen((current) => !current)}
 									>
 										<Upload className="size-4" />
-										{queue.length > 0
-											? `Upload tray (${queue.length})`
-											: "Upload tray"}
+										{queue.length > 0 ? `Upload tray (${queue.length})` : "Upload tray"}
 										<ChevronDown
 											className={cn(
 												"size-4 transition-transform",
@@ -951,22 +794,12 @@ export function DashboardLibrary() {
 											)}
 										/>
 									</Button>
-									{view === "collections" ? (
-										<Button
-											variant="outline"
-											size="sm"
-											className="rounded-full"
-											onClick={() => navigate("/dashboard/library/sets/new")}
-										>
-											Create collection
-										</Button>
-									) : null}
 								</div>
 
 								<div className="text-xs text-muted-foreground">
 									{view === "assets"
-										? "Upload, search, and reuse one shared asset pool."
-										: "Collections stay nearby for grouped carousels and bundles."}
+										? "Single assets lead the page."
+										: "Collections stay available for grouped reuse."}
 								</div>
 							</div>
 
@@ -980,7 +813,7 @@ export function DashboardLibrary() {
 										placeholder={
 											view === "assets"
 												? "Search assets, filenames, and formats"
-												: "Search collections, bundles, and carousel groups"
+												: "Search collections, bundles, and grouped sequences"
 										}
 									/>
 								</div>
@@ -991,9 +824,7 @@ export function DashboardLibrary() {
 												<Button
 													key={filterValue}
 													variant={
-														assetFilter === filterValue
-															? "secondary"
-															: "outline"
+														assetFilter === filterValue ? "secondary" : "outline"
 													}
 													size="sm"
 													className="rounded-full capitalize"
@@ -1009,15 +840,11 @@ export function DashboardLibrary() {
 						</div>
 					</AssetCommandBar>
 				}
-				rail={rail}
-				railTitle="Media context"
-				railDescription="Studio shortcuts, recent collections, and recent uploads stay nearby without crowding the main feed."
-				railTriggerLabel="Open media context"
 			>
 				{uploadTrayOpen || queue.length > 0 ? (
 					<DashboardPanel
 						title="Upload tray"
-						description="Drop files, review them quickly, and get them into the shared library without turning uploads into a whole page."
+						description="Drop files, review them quickly, and add them to the shared library without turning uploads into a separate workspace."
 						action={
 							<div className="flex flex-wrap items-center gap-2">
 								<Button
@@ -1071,20 +898,18 @@ export function DashboardLibrary() {
 										Drop files or choose from your device
 									</div>
 									<div className="text-sm text-muted-foreground">
-										Images, video, and documents become reusable assets for
-										posts, collections, and Studio.
+										Images, video, and documents become reusable assets for posts, collections, and Studio.
 									</div>
 								</div>
 							</button>
 						</div>
-
 						{queue.length >= 2 ? (
 							<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
 								<div className="flex flex-wrap items-center justify-between gap-3">
 									<div>
 										<div className="font-medium">Also make a collection</div>
 										<div className="text-sm text-muted-foreground">
-											Helpful for carousels, bundles, or ordered sequences.
+											Useful for carousels, bundles, or ordered sequences.
 										</div>
 									</div>
 									<div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1127,10 +952,7 @@ export function DashboardLibrary() {
 											/>
 										</div>
 										<div className="min-w-0 flex-1">
-											<div
-												className="truncate font-medium"
-												title={item.file.name}
-											>
+											<div className="truncate font-medium" title={item.file.name}>
 												{item.file.name}
 											</div>
 											<div className="mt-1 text-sm text-muted-foreground">
@@ -1140,9 +962,7 @@ export function DashboardLibrary() {
 													: ""}
 											</div>
 											{item.error ? (
-												<div className="mt-1 text-sm text-destructive">
-													{item.error}
-												</div>
+												<div className="mt-1 text-sm text-destructive">{item.error}</div>
 											) : null}
 										</div>
 										<div className="ml-auto flex items-center gap-2">
@@ -1191,14 +1011,10 @@ export function DashboardLibrary() {
 				) : null}
 
 				<DashboardPanel
-					title={
-						view === "assets"
-							? "Assets ready to use"
-							: "Collections ready to reuse"
-					}
+					title={view === "assets" ? "Assets ready to use" : "Collections ready to reuse"}
 					description={
 						view === "assets"
-							? "Single assets lead the page so users can find, reuse, and act quickly."
+							? "Single assets stay primary so owners can scan, open, and act without detouring through extra workspace chrome."
 							: "Collections stay available for carousels, grouped bundles, and ordered visual sequences."
 					}
 				>
@@ -1245,8 +1061,7 @@ export function DashboardLibrary() {
 						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
 							<div className="text-lg font-semibold">No collections yet</div>
 							<div className="mt-2 text-sm text-muted-foreground">
-								Group related uploads into a reusable ordered bundle when you
-								need carousels or campaign sequences.
+								Group related uploads into a reusable ordered bundle when you need carousels or campaign sequences.
 							</div>
 							<Button
 								variant="outline"
@@ -1258,6 +1073,53 @@ export function DashboardLibrary() {
 						</div>
 					)}
 				</DashboardPanel>
+
+				{view === "assets" ? (
+					<DashboardPanel
+						title="Collections nearby"
+						description="Grouped media stays available when you need it, but does not take over the main browse flow."
+						action={
+							<Button
+								variant="outline"
+								size="sm"
+								className="rounded-full"
+								onClick={() => setView("collections")}
+							>
+								View all collections
+							</Button>
+						}
+					>
+						{recentCollections.length > 0 ? (
+							<div className="grid gap-3 lg:grid-cols-3">
+								{recentCollections.map((resourceSet) => (
+									<Link
+										key={resourceSet.id}
+										to={`/dashboard/library/sets/${resourceSet.id}`}
+										className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 transition-colors hover:bg-accent/20"
+									>
+										<div className="flex items-center gap-3">
+											<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+												<ResourceSetCover set={resourceSet} compact />
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="truncate font-medium">
+													{resourceSet.name}
+												</div>
+												<div className="mt-1 text-sm text-muted-foreground">
+													{resourceSet.itemCount} items · {formatAssetSetIntent(resourceSet)}
+												</div>
+											</div>
+										</div>
+									</Link>
+								))}
+							</div>
+						) : (
+							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-sm text-muted-foreground">
+								Collections will appear here once you group related uploads.
+							</div>
+						)}
+					</DashboardPanel>
+				) : null}
 			</AssetWorkspaceShell>
 		</div>
 	);

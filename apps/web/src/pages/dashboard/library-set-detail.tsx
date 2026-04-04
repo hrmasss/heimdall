@@ -8,9 +8,14 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { SurfaceCard } from "@/components/app/brand";
 import { AssetWorkspaceShell } from "@/components/app/asset-workspace";
-import { DashboardPageHeader } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+	DashboardStatStrip,
+	DashboardStatusStrip,
+} from "@/components/app/dashboard";
 import {
 	ResourceSetCover,
 	ResourceSetIntentBadge,
@@ -93,26 +98,28 @@ export function DashboardLibrarySetDetailPage() {
 			<DashboardPageHeader
 				eyebrow="Collections"
 				title={resourceSet?.name ?? "Collection detail"}
-				description="Use collections when a reusable post needs ordered media, such as a carousel, sequence, or grouped campaign bundle."
-				actions={
+				description="Collections keep grouped assets reusable for carousels, sequences, and bundled publishing jobs without overshadowing single-asset work."
+				primaryAction={
+					resourceSet ? (
+						<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
+							<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
+								Use in post
+							</Link>
+						</Button>
+					) : null
+				}
+				secondaryActions={
 					<>
-						<Button variant="outline" className="rounded-full" asChild>
+						<Button variant="outline" size="sm" className="rounded-full" asChild>
 							<Link to="/dashboard/library">
 								<ArrowLeft className="size-4" />
-								Back to library
+								Back to media
 							</Link>
 						</Button>
 						{resourceSet ? (
-							<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
-								<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
-									Use in post
-								</Link>
-							</Button>
-						) : null}
-						{resourceSet ? (
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
-									<Button variant="outline" className="rounded-full">
+									<Button variant="outline" size="sm" className="rounded-full">
 										<MoreHorizontal className="size-4" />
 										More
 									</Button>
@@ -140,6 +147,19 @@ export function DashboardLibrarySetDetailPage() {
 				}
 			/>
 
+			<DashboardStatusStrip
+				eyebrow="Grouped reuse"
+				title={
+					resourceSet
+						? `${resourceSet.itemCount} ordered asset${resourceSet.itemCount === 1 ? "" : "s"}`
+						: "Loading collection"
+				}
+				description="Use collections when order matters. Otherwise, stay in the single-asset path to keep the workflow fast."
+				action={
+					resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : undefined
+				}
+			/>
+
 			{error ? (
 				<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
 					{error}
@@ -148,52 +168,54 @@ export function DashboardLibrarySetDetailPage() {
 
 			<AssetWorkspaceShell
 				railTitle="Collection context"
-				railDescription="Overview stats stay nearby while ordered members remain the main focus."
-				railTriggerLabel="Open collection context"
+				railDescription="Quick overview stays nearby while the ordered member list remains central."
+				railTriggerLabel="Open context"
 				rail={
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div className="flex items-center gap-2">
-								<FolderKanban className="size-4 text-primary" />
-								<div className="text-lg font-semibold">Collection overview</div>
-							</div>
-							{loading || !resourceSet ? (
-								<div className="text-sm text-muted-foreground">
-									Loading overview...
-								</div>
-							) : (
-								<div className="grid gap-3">
-									<StatChip
-										label="Members"
-										value={String(resourceSet.itemCount)}
-										detail="Ordered reusable assets"
-									/>
-									<StatChip
-										label="Intent"
-										value={
-											resourceSet.intentType === "social_surface"
-												? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
-												: "Generic"
-										}
-										detail="How this collection is meant to be reused"
-									/>
-									<StatChip
-										label="Updated"
-										value={new Date(resourceSet.updatedAt).toLocaleDateString()}
-										detail={`Created ${formatResourceDate(resourceSet.createdAt)}`}
-									/>
-								</div>
-							)}
+					<SurfaceCard className="space-y-4 p-5">
+						<div className="flex items-center gap-2">
+							<FolderKanban className="size-4 text-primary" />
+							<div className="text-base font-semibold">Overview</div>
 						</div>
+						{loading || !resourceSet ? (
+							<div className="text-sm text-muted-foreground">Loading overview…</div>
+						) : (
+							<div className="space-y-3">
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
+									<div className="font-medium">Intent</div>
+									<div className="mt-1 text-muted-foreground">
+										{resourceSet.intentType === "social_surface"
+											? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
+											: "Generic grouped reuse"}
+									</div>
+								</div>
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
+									<div className="font-medium">Updated</div>
+									<div className="mt-1 text-muted-foreground">
+										{formatResourceDate(resourceSet.updatedAt)}
+									</div>
+								</div>
+								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm">
+									<div className="font-medium">Source</div>
+									<div className="mt-1 text-muted-foreground capitalize">
+										{resourceSet.sourceType.replaceAll("_", " ")}
+									</div>
+								</div>
+							</div>
+						)}
 					</SurfaceCard>
 				}
 			>
-				<div className="space-y-6">
-					<SurfaceCard className="overflow-hidden p-0">
-						<div className="aspect-[16/9] overflow-hidden bg-muted">
-							{resourceSet ? <ResourceSetCover set={resourceSet} /> : null}
+				<DashboardPanel
+					title="Collection preview"
+					description="Review the lead visual and member summary before using this collection in a post."
+				>
+					<div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+						<div className="overflow-hidden rounded-[26px] border border-[var(--brand-border-soft)] bg-muted">
+							<div className="aspect-[16/9]">
+								{resourceSet ? <ResourceSetCover set={resourceSet} /> : null}
+							</div>
 						</div>
-						<div className="space-y-4 p-5">
+						<div className="space-y-4">
 							<div className="flex flex-wrap items-center gap-2">
 								{resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : null}
 								<Badge variant="outline" className="rounded-full">
@@ -215,65 +237,57 @@ export function DashboardLibrarySetDetailPage() {
 								/>
 							) : null}
 						</div>
-					</SurfaceCard>
+					</div>
+				</DashboardPanel>
 
-					<SurfaceCard className="asset-summary-band p-5 md:p-6">
-						<div className="grid gap-3 sm:grid-cols-3">
-							<StatChip
-								label="Members"
-								value={String(resourceSet?.itemCount ?? 0)}
-								detail="Ordered reusable assets"
-							/>
-							<StatChip
-								label="Intent"
-								value={
-									resourceSet
-										? resourceSet.intentType === "social_surface"
-											? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
-											: "Generic"
-										: "Loading..."
-								}
-								detail="How this collection is meant to be reused"
-							/>
-							<StatChip
-								label="Updated"
-								value={
-									resourceSet
-										? new Date(resourceSet.updatedAt).toLocaleDateString()
-										: "Loading..."
-								}
-								detail={
-									resourceSet
-										? `Created ${formatResourceDate(resourceSet.createdAt)}`
-										: " "
-								}
-							/>
-						</div>
-					</SurfaceCard>
+				<DashboardStatStrip
+					items={[
+						{
+							label: "Members",
+							value: resourceSet?.itemCount ?? "—",
+							detail: "Saved in the same order reused elsewhere.",
+						},
+						{
+							label: "Intent",
+							value: resourceSet
+								? resourceSet.intentType === "social_surface"
+									? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
+									: "Generic"
+								: "—",
+							detail: "How this grouped media is meant to be reused.",
+						},
+						{
+							label: "Updated",
+							value: resourceSet
+								? new Date(resourceSet.updatedAt).toLocaleDateString()
+								: "—",
+							detail: "Most recent collection change.",
+						},
+						{
+							label: "Created",
+							value: resourceSet
+								? new Date(resourceSet.createdAt).toLocaleDateString()
+								: "—",
+							detail: "When this collection was first added.",
+						},
+					]}
+				/>
 
-					<SurfaceCard className="p-5 md:p-6">
-						<div className="space-y-1">
-							<h2 className="text-lg font-semibold tracking-tight">Ordered members</h2>
-							<p className="text-sm text-muted-foreground">
-								The sequence here is the same order reused by pickers and post flows.
-							</p>
-						</div>
-						<div className="mt-5">
-							{loading || !resourceSet ? (
-								<div className="text-sm text-muted-foreground">
-									Loading members...
-								</div>
-							) : (
-								<ResourceSetItemList
-									items={resourceSet.items}
-									onOpenResource={(resourceId) =>
-										navigate(`/dashboard/library/${resourceId}`)
-									}
-								/>
-							)}
-						</div>
-					</SurfaceCard>
-				</div>
+				<DashboardPanel
+					title="Ordered members"
+					description="This is the same sequence reused by pickers and post flows."
+				>
+					{loading || !resourceSet ? (
+						<div className="text-sm text-muted-foreground">Loading members…</div>
+					) : (
+						<ResourceSetItemList
+							items={resourceSet.items}
+							onOpenResource={(resourceId) =>
+								navigate(`/dashboard/library/${resourceId}`)
+							}
+						/>
+					)}
+				</DashboardPanel>
 			</AssetWorkspaceShell>
 		</div>
 	);
