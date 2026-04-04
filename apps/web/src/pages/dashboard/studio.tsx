@@ -1,4 +1,11 @@
-import { FileText, ImagePlus, Play, Settings2, Video } from "lucide-react";
+import {
+	FileText,
+	ImagePlus,
+	Play,
+	Settings2,
+	Video,
+	WandSparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -8,6 +15,10 @@ import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
+import {
+	ResourceThumb,
+	formatResourceMeta,
+} from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,44 +44,20 @@ import type {
 	RunArtifact,
 	WorkspaceAISettings,
 } from "@/lib/api-types";
+import {
+	getDefaultStudioTool,
+	getStudioModeForResource,
+	getStudioToolDefinition,
+	studioModeMeta,
+	studioToolsByMode,
+	type StudioMode,
+} from "@/lib/asset-studio";
 import { useAuth } from "@/lib/auth-context";
 import {
 	formatAutomationWhen,
 	summarizeRunArtifacts,
 	systemPromptPreview,
 } from "@/lib/automation-builder";
-
-type StudioMode = "image" | "pdf" | "reel";
-
-const studioModes: Array<{
-	value: StudioMode;
-	label: string;
-	icon: typeof ImagePlus;
-	actionType: string;
-	promptScope: string;
-}> = [
-	{
-		value: "image",
-		label: "Image",
-		icon: ImagePlus,
-		actionType: "image_generate",
-		promptScope: "studio_image",
-	},
-	{
-		value: "pdf",
-		label: "PDF",
-		icon: FileText,
-		actionType: "linkedin_pdf_generate_beta",
-		promptScope: "studio_pdf",
-	},
-	{
-		value: "reel",
-		label: "Reel",
-		icon: Video,
-		actionType: "reel_generate_beta",
-		promptScope: "studio_reel",
-	},
-];
 
 const imageAspectRatios: Record<string, { width: number; height: number }> = {
 	"1:1": { width: 1280, height: 1280 },
@@ -87,19 +74,44 @@ function findArtifact(run: AutomationRun | null, type: string) {
 	);
 }
 
+function isStudioMode(value: string | null): value is StudioMode {
+	return value === "image" || value === "pdf" || value === "reel";
+}
+
+function toolIcon(mode: StudioMode) {
+	if (mode === "image") {
+		return ImagePlus;
+	}
+	if (mode === "pdf") {
+		return FileText;
+	}
+	return Video;
+}
+
+function toolPromptPlaceholder(mode: StudioMode, tool: string) {
+	if (mode === "image" && tool === "resize") {
+		return "Reframe this into a 4:5 launch graphic with a stronger focal crop and clean negative space.";
+	}
+	if (mode === "image" && tool === "fill") {
+		return "Extend the scene naturally for a wider canvas while preserving the subject and lighting.";
+	}
+	if (mode === "pdf") {
+		return "Turn this topic into a compact editorial PDF with one clear idea per page.";
+	}
+	if (tool === "caption") {
+		return "Tighten pacing, add strong opening captions, and keep the hook visible in the first seconds.";
+	}
+	return "Shape this into a tighter social-ready cut with a stronger hook and cleaner pacing.";
+}
+
 export function DashboardStudio() {
 	const [searchParams, setSearchParams] = useSearchParams();
-	const mode = (searchParams.get("mode") as StudioMode) || "image";
-	const currentMode =
-		studioModes.find((item) => item.value === mode) ?? studioModes[0];
 	const { activeWorkspaceId, customerRequest, customerSession } = useAuth();
 
 	const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
 	const [runs, setRuns] = useState<AutomationRun[]>([]);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
-	const [aiSettings, setAiSettings] = useState<WorkspaceAISettings | null>(
-		null,
-	);
+	const [aiSettings, setAiSettings] = useState<WorkspaceAISettings | null>(null);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -119,6 +131,23 @@ export function DashboardStudio() {
 	const [reelCaption, setReelCaption] = useState("");
 	const [reelStyle, setReelStyle] = useState("kinetic");
 	const [reelEffects, setReelEffects] = useState("");
+
+	const selectedResourceId = searchParams.get("resourceId");
+	const requestedMode = searchParams.get("mode");
+	const source = searchParams.get("source") ?? "library";
+	const selectedResource = useMemo(
+		() =>
+			selectedResourceId
+				? resources.find((resource) => resource.id === selectedResourceId) ?? null
+				: null,
+		[resources, selectedResourceId],
+	);
+	const mode = isStudioMode(requestedMode)
+		? requestedMode
+		: getStudioModeForResource(selectedResource);
+	const activeTool = getStudioToolDefinition(mode, searchParams.get("tool"));
+	const currentModeMeta = studioModeMeta[mode];
+	const ModeIcon = toolIcon(mode);
 
 	const loadData = useCallback(async () => {
 		if (!activeWorkspaceId) {
@@ -148,14 +177,10 @@ export function DashboardStudio() {
 			setRuns(runResponse.items);
 			setResources(resourceResponse.items);
 			setAiSettings(settingsResponse);
-			setSelectedRunId(
-				(current) => current ?? runResponse.items[0]?.id ?? null,
-			);
+			setSelectedRunId((current) => current ?? runResponse.items[0]?.id ?? null);
 		} catch (loadError) {
 			setError(
-				loadError instanceof Error
-					? loadError.message
-					: "Unable to load studio.",
+				loadError instanceof Error ? loadError.message : "Unable to load studio.",
 			);
 		} finally {
 			setLoading(false);
@@ -166,33 +191,66 @@ export function DashboardStudio() {
 		void loadData();
 	}, [loadData]);
 
+	useEffect(() => {
+		const nextParams = new URLSearchParams(searchParams);
+		let changed = false;
+		if (!isStudioMode(searchParams.get("mode"))) {
+			nextParams.set("mode", mode);
+			changed = true;
+		}
+		if (!searchParams.get("tool")) {
+			nextParams.set("tool", getDefaultStudioTool(mode));
+			changed = true;
+		}
+		if (!searchParams.get("source")) {
+			nextParams.set("source", source);
+			changed = true;
+		}
+		if (changed) {
+			setSearchParams(nextParams, { replace: true });
+		}
+	}, [mode, searchParams, setSearchParams, source]);
+
+	useEffect(() => {
+		if (!selectedResource) {
+			return;
+		}
+		if (mode === "image") {
+			setImageReferenceIds((current) =>
+				current.includes(selectedResource.id)
+					? current
+					: [selectedResource.id, ...current],
+			);
+			return;
+		}
+		if (mode === "reel") {
+			setReelVideoIds((current) =>
+				current[0] === selectedResource.id ? current : [selectedResource.id],
+			);
+			return;
+		}
+		setPdfTitle((current) =>
+			current.trim().length > 0 ? current : selectedResource.displayName,
+		);
+	}, [mode, selectedResource]);
+
 	const automationMap = useMemo(
 		() => new Map(automations.map((automation) => [automation.id, automation])),
 		[automations],
 	);
-	const studioRuns = useMemo(
+	const filteredRuns = useMemo(
 		() =>
 			runs.filter((run) => {
 				if (!run.automationId) {
 					return false;
 				}
 				const automation = automationMap.get(run.automationId);
-				return automation?.metadata?.source === "studio";
-			}),
-		[automationMap, runs],
-	);
-	const filteredRuns = useMemo(
-		() =>
-			studioRuns.filter((run) => {
-				if (!run.automationId) {
-					return false;
-				}
 				return (
-					automationMap.get(run.automationId)?.actionType ===
-					currentMode.actionType
+					automation?.metadata?.source === "studio" &&
+					automation.actionType === currentModeMeta.actionType
 				);
 			}),
-		[automationMap, currentMode.actionType, studioRuns],
+		[automationMap, currentModeMeta.actionType, runs],
 	);
 	const selectedRun = useMemo(
 		() =>
@@ -245,7 +303,7 @@ export function DashboardStudio() {
 		}
 		const existing = automations.find(
 			(automation) =>
-				automation.actionType === currentMode.actionType &&
+				automation.actionType === currentModeMeta.actionType &&
 				automation.metadata?.source === "studio",
 		);
 		if (existing) {
@@ -256,11 +314,11 @@ export function DashboardStudio() {
 			{
 				method: "POST",
 				body: {
-					name: `Studio ${currentMode.label}`,
-					description: `Studio automation for ${currentMode.label.toLowerCase()} generation.`,
+					name: `Studio ${currentModeMeta.label}`,
+					description: currentModeMeta.description,
 					status: "active",
 					scope: "standalone",
-					actionType: currentMode.actionType,
+					actionType: currentModeMeta.actionType,
 					triggerType: "manual",
 					inputSchema: {},
 					defaultConfig: {},
@@ -269,7 +327,8 @@ export function DashboardStudio() {
 					capabilityHints: [],
 					metadata: {
 						source: "studio",
-						studioMode: currentMode.value,
+						studioMode: mode,
+						tool: activeTool.value,
 					},
 				},
 			},
@@ -295,24 +354,28 @@ export function DashboardStudio() {
 		try {
 			const automationId = await ensureAutomation();
 			let input: Record<string, unknown>;
-			if (currentMode.value === "image") {
+			if (mode === "image") {
 				const dimensions =
 					imageAspectRatios[imageAspectRatio] ?? imageAspectRatios["1:1"];
 				input = {
 					prompt: imagePrompt,
-					promptScope: currentMode.promptScope,
+					promptScope: currentModeMeta.promptScope,
 					seed: imageSeed,
 					referenceResourceIds: imageReferenceIds,
 					width: dimensions.width,
 					height: dimensions.height,
 					model: imageModel,
+					tool: activeTool.value,
+					sourceResourceId: selectedResource?.id ?? null,
 				};
-			} else if (currentMode.value === "pdf") {
+			} else if (mode === "pdf") {
 				input = {
 					title: pdfTitle,
 					subtitle: pdfSubtitle,
-					promptScope: currentMode.promptScope,
+					promptScope: currentModeMeta.promptScope,
 					pages: pdfPages.split(/\n\s*\n/).filter(Boolean),
+					tool: activeTool.value,
+					sourceResourceId: selectedResource?.id ?? null,
 				};
 			} else {
 				input = {
@@ -323,7 +386,8 @@ export function DashboardStudio() {
 						.split(",")
 						.map((item) => item.trim())
 						.filter(Boolean),
-					promptScope: currentMode.promptScope,
+					promptScope: currentModeMeta.promptScope,
+					tool: activeTool.value,
 				};
 			}
 			const run = await customerRequest<AutomationRun>(
@@ -333,30 +397,40 @@ export function DashboardStudio() {
 					body: { input },
 				},
 			);
-			toast.success(`${currentMode.label} run started.`);
+			toast.success(`${currentModeMeta.label} run started.`);
 			await loadData();
 			setSelectedRunId(run.id);
 		} catch (runError) {
 			toast.error(
-				runError instanceof Error
-					? runError.message
-					: "Unable to run studio mode.",
+				runError instanceof Error ? runError.message : "Unable to run Studio.",
 			);
 		} finally {
 			setSubmitting(false);
 		}
 	}
 
+	function updateStudioSearchParams(next: Partial<Record<string, string | null>>) {
+		const nextParams = new URLSearchParams(searchParams);
+		for (const [key, value] of Object.entries(next)) {
+			if (!value) {
+				nextParams.delete(key);
+			} else {
+				nextParams.set(key, value);
+			}
+		}
+		setSearchParams(nextParams, { replace: true });
+	}
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Studio control room"
+				eyebrow="Contextual editor"
 				title="Studio"
-				description="Switch modes without leaving the workspace, keep controls in one inspector, and reuse the same runtime and review system that powers automations."
+				description="Work from a selected asset and a clear task, not a generic control room."
 				actions={
 					<>
 						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/automations">Open automations</Link>
+							<Link to="/dashboard/library">Back to library</Link>
 						</Button>
 						<Button variant="outline" className="rounded-full" asChild>
 							<Link to="/dashboard/settings/intelligence">
@@ -374,56 +448,96 @@ export function DashboardStudio() {
 				</SurfaceCard>
 			) : null}
 
-			<div className="grid gap-6 xl:items-start xl:grid-cols-[minmax(0,1fr)_380px]">
+			<SurfaceCard className="overflow-hidden">
+				<div className="grid gap-4 border-b border-[var(--brand-border-soft)] p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+					<div className="space-y-3">
+						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/60 px-3 py-1 text-xs uppercase tracking-[0.18em] text-[var(--brand-accent)]">
+							<ModeIcon className="size-3.5" />
+							{currentModeMeta.label}
+						</div>
+						<div>
+							<div className="text-lg font-semibold">{activeTool.label}</div>
+							<div className="mt-1 text-sm text-muted-foreground">
+								{activeTool.description}
+							</div>
+						</div>
+					</div>
+					<div className="grid gap-3 sm:grid-cols-3">
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+								Source
+							</div>
+							<div className="mt-2 text-sm font-medium">
+								{selectedResource ? selectedResource.displayName : "No source asset yet"}
+							</div>
+							<div className="mt-1 text-xs text-muted-foreground capitalize">
+								{source}
+							</div>
+						</div>
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+								Output
+							</div>
+							<div className="mt-2 text-sm font-medium">{currentModeMeta.outputLabel}</div>
+							<div className="mt-1 text-xs text-muted-foreground">
+								Generated into the shared library
+							</div>
+						</div>
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+								Recent runs
+							</div>
+							<div className="mt-2 text-sm font-medium">{filteredRuns.length}</div>
+							<div className="mt-1 text-xs text-muted-foreground">
+								For this task family
+							</div>
+						</div>
+					</div>
+				</div>
+			</SurfaceCard>
+
+			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
 				<div className="space-y-6">
 					<DashboardPanel
-						title={`${currentMode.label} canvas`}
-						description="Preview the selected run output in the main stage, then move between recent studio runs in the strip below."
+						title={`${currentModeMeta.label} canvas`}
+						description="Preview the active output first, then scan recent runs without the history taking over the page."
 					>
 						<SurfaceCard className="overflow-hidden p-0">
 							<div className="media-hero-surface min-h-[420px] p-6">
 								<div className="flex items-center justify-between gap-3">
 									<div className="min-w-0">
-										<div className="text-sm font-medium">Active preview</div>
+										<div className="text-sm font-medium">Active output</div>
 										<div className="mt-1 break-words text-xs text-muted-foreground">
 											{selectedRun
 												? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
 												: loading
 													? "Loading studio output..."
-													: "Run this mode to populate the preview stage."}
+													: "Run this task to populate the canvas."}
 										</div>
 									</div>
 									{selectedRun ? (
-										<Badge
-											variant="outline"
-											className="rounded-full capitalize"
-										>
+										<Badge variant="outline" className="rounded-full capitalize">
 											{selectedRun.status}
 										</Badge>
 									) : null}
 								</div>
 
-								{currentMode.value === "image" && imageArtifact ? (
+								{mode === "image" && imageArtifact ? (
 									<div className="mt-6">
 										{studioPreview.broken ? (
 											<div className="media-preview-canvas flex min-h-[280px] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] px-6 py-10 text-center">
 												<div className="max-w-sm space-y-3">
-													<div className="text-base font-medium">
-														Preview unavailable
-													</div>
+													<div className="text-base font-medium">Preview unavailable</div>
 													<div className="text-sm text-muted-foreground">
 														{studioPreview.refreshing
 															? "Refreshing the generated image preview..."
-															: "This studio preview expired or could not be loaded."}
+															: "This preview expired or could not be loaded."}
 													</div>
 												</div>
 											</div>
 										) : typeof imageArtifact.data?.previewUrl === "string" ? (
 											<img
-												src={
-													studioPreview.url ||
-													imageArtifact.data.previewUrl
-												}
+												src={studioPreview.url || imageArtifact.data.previewUrl}
 												alt={imageArtifact.label}
 												onError={() => {
 													void studioPreview.handleError();
@@ -434,25 +548,15 @@ export function DashboardStudio() {
 									</div>
 								) : null}
 
-								{currentMode.value === "pdf" && pdfArtifact ? (
+								{mode === "pdf" && pdfArtifact ? (
 									<div className="mt-6 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/80 p-6">
-										<div className="text-lg font-medium">
-											{pdfArtifact.label}
-										</div>
+										<div className="text-lg font-medium">{pdfArtifact.label}</div>
 										<div className="mt-3 text-sm text-muted-foreground">
-											Document asset ready for review or reuse.
+											Document output ready for review or reuse.
 										</div>
 										{typeof pdfArtifact.data?.downloadUrl === "string" ? (
-											<Button
-												variant="outline"
-												className="mt-5 rounded-full"
-												asChild
-											>
-												<a
-													href={pdfArtifact.data.downloadUrl}
-													target="_blank"
-													rel="noreferrer"
-												>
+											<Button variant="outline" className="mt-5 rounded-full" asChild>
+												<a href={pdfArtifact.data.downloadUrl} target="_blank" rel="noreferrer">
 													<FileText className="size-4" />
 													Open PDF
 												</a>
@@ -461,12 +565,10 @@ export function DashboardStudio() {
 									</div>
 								) : null}
 
-								{currentMode.value === "reel" && reelArtifact ? (
+								{mode === "reel" && reelArtifact ? (
 									<div className="mt-6 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/80 p-6">
-										<div className="text-lg font-medium">
-											{reelArtifact.label}
-										</div>
-										<div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
+										<div className="text-lg font-medium">{reelArtifact.label}</div>
+										<div className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
 											{typeof reelArtifact.data?.caption === "string"
 												? reelArtifact.data.caption
 												: JSON.stringify(reelArtifact.data ?? {}, null, 2)}
@@ -476,8 +578,7 @@ export function DashboardStudio() {
 
 								{!selectedRun ? (
 									<div className="mt-10 rounded-[28px] border border-dashed border-[var(--brand-border-soft)] bg-background/60 px-5 py-10 text-center text-sm text-muted-foreground">
-										{currentMode.label} outputs will appear here after the first
-										run.
+										{currentModeMeta.outputLabel} will appear here after the first run.
 									</div>
 								) : null}
 							</div>
@@ -495,17 +596,12 @@ export function DashboardStudio() {
 											: "border-[var(--brand-border-soft)] bg-background/70"
 									}`}
 								>
-									<div className="font-medium">
-										{summarizeRunArtifacts(run)}
-									</div>
+									<div className="font-medium">{summarizeRunArtifacts(run)}</div>
 									<div className="mt-2 text-xs text-muted-foreground">
 										{formatAutomationWhen(run.updatedAt)}
 									</div>
 									<div className="mt-3">
-										<Badge
-											variant="outline"
-											className="rounded-full capitalize"
-										>
+										<Badge variant="outline" className="rounded-full capitalize">
 											{run.status}
 										</Badge>
 									</div>
@@ -515,61 +611,106 @@ export function DashboardStudio() {
 					</DashboardPanel>
 				</div>
 
-				<div className="xl:sticky xl:top-24 xl:self-start">
+				<div className="xl:sticky xl:top-[var(--density-dashboard-sticky-top)] xl:self-start">
 					<DashboardPanel
-						title="Inspector"
-						description="Controls stay mode-aware, while prompt policy and execution all route through the shared automation runtime."
+						title="Tool settings"
+						description="Only the controls relevant to the current task stay in front of you."
 						className="h-fit xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto"
 					>
 						<div className="space-y-5">
 							<SurfaceCard className="space-y-4 p-5">
 								<div className="space-y-2">
-									<div className="text-sm font-medium">Studio mode</div>
+									<div className="text-sm font-medium">Task family</div>
 									<div className="text-xs text-muted-foreground">
-										Switch modes from the inspector instead of leaving the
-										canvas.
+										Choose the kind of output you are preparing.
 									</div>
 								</div>
 								<div className="grid grid-cols-3 gap-2">
-									{studioModes.map((item) => (
+									{(Object.keys(studioModeMeta) as StudioMode[]).map((modeValue) => {
+										const Icon = toolIcon(modeValue);
+										return (
+											<Button
+												key={modeValue}
+												variant={modeValue === mode ? "default" : "outline"}
+												size="sm"
+												className="h-10 rounded-full px-3 text-sm"
+												onClick={() =>
+													updateStudioSearchParams({
+														mode: modeValue,
+														tool: getDefaultStudioTool(modeValue),
+													})
+												}
+											>
+												<Icon className="size-4" />
+												{studioModeMeta[modeValue].label}
+											</Button>
+										);
+									})}
+								</div>
+								<div className="grid gap-2">
+									{studioToolsByMode[mode].map((tool) => (
 										<Button
-											key={item.value}
-											variant={
-												item.value === currentMode.value ? "default" : "outline"
-											}
-											size="sm"
-											className="h-10 rounded-full px-3 text-sm"
-											onClick={() => {
-												searchParams.set("mode", item.value);
-												setSearchParams(searchParams, { replace: true });
-											}}
+											key={tool.value}
+											variant={tool.value === activeTool.value ? "secondary" : "outline"}
+											className="h-auto justify-between rounded-[20px] px-4 py-3"
+											disabled={tool.status === "soon"}
+											onClick={() => updateStudioSearchParams({ tool: tool.value })}
 										>
-											<item.icon className="size-4" />
-											{item.label}
+											<div className="text-left">
+												<div className="font-medium">{tool.label}</div>
+												<div className="text-xs text-muted-foreground">
+													{tool.description}
+												</div>
+											</div>
+											{tool.status === "soon" ? (
+												<Badge variant="outline" className="rounded-full">
+													Soon
+												</Badge>
+											) : (
+												<WandSparkles className="size-4 text-primary" />
+											)}
 										</Button>
 									))}
 								</div>
 							</SurfaceCard>
 
 							<SurfaceCard className="space-y-4 p-5">
-								{currentMode.value === "image" ? (
-									<>
+								<div className="text-sm font-medium">Source asset</div>
+								{selectedResource ? (
+									<div className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3">
+										<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+											<ResourceThumb resource={selectedResource} variant="compact" />
+										</div>
+										<div className="min-w-0 flex-1">
+											<div className="truncate font-medium">
+												{selectedResource.displayName}
+											</div>
+											<div className="mt-1 text-sm text-muted-foreground">
+												{formatResourceMeta(selectedResource)}
+											</div>
+										</div>
+									</div>
+								) : (
+									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+										Open Studio from the library, or pick a source asset here.
+									</div>
+								)}
+
+								{mode === "image" ? (
+									<div className="space-y-4">
 										<div className="space-y-2">
 											<Label>Prompt</Label>
 											<Textarea
 												value={imagePrompt}
 												onChange={(event) => setImagePrompt(event.target.value)}
 												className="min-h-28 rounded-[24px]"
-												placeholder="Editorial product scene, strong focal point, warm material palette..."
+												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
 											/>
 										</div>
 										<div className="grid gap-3 sm:grid-cols-2">
 											<div className="space-y-2">
 												<Label>Aspect ratio</Label>
-												<Select
-													value={imageAspectRatio}
-													onValueChange={setImageAspectRatio}
-												>
+												<Select value={imageAspectRatio} onValueChange={setImageAspectRatio}>
 													<SelectTrigger className="h-11 rounded-2xl">
 														<SelectValue />
 													</SelectTrigger>
@@ -586,9 +727,7 @@ export function DashboardStudio() {
 												<Label>Model</Label>
 												<Input
 													value={imageModel}
-													onChange={(event) =>
-														setImageModel(event.target.value)
-													}
+													onChange={(event) => setImageModel(event.target.value)}
 													className="h-11 rounded-2xl"
 												/>
 											</div>
@@ -603,22 +742,22 @@ export function DashboardStudio() {
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label>Reference assets</Label>
+											<Label>References</Label>
 											<ResourcePicker
 												resources={imageResources}
 												value={imageReferenceIds}
 												onChange={setImageReferenceIds}
-												triggerLabel="Choose references"
+												triggerLabel="Choose image references"
 												emptyMessage="Upload image assets in the library first."
 												allowUpload
 												onResourcesCreated={addUploadedResources}
 											/>
 										</div>
-									</>
+									</div>
 								) : null}
 
-								{currentMode.value === "pdf" ? (
-									<>
+								{mode === "pdf" ? (
+									<div className="space-y-4">
 										<div className="space-y-2">
 											<Label>Title</Label>
 											<Input
@@ -643,14 +782,14 @@ export function DashboardStudio() {
 												value={pdfPages}
 												onChange={(event) => setPdfPages(event.target.value)}
 												className="min-h-40 rounded-[24px]"
-												placeholder="Write one paragraph per page. Separate pages with a blank line."
+												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
 											/>
 										</div>
-									</>
+									</div>
 								) : null}
 
-								{currentMode.value === "reel" ? (
-									<>
+								{mode === "reel" ? (
+									<div className="space-y-4">
 										<div className="space-y-2">
 											<Label>Source video</Label>
 											<ResourcePicker
@@ -664,12 +803,12 @@ export function DashboardStudio() {
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label>Caption</Label>
+											<Label>Caption / direction</Label>
 											<Textarea
 												value={reelCaption}
 												onChange={(event) => setReelCaption(event.target.value)}
 												className="min-h-28 rounded-[24px]"
-												placeholder="Animated captions, strong opening line, tight pacing..."
+												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
 											/>
 										</div>
 										<div className="grid gap-3 sm:grid-cols-2">
@@ -685,15 +824,13 @@ export function DashboardStudio() {
 												<Label>Effects</Label>
 												<Input
 													value={reelEffects}
-													onChange={(event) =>
-														setReelEffects(event.target.value)
-													}
+													onChange={(event) => setReelEffects(event.target.value)}
 													className="h-11 rounded-2xl"
 													placeholder="zoom, cut, captions"
 												/>
 											</div>
 										</div>
-									</>
+									</div>
 								) : null}
 
 								<Button
@@ -702,23 +839,19 @@ export function DashboardStudio() {
 									disabled={submitting}
 								>
 									<Play className="size-4" />
-									{submitting ? "Running..." : `Run ${currentMode.label}`}
+									{submitting ? "Running..." : `Run ${activeTool.label}`}
 								</Button>
 							</SurfaceCard>
 
 							<SurfaceCard className="space-y-4 p-5">
-								<div className="text-sm font-medium">Current mode activity</div>
+								<div className="text-sm font-medium">Recent activity</div>
 								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
 									{selectedRun
 										? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
-										: "No runs for this mode yet."}
+										: "No runs for this task family yet."}
 								</div>
 								{selectedRun ? (
-									<Button
-										variant="outline"
-										className="w-full rounded-full"
-										asChild
-									>
+									<Button variant="outline" className="w-full rounded-full" asChild>
 										<Link to={`/dashboard/automations/runs/${selectedRun.id}`}>
 											View run detail
 										</Link>
@@ -731,15 +864,10 @@ export function DashboardStudio() {
 									<div>
 										<div className="text-sm font-medium">Prompt policy</div>
 										<div className="text-xs text-muted-foreground">
-											Base + {currentMode.label.toLowerCase()} override
+											Base + task override
 										</div>
 									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										className="rounded-full"
-										asChild
-									>
+									<Button variant="outline" size="sm" className="rounded-full" asChild>
 										<Link to="/dashboard/settings/intelligence">
 											<Settings2 className="size-4" />
 											Edit
@@ -750,9 +878,9 @@ export function DashboardStudio() {
 									{aiSettings
 										? systemPromptPreview(
 												aiSettings.systemPrompts,
-												currentMode.value === "image"
+												mode === "image"
 													? "studioImage"
-													: currentMode.value === "pdf"
+													: mode === "pdf"
 														? "studioPdf"
 														: "studioReel",
 											)

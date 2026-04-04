@@ -1093,6 +1093,7 @@ export function DashboardNewPost() {
 	const [sharedDraft, setSharedDraft] = useState(createDraftContent());
 	const [sharedTagInput, setSharedTagInput] = useState("");
 	const [rootAssetIds, setRootAssetIds] = useState<string[]>([]);
+	const [prefillAssetsKey, setPrefillAssetsKey] = useState<string | null>(null);
 	const [variants, setVariants] = useState<DraftVariant[]>([]);
 	const [legacyVariants, setLegacyVariants] = useState<PostVariant[]>([]);
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
@@ -1563,6 +1564,83 @@ export function DashboardNewPost() {
 		selectedTargetsByPlatform,
 		sharedDraft,
 		rootAssets,
+	]);
+
+	useEffect(() => {
+		if (loading) {
+			return;
+		}
+		const resourceId = searchParams.get("resourceId");
+		const resourceSetId = searchParams.get("resourceSetId");
+		if (!resourceId && !resourceSetId) {
+			return;
+		}
+		const nextKey = `${postId ?? "new"}:${resourceId ?? ""}:${resourceSetId ?? ""}`;
+		if (prefillAssetsKey === nextKey) {
+			return;
+		}
+
+		let cancelled = false;
+
+		async function applyPrefill() {
+			try {
+				const idsToAdd: string[] = [];
+				if (resourceId) {
+					idsToAdd.push(resourceId);
+				}
+				if (resourceSetId) {
+					const resourceSet = await customerRequest<ResourceSetDetail>(
+						`/resource-sets/${resourceSetId}`,
+					);
+					idsToAdd.push(...resourceSet.items.map((item) => item.resourceId));
+				}
+				if (!cancelled && idsToAdd.length > 0) {
+					setRootAssetIds((current) => {
+						const next = [...current];
+						for (const idToAdd of idsToAdd) {
+							if (!next.includes(idToAdd)) {
+								next.push(idToAdd);
+							}
+						}
+						return next;
+					});
+					toast.success(
+						resourceSetId
+							? "Collection assets added to the shared composer."
+							: "Asset added to the shared composer.",
+					);
+				}
+			} catch (prefillError) {
+				if (!cancelled) {
+					setError(
+						prefillError instanceof Error
+							? prefillError.message
+							: "Unable to attach the selected asset.",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					const nextParams = new URLSearchParams(searchParams);
+					nextParams.delete("resourceId");
+					nextParams.delete("resourceSetId");
+					setSearchParams(nextParams, { replace: true });
+					setPrefillAssetsKey(nextKey);
+				}
+			}
+		}
+
+		void applyPrefill();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		customerRequest,
+		loading,
+		prefillAssetsKey,
+		postId,
+		searchParams,
+		setSearchParams,
 	]);
 
 	useEffect(() => {

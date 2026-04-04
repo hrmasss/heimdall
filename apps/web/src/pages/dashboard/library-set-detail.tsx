@@ -1,8 +1,14 @@
-import { ArrowLeft, FolderKanban, PencilLine, Trash2 } from "lucide-react";
+import {
+	ArrowLeft,
+	FolderKanban,
+	MoreHorizontal,
+	PencilLine,
+	Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { SurfaceCard } from "@/components/app/brand";
+import { SurfaceCard, StatChip } from "@/components/app/brand";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import {
 	ResourceSetCover,
@@ -12,6 +18,13 @@ import {
 } from "@/components/resources/resource-set-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { ResourceSetDetail } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 
@@ -23,9 +36,7 @@ export function DashboardLibrarySetDetailPage() {
 	const navigate = useNavigate();
 	const { id = "" } = useParams();
 	const { activeWorkspaceId, customerRequest } = useAuth();
-	const [resourceSet, setResourceSet] = useState<ResourceSetDetail | null>(
-		null,
-	);
+	const [resourceSet, setResourceSet] = useState<ResourceSetDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -37,15 +48,13 @@ export function DashboardLibrarySetDetailPage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const response = await customerRequest<ResourceSetDetail>(
-				`/resource-sets/${id}`,
-			);
+			const response = await customerRequest<ResourceSetDetail>(`/resource-sets/${id}`);
 			setResourceSet(response);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
 					? loadError.message
-					: "Unable to load this asset set.",
+					: "Unable to load this collection.",
 			);
 		} finally {
 			setLoading(false);
@@ -71,7 +80,7 @@ export function DashboardLibrarySetDetailPage() {
 			setError(
 				deleteError instanceof Error
 					? deleteError.message
-					: "Unable to delete this asset set.",
+					: "Unable to delete this collection.",
 			);
 		} finally {
 			setSaving(false);
@@ -81,9 +90,9 @@ export function DashboardLibrarySetDetailPage() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Workspace resources"
-				title={resourceSet?.name ?? "Asset set detail"}
-				description="Inspect an ordered group of reusable resources, confirm intended use, and follow the same sequence into pickers and future post composition."
+				eyebrow="Collections"
+				title={resourceSet?.name ?? "Collection detail"}
+				description="Use collections when a reusable post needs ordered media, such as a carousel, sequence, or grouped campaign bundle."
 				actions={
 					<>
 						<Button variant="outline" className="rounded-full" asChild>
@@ -93,23 +102,38 @@ export function DashboardLibrarySetDetailPage() {
 							</Link>
 						</Button>
 						{resourceSet ? (
-							<Button variant="outline" className="rounded-full" asChild>
-								<Link to={`/dashboard/library/sets/${resourceSet.id}/edit`}>
-									<PencilLine className="size-4" />
-									Edit asset set
+							<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
+								<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
+									Use in post
 								</Link>
 							</Button>
 						) : null}
 						{resourceSet ? (
-							<Button
-								variant="outline"
-								className="rounded-full text-red-600"
-								onClick={() => void deleteResourceSet()}
-								disabled={saving}
-							>
-								<Trash2 className="size-4" />
-								Delete
-							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button variant="outline" className="rounded-full">
+										<MoreHorizontal className="size-4" />
+										More
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
+									<DropdownMenuItem asChild>
+										<Link to={`/dashboard/library/sets/${resourceSet.id}/edit`}>
+											<PencilLine className="size-4" />
+											Rename
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										variant="destructive"
+										onClick={() => void deleteResourceSet()}
+										disabled={saving}
+									>
+										<Trash2 className="size-4" />
+										Delete
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						) : null}
 					</>
 				}
@@ -129,9 +153,7 @@ export function DashboardLibrarySetDetailPage() {
 						</div>
 						<div className="space-y-4 p-5">
 							<div className="flex flex-wrap items-center gap-2">
-								{resourceSet ? (
-									<ResourceSetIntentBadge set={resourceSet} />
-								) : null}
+								{resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : null}
 								<Badge variant="outline" className="rounded-full">
 									{resourceSet?.itemCount ?? 0} items
 								</Badge>
@@ -155,12 +177,9 @@ export function DashboardLibrarySetDetailPage() {
 
 					<SurfaceCard className="p-5 md:p-6">
 						<div className="space-y-1">
-							<h2 className="text-lg font-semibold tracking-tight">
-								Ordered members
-							</h2>
+							<h2 className="text-lg font-semibold tracking-tight">Ordered members</h2>
 							<p className="text-sm text-muted-foreground">
-								The sequence here is the same order exposed to pickers and
-								future social-surface composition flows.
+								The sequence here is the same order reused by pickers and post flows.
 							</p>
 						</div>
 						<div className="mt-5">
@@ -180,51 +199,41 @@ export function DashboardLibrarySetDetailPage() {
 					</SurfaceCard>
 				</div>
 
-				<div className="space-y-6">
+				<div className="space-y-6 xl:sticky xl:top-[var(--density-dashboard-sticky-top)] xl:self-start">
 					<SurfaceCard className="p-5">
-						<div className="flex items-center gap-2">
-							<FolderKanban className="size-4 text-primary" />
-							<div className="text-lg font-semibold">Set overview</div>
+						<div className="space-y-4">
+							<div className="flex items-center gap-2">
+								<FolderKanban className="size-4 text-primary" />
+								<div className="text-lg font-semibold">Collection overview</div>
+							</div>
+							{loading || !resourceSet ? (
+								<div className="text-sm text-muted-foreground">
+									Loading overview...
+								</div>
+							) : (
+								<div className="grid gap-3">
+									<StatChip
+										label="Members"
+										value={String(resourceSet.itemCount)}
+										detail="Ordered reusable assets"
+									/>
+									<StatChip
+										label="Intent"
+										value={
+											resourceSet.intentType === "social_surface"
+												? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
+												: "Generic"
+										}
+										detail="How this collection is meant to be reused"
+									/>
+									<StatChip
+										label="Updated"
+										value={new Date(resourceSet.updatedAt).toLocaleDateString()}
+										detail={`Created ${formatResourceDate(resourceSet.createdAt)}`}
+									/>
+								</div>
+							)}
 						</div>
-						{loading || !resourceSet ? (
-							<div className="mt-4 text-sm text-muted-foreground">
-								Loading overview...
-							</div>
-						) : (
-							<div className="mt-4 space-y-3">
-								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Intended use
-									</div>
-									<div className="mt-2 text-lg font-semibold">
-										{resourceSet.intentType === "social_surface"
-											? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
-											: "Generic reusable set"}
-									</div>
-								</div>
-								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Cover resource
-									</div>
-									<div className="mt-2 text-sm">
-										{resourceSet.coverResource?.displayName ??
-											resourceSet.items[0]?.resource.displayName ??
-											"No cover yet"}
-									</div>
-								</div>
-								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/55 p-4">
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										Updated
-									</div>
-									<div className="mt-2 text-sm">
-										{formatResourceDate(resourceSet.updatedAt)}
-									</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										Created {formatResourceDate(resourceSet.createdAt)}
-									</div>
-								</div>
-							</div>
-						)}
 					</SurfaceCard>
 				</div>
 			</div>

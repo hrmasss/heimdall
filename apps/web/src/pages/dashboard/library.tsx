@@ -1,11 +1,13 @@
 import {
+	ArrowRight,
+	ChevronDown,
 	FilePlus2,
 	FolderKanban,
-	FolderPlus,
-	GripVertical,
-	Layers3,
+	ImagePlus,
+	MoreHorizontal,
 	PencilLine,
 	RefreshCw,
+	Search,
 	Sparkles,
 	Trash2,
 	Upload,
@@ -13,17 +15,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	DashboardPanel,
-} from "@/components/app/dashboard";
-import { DataTable, type DataTableColumn } from "@/components/app/data-table";
+import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
 import {
 	LocalFileThumb,
-	ResourceChipList,
 	ResourceCompatibilityBadge,
-	ResourceKindIcon,
 	ResourceThumb,
 	formatBytes,
 	formatResourceMeta,
@@ -34,31 +30,29 @@ import {
 	ResourceSetMembersPreview,
 	formatAssetSetIntent,
 } from "@/components/resources/resource-set-display";
-import {
-	getIntentSurfaceOptions,
-	getResourceSetIntentOptions,
-} from "@/components/resources/resource-set-intent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type {
 	ApiListResponse,
-	ResourceCapabilityMatrix,
 	ResourceRecord,
 	ResourceSetDetail,
 	ResourceSetSummary,
 	ResourceUploadResponse,
 } from "@/lib/api-types";
-import { useLocalStorageState } from "@/hooks/use-local-storage-state";
+import {
+	buildStudioHref,
+	getDefaultStudioTool,
+	getStudioModeForResource,
+} from "@/lib/asset-studio";
 import { useAuth } from "@/lib/auth-context";
 import {
 	MAX_CLIENT_UPLOAD_BYTES,
@@ -75,15 +69,17 @@ type UploadQueueItem = {
 	uploadedResourceId?: string;
 };
 
-type LibraryMode = "resources" | "sets";
-
-const LIBRARY_MODE_STORAGE_KEY = "dashboard-library-mode";
+type LibraryView = "assets" | "collections";
+type AssetFilter = "all" | ResourceRecord["mediaKind"];
 
 function isSupportedFile(file: File) {
 	return isSupportedResourceFile(file);
 }
 
 function getResourceHealth(resource: ResourceRecord) {
+	if (resource.processingError) {
+		return "blocked";
+	}
 	const unsupportedCount = resource.compatibility.filter(
 		(item) => item.status === "unsupported",
 	).length;
@@ -96,7 +92,15 @@ function getResourceHealth(resource: ResourceRecord) {
 	return warningCount > 0 ? "warning" : "ready";
 }
 
-function QueueStatusBadge({ item }: { item: UploadQueueItem }) {
+function buildCollectionName(items: UploadQueueItem[]) {
+	const base = items[0]?.file.name.replace(/\.[^.]+$/, "").trim();
+	if (!base) {
+		return "New collection";
+	}
+	return items.length > 1 ? `${base} collection` : base;
+}
+
+function UploadQueueBadge({ item }: { item: UploadQueueItem }) {
 	return (
 		<Badge
 			variant="outline"
@@ -114,35 +118,229 @@ function QueueStatusBadge({ item }: { item: UploadQueueItem }) {
 	);
 }
 
-function buildBatchSetName(items: UploadQueueItem[]) {
-	const namedItem = items.find((item) => item.file.name.trim().length > 0);
-	if (!namedItem) {
-		return "Upload batch";
+function QuietHealthBadge({ resource }: { resource: ResourceRecord }) {
+	const health = getResourceHealth(resource);
+	if (health === "ready") {
+		return null;
 	}
-	const baseName = namedItem.file.name.replace(/\.[^.]+$/, "").trim();
-	if (items.length === 1) {
-		return baseName || "Upload batch";
-	}
-	return `${baseName || "Upload"} set`;
+	return <ResourceCompatibilityBadge resource={resource} />;
 }
 
-function reorderQueueItems(
-	items: UploadQueueItem[],
-	draggedItemId: string,
-	targetItemId: string,
-) {
-	if (draggedItemId === targetItemId) {
-		return items;
+function StudioShortcutCard({
+	title,
+	description,
+	href,
+	soon = false,
+}: {
+	title: string;
+	description: string;
+	href?: string;
+	soon?: boolean;
+}) {
+	if (soon) {
+		return (
+			<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4">
+				<div className="flex items-center justify-between gap-3">
+					<div className="font-medium">{title}</div>
+					<Badge variant="outline" className="rounded-full">
+						Soon
+					</Badge>
+				</div>
+				<div className="mt-2 text-sm text-muted-foreground">{description}</div>
+			</div>
+		);
 	}
-	const fromIndex = items.findIndex((item) => item.id === draggedItemId);
-	const toIndex = items.findIndex((item) => item.id === targetItemId);
-	if (fromIndex === -1 || toIndex === -1) {
-		return items;
-	}
-	const nextItems = [...items];
-	const [item] = nextItems.splice(fromIndex, 1);
-	nextItems.splice(toIndex, 0, item);
-	return nextItems;
+
+	return (
+		<Link
+			to={href ?? "/dashboard/studio"}
+			className="group block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-4 transition-colors hover:bg-accent/25"
+		>
+			<div className="flex items-center justify-between gap-3">
+				<div className="font-medium">{title}</div>
+				<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+			</div>
+			<div className="mt-2 text-sm text-muted-foreground">{description}</div>
+		</Link>
+	);
+}
+
+function AssetCard({
+	resource,
+	onDelete,
+}: {
+	resource: ResourceRecord;
+	onDelete: (resourceId: string) => Promise<void>;
+}) {
+	const navigate = useNavigate();
+	const studioHref = buildStudioHref({
+		resourceId: resource.id,
+		mode: getStudioModeForResource(resource),
+		tool: getDefaultStudioTool(getStudioModeForResource(resource)),
+		source: "library",
+	});
+
+	return (
+		<SurfaceCard className="group overflow-hidden p-0">
+			<button
+				type="button"
+				onClick={() => navigate(`/dashboard/library/${resource.id}`)}
+				className="block w-full text-left"
+			>
+				<div className="aspect-[4/3] overflow-hidden bg-muted">
+					<ResourceThumb resource={resource} variant="minimal" />
+				</div>
+				<div className="space-y-4 p-4">
+					<div className="flex items-start justify-between gap-3">
+						<div className="min-w-0">
+							<div
+								className="truncate text-base font-semibold"
+								title={resource.displayName}
+							>
+								{resource.displayName}
+							</div>
+							<div
+								className="mt-1 truncate text-sm text-muted-foreground"
+								title={resource.originalName}
+							>
+								{resource.originalName}
+							</div>
+						</div>
+						<QuietHealthBadge resource={resource} />
+					</div>
+					<div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+						<Badge variant="outline" className="rounded-full capitalize">
+							{resource.mediaKind}
+						</Badge>
+						<Badge variant="outline" className="rounded-full">
+							{formatResourceMeta(resource)}
+						</Badge>
+						<Badge variant="outline" className="rounded-full">
+							{resource.usageCount} reuses
+						</Badge>
+					</div>
+				</div>
+			</button>
+			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-4 py-3">
+				<Button
+					variant="outline"
+					size="sm"
+					className="rounded-full"
+					onClick={() => navigate(`/dashboard/library/${resource.id}`)}
+				>
+					Open
+				</Button>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" size="icon-sm" className="rounded-full">
+							<MoreHorizontal className="size-4" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
+						<DropdownMenuItem asChild>
+							<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
+								<FilePlus2 className="size-4" />
+								Use in post
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+							<Link to={studioHref}>
+								<Sparkles className="size-4" />
+								Open in Studio
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+							<Link to={`/dashboard/library/${resource.id}/edit`}>
+								<PencilLine className="size-4" />
+								Rename
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							variant="destructive"
+							onClick={() => {
+								void onDelete(resource.id);
+							}}
+						>
+							<Trash2 className="size-4" />
+							Delete
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+		</SurfaceCard>
+	);
+}
+
+function CollectionCard({
+	resourceSet,
+	onDelete,
+}: {
+	resourceSet: ResourceSetSummary;
+	onDelete: (resourceSetId: string) => Promise<void>;
+}) {
+	return (
+		<SurfaceCard className="overflow-hidden p-0">
+			<Link to={`/dashboard/library/sets/${resourceSet.id}`} className="block">
+				<div className="aspect-[16/10] overflow-hidden bg-muted">
+					<ResourceSetCover set={resourceSet} />
+				</div>
+				<div className="space-y-4 p-4">
+					<div className="flex items-start justify-between gap-3">
+						<div className="min-w-0">
+							<div className="truncate text-base font-semibold">
+								{resourceSet.name}
+							</div>
+							<div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+								{resourceSet.description || "Reusable ordered media for a sequence, bundle, or carousel."}
+							</div>
+						</div>
+						<ResourceSetIntentBadge set={resourceSet} />
+					</div>
+					<ResourceSetMembersPreview
+						resources={resourceSet.membersPreview}
+						max={3}
+					/>
+				</div>
+			</Link>
+			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-4 py-3">
+				<div className="text-sm text-muted-foreground">
+					{resourceSet.itemCount} items
+				</div>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" size="icon-sm" className="rounded-full">
+							<MoreHorizontal className="size-4" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="w-52 rounded-[20px] p-2">
+						<DropdownMenuItem asChild>
+							<Link to={`/dashboard/posts/new?resourceSetId=${resourceSet.id}`}>
+								<FilePlus2 className="size-4" />
+								Use in post
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+							<Link to={`/dashboard/library/sets/${resourceSet.id}/edit`}>
+								<PencilLine className="size-4" />
+								Rename
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							variant="destructive"
+							onClick={() => {
+								void onDelete(resourceSet.id);
+							}}
+						>
+							<Trash2 className="size-4" />
+							Delete
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+		</SurfaceCard>
+	);
 }
 
 export function DashboardLibrary() {
@@ -150,40 +348,21 @@ export function DashboardLibrary() {
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const queueRef = useRef<UploadQueueItem[]>([]);
-	const [libraryMode, setLibraryMode] = useLocalStorageState<LibraryMode>(
-		LIBRARY_MODE_STORAGE_KEY,
-		"resources",
-	);
+
+	const [view, setView] = useState<LibraryView>("assets");
+	const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
+	const [query, setQuery] = useState("");
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
 	const [resourceSets, setResourceSets] = useState<ResourceSetSummary[]>([]);
-	const [capabilities, setCapabilities] =
-		useState<ResourceCapabilityMatrix | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+	const [uploadTrayOpen, setUploadTrayOpen] = useState(false);
 	const [optimizeImages, setOptimizeImages] = useState(true);
 	const [uploading, setUploading] = useState(false);
-	const [createSetFromBatch, setCreateSetFromBatch] = useState(false);
-	const [batchSetName, setBatchSetName] = useState("");
-	const [batchIntentPlatform, setBatchIntentPlatform] = useState("instagram");
-	const [batchIntentSurface, setBatchIntentSurface] = useState("carousel");
-	const [draggingQueueItemId, setDraggingQueueItemId] = useState<string | null>(
-		null,
-	);
-
-	const batchPlatformOptions = useMemo(
-		() => getResourceSetIntentOptions(capabilities),
-		[capabilities],
-	);
-	const batchSurfaceOptions = useMemo(
-		() => getIntentSurfaceOptions(batchPlatformOptions, batchIntentPlatform),
-		[batchIntentPlatform, batchPlatformOptions],
-	);
-
-	const releasePreview = useCallback((previewUrl: string) => {
-		URL.revokeObjectURL(previewUrl);
-	}, []);
+	const [createCollectionFromBatch, setCreateCollectionFromBatch] = useState(false);
+	const [collectionName, setCollectionName] = useState("");
 
 	useEffect(() => {
 		queueRef.current = queue;
@@ -192,45 +371,25 @@ export function DashboardLibrary() {
 	useEffect(() => {
 		return () => {
 			for (const item of queueRef.current) {
-				releasePreview(item.previewUrl);
+				URL.revokeObjectURL(item.previewUrl);
 			}
 		};
-	}, [releasePreview]);
+	}, []);
 
 	useEffect(() => {
+		if (queue.length > 0) {
+			setUploadTrayOpen(true);
+		}
 		if (queue.length >= 2) {
-			setCreateSetFromBatch(true);
-			if (!batchSetName.trim()) {
-				setBatchSetName(buildBatchSetName(queue));
-			}
-			return;
+			setCreateCollectionFromBatch(true);
+			setCollectionName((current) =>
+				current.trim().length > 0 ? current : buildCollectionName(queue),
+			);
 		}
-		setCreateSetFromBatch(false);
-	}, [batchSetName, queue]);
-
-	useEffect(() => {
-		if (batchPlatformOptions.length === 0) {
-			return;
+		if (queue.length < 2) {
+			setCreateCollectionFromBatch(false);
 		}
-		if (
-			!batchPlatformOptions.some(
-				(option) => option.value === batchIntentPlatform,
-			)
-		) {
-			setBatchIntentPlatform(batchPlatformOptions[0].value);
-		}
-	}, [batchIntentPlatform, batchPlatformOptions]);
-
-	useEffect(() => {
-		if (batchSurfaceOptions.length === 0) {
-			return;
-		}
-		if (
-			!batchSurfaceOptions.some((option) => option.value === batchIntentSurface)
-		) {
-			setBatchIntentSurface(batchSurfaceOptions[0].value);
-		}
-	}, [batchIntentSurface, batchSurfaceOptions]);
+	}, [queue]);
 
 	const loadData = useCallback(async () => {
 		if (!activeWorkspaceId) {
@@ -239,22 +398,17 @@ export function DashboardLibrary() {
 		setLoading(true);
 		setError(null);
 		try {
-			const [resourceResponse, capabilityResponse, setResponse] =
-				await Promise.all([
-					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-					customerRequest<ApiListResponse<ResourceSetSummary>>(
-						"/resource-sets",
-					),
-				]);
+			const [resourceResponse, setResponse] = await Promise.all([
+				customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+				customerRequest<ApiListResponse<ResourceSetSummary>>("/resource-sets"),
+			]);
 			setResources(resourceResponse.items);
-			setCapabilities(capabilityResponse);
 			setResourceSets(setResponse.items);
 		} catch (loadError) {
 			setError(
 				loadError instanceof Error
 					? loadError.message
-					: "Unable to load the resource library.",
+					: "Unable to load the asset library.",
 			);
 		} finally {
 			setLoading(false);
@@ -265,52 +419,17 @@ export function DashboardLibrary() {
 		void loadData();
 	}, [loadData]);
 
-	function updateQueueItem(
-		id: string,
-		updater: (item: UploadQueueItem) => UploadQueueItem,
-	) {
-		setQueue((current) =>
-			current.map((item) => (item.id === id ? updater(item) : item)),
-		);
-	}
-
-	function removeQueueItem(itemId: string) {
-		setQueue((current) => {
-			const target = current.find((item) => item.id === itemId);
-			if (target) {
-				releasePreview(target.previewUrl);
-			}
-			return current.filter((item) => item.id !== itemId);
-		});
-	}
-
-	function reorderQueue(draggedItemId: string, targetItemId: string) {
-		setQueue((current) =>
-			reorderQueueItems(current, draggedItemId, targetItemId),
-		);
-	}
-
-	function clearCompletedQueue() {
-		setQueue((current) => {
-			for (const item of current) {
-				if (item.status !== "uploading") {
-					releasePreview(item.previewUrl);
-				}
-			}
-			return current.filter((item) => item.status === "uploading");
-		});
-	}
-
 	function enqueueFiles(files: FileList | File[]) {
 		setNotice(null);
 		const nextItems = Array.from(files).map<UploadQueueItem>((file) => {
 			let validationError: string | undefined;
 			if (!isSupportedFile(file)) {
 				validationError =
-					"Unsupported file type for the shared resource library.";
+					"Unsupported file type for the shared asset library.";
 			} else if (file.size > MAX_CLIENT_UPLOAD_BYTES) {
 				validationError = "File exceeds the current 512 MB upload limit.";
 			}
+
 			return {
 				id:
 					typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -325,8 +444,37 @@ export function DashboardLibrary() {
 		setQueue((current) => [...nextItems, ...current]);
 	}
 
-	async function maybeCreateBatchSet(uploadedResources: ResourceRecord[]) {
-		if (!createSetFromBatch || uploadedResources.length < 2) {
+	function updateQueueItem(
+		id: string,
+		updater: (item: UploadQueueItem) => UploadQueueItem,
+	) {
+		setQueue((current) =>
+			current.map((item) => (item.id === id ? updater(item) : item)),
+		);
+	}
+
+	function removeQueueItem(itemId: string) {
+		setQueue((current) => {
+			const target = current.find((item) => item.id === itemId);
+			if (target) {
+				URL.revokeObjectURL(target.previewUrl);
+			}
+			return current.filter((item) => item.id !== itemId);
+		});
+	}
+
+	function clearQueue() {
+		setQueue((current) => {
+			for (const item of current) {
+				URL.revokeObjectURL(item.previewUrl);
+			}
+			return [];
+		});
+		setUploadTrayOpen(false);
+	}
+
+	async function maybeCreateCollection(uploadedResources: ResourceRecord[]) {
+		if (!createCollectionFromBatch || uploadedResources.length < 2) {
 			return null;
 		}
 
@@ -336,12 +484,10 @@ export function DashboardLibrary() {
 				{
 					method: "POST",
 					body: {
-						name: batchSetName.trim() || buildBatchSetName(queue),
+						name: collectionName.trim() || buildCollectionName(queue),
 						description:
-							"Created from a multi-file upload batch in the workspace library.",
-						intentType: "social_surface",
-						intentPlatform: batchIntentPlatform,
-						intentSurface: batchIntentSurface,
+							"Created from a multi-file upload in the workspace library.",
+						intentType: "generic",
 						sourceType: "upload_batch",
 						items: uploadedResources.map((resource) => ({
 							resourceId: resource.id,
@@ -354,12 +500,12 @@ export function DashboardLibrary() {
 				...current.filter((item) => item.id !== createdSet.id),
 			]);
 			return createdSet;
-		} catch (setError) {
-			const message =
-				setError instanceof Error
-					? setError.message
-					: "Resources uploaded, but asset-set creation failed.";
-			setNotice(message);
+		} catch (createError) {
+			setNotice(
+				createError instanceof Error
+					? createError.message
+					: "Assets uploaded, but collection creation failed.",
+			);
 			return null;
 		}
 	}
@@ -373,7 +519,10 @@ export function DashboardLibrary() {
 		setUploading(true);
 		setError(null);
 		setNotice(null);
+
 		const uploadedResources: ResourceRecord[] = [];
+		let failedCount = 0;
+
 		for (const item of pendingItems) {
 			updateQueueItem(item.id, (entry) => ({
 				...entry,
@@ -406,26 +555,44 @@ export function DashboardLibrary() {
 					uploadedResourceId: response.resource.id,
 				}));
 			} catch (uploadError) {
-				const message =
-					uploadError instanceof Error ? uploadError.message : "Upload failed.";
+				failedCount += 1;
 				updateQueueItem(item.id, (entry) => ({
 					...entry,
 					status: "error",
-					error: message,
+					error:
+						uploadError instanceof Error ? uploadError.message : "Upload failed.",
 				}));
-				setError(message);
 			}
 		}
 
-		const createdSet = await maybeCreateBatchSet(uploadedResources);
+		const createdCollection = await maybeCreateCollection(uploadedResources);
 		setUploading(false);
-		if (createdSet) {
+
+		if (failedCount === 0) {
+			clearQueue();
 			setNotice(
-				`Upload queue processed and "${createdSet.name}" was created as an ordered asset set.`,
+				createdCollection
+					? `Assets added and "${createdCollection.name}" is ready as a collection.`
+					: uploadedResources.length === 1
+						? "Asset added to the library."
+						: `${uploadedResources.length} assets added to the library.`,
 			);
-		} else {
-			setNotice("Upload queue processed.");
+			return;
 		}
+
+		setQueue((current) => {
+			for (const item of current) {
+				if (item.status === "done") {
+					URL.revokeObjectURL(item.previewUrl);
+				}
+			}
+			return current.filter((item) => item.status !== "done");
+		});
+		setNotice(
+			uploadedResources.length > 0
+				? `${uploadedResources.length} uploaded, ${failedCount} still need attention.`
+				: "Upload queue needs attention.",
+		);
 	}
 
 	const removeResource = useCallback(
@@ -437,36 +604,12 @@ export function DashboardLibrary() {
 				setResources((current) =>
 					current.filter((resource) => resource.id !== resourceId),
 				);
-				setResourceSets((current) =>
-					current.map((set) => ({
-						...set,
-						itemCount: Math.max(
-							0,
-							set.membersPreview.some((member) => member.id === resourceId)
-								? set.itemCount - 1
-								: set.itemCount,
-						),
-						membersPreview: set.membersPreview.filter(
-							(member) => member.id !== resourceId,
-						),
-						coverPreviewUrl:
-							set.coverResourceId === resourceId
-								? set.membersPreview.find((member) => member.id !== resourceId)
-										?.previewUrl
-								: set.coverPreviewUrl,
-						coverResourceId:
-							set.coverResourceId === resourceId
-								? set.membersPreview.find((member) => member.id !== resourceId)
-										?.id
-								: set.coverResourceId,
-					})),
-				);
-				setNotice("Resource deleted.");
+				setNotice("Asset deleted.");
 			} catch (deleteError) {
 				setError(
 					deleteError instanceof Error
 						? deleteError.message
-						: "Unable to delete the resource.",
+						: "Unable to delete the asset.",
 				);
 			}
 		},
@@ -482,260 +625,189 @@ export function DashboardLibrary() {
 					method: "DELETE",
 				});
 				setResourceSets((current) =>
-					current.filter((item) => item.id !== resourceSetId),
+					current.filter((set) => set.id !== resourceSetId),
 				);
-				setNotice("Asset set deleted.");
+				setNotice("Collection deleted.");
 			} catch (deleteError) {
 				setError(
 					deleteError instanceof Error
 						? deleteError.message
-						: "Unable to delete the asset set.",
+						: "Unable to delete the collection.",
 				);
 			}
 		},
 		[customerRequest],
 	);
 
-	const resourceColumns: DataTableColumn<ResourceRecord>[] = useMemo(
-		() => [
-			{
-				id: "resource",
-				label: "Resource",
-				width: 320,
-				accessor: (resource) => (
-					<div className="flex items-center gap-3">
-						<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-							<ResourceThumb resource={resource} variant="compact" />
-						</div>
-						<div className="min-w-0">
-							<div className="truncate font-medium">{resource.displayName}</div>
-							<div className="truncate text-sm text-muted-foreground">
-								{resource.originalName}
-							</div>
-						</div>
-					</div>
-				),
-				getSortValue: (resource) => resource.displayName,
-			},
-			{
-				id: "format",
-				label: "Format",
-				width: 220,
-				accessor: (resource) => (
-					<div className="space-y-1">
-						<div className="inline-flex items-center gap-2 capitalize">
-							<ResourceKindIcon mediaKind={resource.mediaKind} />
-							{resource.mediaKind}
-						</div>
-						<div className="text-sm text-muted-foreground">
-							{formatResourceMeta(resource)}
-						</div>
-					</div>
-				),
-				getSortValue: (resource) => resource.mediaKind,
-			},
-			{
-				id: "compatibility",
-				label: "Compatibility",
-				width: 180,
-				accessor: (resource) => (
-					<ResourceCompatibilityBadge resource={resource} />
-				),
-				getSortValue: (resource) => getResourceHealth(resource),
-			},
-			{
-				id: "reuse",
-				label: "Reuse",
-				width: 220,
-				accessor: (resource) => (
-					<div className="space-y-1 text-sm">
-						<div>{resource.usageCount} references</div>
-						<div className="text-muted-foreground">
-							{resource.setCount} sets ·{" "}
-							{resource.parentResourceId
-								? "derived variant"
-								: `${resource.childCount} child variants`}
-						</div>
-					</div>
-				),
-				getSortValue: (resource) => resource.usageCount + resource.setCount,
-			},
-			{
-				id: "updated",
-				label: "Updated",
-				width: 170,
-				accessor: (resource) =>
-					new Date(resource.updatedAt).toLocaleDateString(),
-				getSortValue: (resource) => new Date(resource.updatedAt).getTime(),
-			},
-			{
-				id: "actions",
-				label: "Manage",
-				width: 280,
-				className: "text-right",
-				headerClassName: "text-right",
-				accessor: (resource) => (
-					<div className="flex items-center justify-end gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={(event) => {
-								event.stopPropagation();
-								navigate(`/dashboard/library/${resource.id}`);
-							}}
-						>
-							Open
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={(event) => {
-								event.stopPropagation();
-								navigate(`/dashboard/library/${resource.id}/edit`);
-							}}
-						>
-							<PencilLine className="size-4" />
-							Edit
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="rounded-full text-red-600"
-							onClick={(event) => {
-								event.stopPropagation();
-								void removeResource(resource.id);
-							}}
-						>
-							<Trash2 className="size-4" />
-							Delete
-						</Button>
-					</div>
-				),
-			},
-		],
-		[navigate, removeResource],
-	);
+	const filteredResources = useMemo(() => {
+		const needle = query.trim().toLowerCase();
+		return resources
+			.filter((resource) =>
+				assetFilter === "all" ? true : resource.mediaKind === assetFilter,
+			)
+			.filter((resource) =>
+				needle
+					? [
+							resource.displayName,
+							resource.originalName,
+							resource.mediaKind,
+							resource.mimeType,
+						]
+							.join(" ")
+							.toLowerCase()
+							.includes(needle)
+					: true,
+			)
+			.sort(
+				(left, right) =>
+					new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+			);
+	}, [assetFilter, query, resources]);
 
-	const resourceSetColumns: DataTableColumn<ResourceSetSummary>[] = useMemo(
-		() => [
-			{
-				id: "set",
-				label: "Asset set",
-				width: 360,
-				accessor: (set) => (
-					<div className="flex items-center gap-3">
-						<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-							<ResourceSetCover set={set} compact className="rounded-[18px]" />
+	const filteredCollections = useMemo(() => {
+		const needle = query.trim().toLowerCase();
+		return resourceSets
+			.filter((set) =>
+				needle
+					? [
+							set.name,
+							set.description,
+							set.intentPlatform ?? "",
+							set.intentSurface ?? "",
+						]
+							.join(" ")
+							.toLowerCase()
+							.includes(needle)
+					: true,
+			)
+			.sort(
+				(left, right) =>
+					new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+			);
+	}, [query, resourceSets]);
+
+	const readyAssets = useMemo(
+		() => resources.filter((resource) => getResourceHealth(resource) === "ready").length,
+		[resources],
+	);
+	const recentAssets = useMemo(() => resources.slice(0, 4), [resources]);
+	const recentCollections = useMemo(() => resourceSets.slice(0, 4), [resourceSets]);
+	const uploadReadyCount = queue.filter((item) => item.status === "pending").length;
+
+	const rail = (
+		<div className="space-y-5 xl:sticky xl:top-[var(--density-dashboard-sticky-top)]">
+			<DashboardPanel
+				title="Transform with Studio"
+				description="Open the editor already scoped to the job you want done."
+			>
+				<div className="space-y-3">
+					<StudioShortcutCard
+						title="Crop / resize"
+						description="Prep a reusable image variant with the right aspect ratio."
+						href="/dashboard/studio?mode=image&tool=resize&source=library"
+					/>
+					<StudioShortcutCard
+						title="Expand / fill"
+						description="Guide a wider or taller composition from one source image."
+						href="/dashboard/studio?mode=image&tool=fill&source=library"
+					/>
+					<StudioShortcutCard
+						title="Clip video"
+						description="Turn a longer source video into a tighter social-ready cut."
+						href="/dashboard/studio?mode=reel&tool=clip&source=library"
+					/>
+					<StudioShortcutCard
+						title="Caption video"
+						description="Caption-first video prep will sit here as a faster library shortcut."
+						soon
+					/>
+				</div>
+			</DashboardPanel>
+
+			<DashboardPanel
+				title="Recent collections"
+				description="Grouped assets stay secondary, but still close by when you need sequences."
+				action={
+					<Button
+						variant="outline"
+						size="sm"
+						className="rounded-full"
+						onClick={() => setView("collections")}
+					>
+						Collections
+					</Button>
+				}
+			>
+				<div className="space-y-3">
+					{recentCollections.length > 0 ? (
+						recentCollections.map((resourceSet) => (
+							<Link
+								key={resourceSet.id}
+								to={`/dashboard/library/sets/${resourceSet.id}`}
+								className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
+							>
+								<div className="flex items-center gap-3">
+									<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+										<ResourceSetCover set={resourceSet} compact />
+									</div>
+									<div className="min-w-0 flex-1">
+										<div className="truncate font-medium">{resourceSet.name}</div>
+										<div className="mt-1 text-sm text-muted-foreground">
+											{resourceSet.itemCount} items · {formatAssetSetIntent(resourceSet)}
+										</div>
+									</div>
+								</div>
+							</Link>
+						))
+					) : (
+						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+							Collections will appear here once you group related uploads.
 						</div>
-						<div className="min-w-0">
-							<div className="truncate font-medium">{set.name}</div>
-							<div className="truncate text-sm text-muted-foreground">
-								{set.description || formatAssetSetIntent(set)}
-							</div>
+					)}
+				</div>
+			</DashboardPanel>
+
+			<DashboardPanel
+				title="Recent activity"
+				description="The latest reusable assets, kept close without turning the page into a feed."
+			>
+				<div className="space-y-3">
+					{recentAssets.length > 0 ? (
+						recentAssets.map((resource) => (
+							<Link
+								key={resource.id}
+								to={`/dashboard/library/${resource.id}`}
+								className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
+							>
+								<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+									<ResourceThumb resource={resource} variant="compact" />
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="truncate font-medium">{resource.displayName}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{formatResourceMeta(resource)}
+									</div>
+								</div>
+							</Link>
+						))
+					) : (
+						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+							Uploads and reusable assets will appear here.
 						</div>
-					</div>
-				),
-				getSortValue: (set) => set.name,
-			},
-			{
-				id: "intent",
-				label: "Intended use",
-				width: 220,
-				accessor: (set) => (
-					<div className="space-y-2">
-						<ResourceSetIntentBadge set={set} />
-						<div className="text-sm text-muted-foreground capitalize">
-							{set.sourceType.replaceAll("_", " ")}
-						</div>
-					</div>
-				),
-				getSortValue: (set) => formatAssetSetIntent(set),
-			},
-			{
-				id: "members",
-				label: "Members",
-				width: 260,
-				accessor: (set) => (
-					<div className="space-y-2">
-						<div className="text-sm">{set.itemCount} ordered items</div>
-						<ResourceSetMembersPreview resources={set.membersPreview} max={3} />
-					</div>
-				),
-				getSortValue: (set) => set.itemCount,
-			},
-			{
-				id: "updated",
-				label: "Updated",
-				width: 170,
-				accessor: (set) => new Date(set.updatedAt).toLocaleDateString(),
-				getSortValue: (set) => new Date(set.updatedAt).getTime(),
-			},
-			{
-				id: "actions",
-				label: "Manage",
-				width: 260,
-				className: "text-right",
-				headerClassName: "text-right",
-				accessor: (set) => (
-					<div className="flex items-center justify-end gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={(event) => {
-								event.stopPropagation();
-								navigate(`/dashboard/library/sets/${set.id}`);
-							}}
-						>
-							Open
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={(event) => {
-								event.stopPropagation();
-								navigate(`/dashboard/library/sets/${set.id}/edit`);
-							}}
-						>
-							<PencilLine className="size-4" />
-							Edit
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="rounded-full text-red-600"
-							onClick={(event) => {
-								event.stopPropagation();
-								void removeResourceSet(set.id);
-							}}
-						>
-							<Trash2 className="size-4" />
-							Delete
-						</Button>
-					</div>
-				),
-			},
-		],
-		[navigate, removeResourceSet],
+					)}
+				</div>
+			</DashboardPanel>
+		</div>
 	);
 
 	return (
-		<div className="dashboard-page-stack">
+		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Workspace assets"
-				title="Assets"
-				description="Upload, preview, inspect, and reuse workspace-scoped media. Ordered asset sets keep related resources together for surfaces like carousels and story sequences."
+				eyebrow="Reusable assets"
+				title="Library"
+				description="Keep one shared media library for the whole workspace, then reuse the same asset across posts, collections, and Studio tasks without re-uploading."
 				actions={
 					<>
-						<Button variant="outline" size="sm" className="rounded-full" asChild>
-							<Link to="/dashboard/studio">
-								<Sparkles className="size-4" />
-								Open studio
-							</Link>
-						</Button>
 						<Button
 							variant="outline"
 							size="sm"
@@ -745,22 +817,19 @@ export function DashboardLibrary() {
 							<RefreshCw className="size-4" />
 							Refresh
 						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={() => navigate("/dashboard/library/sets/new")}
-						>
-							<FolderPlus className="size-4" />
-							New asset set
+						<Button variant="outline" size="sm" className="rounded-full" asChild>
+							<Link to="/dashboard/studio">
+								<Sparkles className="size-4" />
+								Open Studio
+							</Link>
 						</Button>
 						<Button
 							size="sm"
 							className="rounded-full border-0 bg-gradient-brand text-white"
 							onClick={() => fileInputRef.current?.click()}
 						>
-							<FilePlus2 className="size-4" />
-							Add resources
+							<Upload className="size-4" />
+							Upload asset
 						</Button>
 					</>
 				}
@@ -772,570 +841,401 @@ export function DashboardLibrary() {
 				multiple
 				className="hidden"
 				onChange={(event) => {
-					if (event.target.files) {
+					if (event.target.files?.length) {
 						enqueueFiles(event.target.files);
 						event.target.value = "";
 					}
 				}}
 			/>
 
-			<DashboardPanel
-				title="Upload queue"
-				description="Preview files before they enter the workspace library. Multi-file uploads can create an ordered asset set automatically."
-				action={
-					<div className="flex flex-wrap items-center gap-2.5">
-						<div className="flex items-center gap-2 text-sm text-muted-foreground">
-							<Switch
-								checked={optimizeImages}
-								onCheckedChange={(checked) =>
-									setOptimizeImages(Boolean(checked))
-								}
-							/>
-							Optimize images
-						</div>
-						<Button
-							variant="outline"
-							size="sm"
-							className="rounded-full"
-							onClick={clearCompletedQueue}
-							disabled={queue.length === 0}
-						>
-							Clear queue
-						</Button>
-						<Button
-							size="sm"
-							className="rounded-full border-0 bg-gradient-brand text-white"
-							disabled={
-								uploading || queue.every((item) => item.status !== "pending")
-							}
-							onClick={() => void uploadQueue()}
-						>
-							<Upload className="size-4" />
-							Upload queue
-						</Button>
-					</div>
-				}
-			>
-				<div
-					className="dashboard-card border border-dashed border-[var(--brand-border-soft)] bg-[linear-gradient(145deg,var(--brand-highlight),transparent)] text-center"
-					onDragOver={(event) => event.preventDefault()}
-					onDrop={(event) => {
-						event.preventDefault();
-						if (event.dataTransfer.files?.length) {
-							enqueueFiles(event.dataTransfer.files);
-						}
-					}}
-				>
-					<div className="mx-auto flex size-12 items-center justify-center rounded-[var(--density-dashboard-card-radius-sm)] bg-background/90 text-primary shadow-sm">
-						<FolderKanban className="size-5" />
-					</div>
-					<div className="mt-3 text-base font-medium sm:text-lg">
-						Drop files into the shared library
-					</div>
-					<p className="mt-2 text-sm text-muted-foreground">
-						Images, videos, and documents become reusable workspace resources.
-						If you upload multiple files together, their drag order becomes the
-						initial asset-set order.
-					</p>
-				</div>
-				{queue.length >= 2 ? (
-					<div className="dashboard-card-sm mt-3 border border-[var(--brand-border-soft)] bg-background/70">
-						<div className="flex flex-wrap items-center justify-between gap-3">
-							<div>
-								<div className="font-medium">
-									Create asset set from this batch
-								</div>
-								<div className="text-sm text-muted-foreground">
-									Group related resources now so carousels, story sequences, and
-									ordered picks stay intact later.
-								</div>
-							</div>
-							<div className="flex items-center gap-2 text-sm text-muted-foreground">
-								<Switch
-									checked={createSetFromBatch}
-									onCheckedChange={(checked) =>
-										setCreateSetFromBatch(Boolean(checked))
-									}
-								/>
-								Auto-create ordered set
-							</div>
-						</div>
-						{createSetFromBatch ? (
-							<div className="mt-4 grid gap-3 md:grid-cols-3">
-								<div className="grid gap-2">
-									<Label htmlFor="batch-set-name">Set name</Label>
-									<Input
-										id="batch-set-name"
-										value={batchSetName}
-										onChange={(event) => setBatchSetName(event.target.value)}
-										className="dashboard-input-height rounded-2xl"
-										placeholder="Instagram carousel set"
-									/>
-								</div>
-								<div className="grid gap-2">
-									<Label>Platform intent</Label>
-									<Select
-										value={batchIntentPlatform}
-										onValueChange={setBatchIntentPlatform}
-									>
-										<SelectTrigger className="dashboard-input-height w-full rounded-2xl px-4">
-											<SelectValue placeholder="Choose a platform" />
-										</SelectTrigger>
-										<SelectContent position="popper" align="start">
-											{batchPlatformOptions.map((option) => (
-												<SelectItem key={option.value} value={option.value}>
-													{option.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="grid gap-2">
-									<Label>Surface intent</Label>
-									<Select
-										value={batchIntentSurface}
-										onValueChange={setBatchIntentSurface}
-									>
-										<SelectTrigger className="dashboard-input-height w-full rounded-2xl px-4">
-											<SelectValue placeholder="Choose a surface" />
-										</SelectTrigger>
-										<SelectContent position="popper" align="start">
-											{batchSurfaceOptions.map((option) => (
-												<SelectItem key={option.value} value={option.value}>
-													{option.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-						) : null}
-					</div>
-				) : null}
-
-				<div className="mt-4 space-y-3">
-					{queue.length === 0 ? (
-						<div className="text-sm text-muted-foreground">
-							No files queued yet.
-						</div>
-					) : (
-						queue.map((item) => (
-							<div
-								key={item.id}
-								draggable={queue.length > 1}
-								onDragStart={() => setDraggingQueueItemId(item.id)}
-								onDragEnd={() => setDraggingQueueItemId(null)}
-								onDragOver={(event) => {
-									if (queue.length <= 1 || !draggingQueueItemId) {
-										return;
-									}
-									event.preventDefault();
-								}}
-								onDrop={(event) => {
-									if (!draggingQueueItemId) {
-										return;
-									}
-									event.preventDefault();
-									reorderQueue(draggingQueueItemId, item.id);
-									setDraggingQueueItemId(null);
-								}}
-								className={cn(
-									"dashboard-card-sm flex flex-wrap items-center gap-3 border border-[var(--brand-border-soft)] bg-background/75",
-									draggingQueueItemId === item.id && "opacity-60",
-								)}
-							>
-								<div className="flex items-center gap-2 text-sm text-muted-foreground">
-									<div className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
-										<GripVertical className="size-4" />
+			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+				<div className="space-y-6">
+					<SurfaceCard className="overflow-hidden">
+						<div className="relative space-y-6">
+							<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--brand-primary)_12%,transparent),transparent_42%),radial-gradient(circle_at_85%_20%,color-mix(in_srgb,var(--brand-secondary)_12%,transparent),transparent_36%)]" />
+							<div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
+								<div className="space-y-4">
+									<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--brand-accent)]">
+										Shared media, calmer by default
 									</div>
-									<span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background px-2 font-medium">
-										{queue.findIndex((queueItem) => queueItem.id === item.id) +
-											1}
-									</span>
-								</div>
-								<div className="h-20 w-24 overflow-hidden rounded-[16px] bg-muted">
-									<LocalFileThumb
-										file={item.file}
-										previewUrl={item.previewUrl}
-										variant="compact"
-									/>
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="truncate font-medium">{item.file.name}</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{formatBytes(item.file.size)}
-										{item.file.type.startsWith("image/")
-											? ` · optimization ${optimizeImages ? "on" : "off"}`
-											: ""}
+									<div className="space-y-2">
+										<h2 className="text-2xl font-semibold tracking-tight">
+											Find it, reuse it, prep it.
+										</h2>
+										<p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+											The library stays focused on reusable single assets first.
+											Collections, compatibility detail, and future transforms stay
+											close by without crowding the main path.
+										</p>
 									</div>
-									{item.error ? (
-										<div className="mt-1 text-sm text-red-600">
-											{item.error}
-										</div>
-									) : null}
-									{item.status === "done" && item.uploadedResourceId ? (
-										<button
-											type="button"
-											className="mt-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
-											onClick={() =>
-												navigate(
-													`/dashboard/library/${item.uploadedResourceId}`,
-												)
-											}
+									<div className="flex flex-wrap gap-2">
+										<Button
+											className="rounded-full border-0 bg-gradient-brand text-white"
+											onClick={() => fileInputRef.current?.click()}
 										>
-											Open resource detail
-										</button>
-									) : null}
-								</div>
-								<div className="ml-auto flex items-center gap-2">
-									<QueueStatusBadge item={item} />
-									{item.status === "error" ? (
+											<Upload className="size-4" />
+											Upload asset
+										</Button>
 										<Button
 											variant="outline"
-											size="sm"
 											className="rounded-full"
-											onClick={() =>
-												updateQueueItem(item.id, (entry) => ({
-													...entry,
-													status: "pending",
-													error: undefined,
-												}))
-											}
+											onClick={() => setView("collections")}
 										>
-											Retry
+											<FolderKanban className="size-4" />
+											Collections
 										</Button>
-									) : null}
+									</div>
+								</div>
+								<div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+									<StatChip
+										label="Assets"
+										value={String(resources.length)}
+										detail="Reusable single media entries"
+									/>
+									<StatChip
+										label="Ready"
+										value={String(readyAssets)}
+										detail="Assets ready for most publishing flows"
+									/>
+									<StatChip
+										label="Collections"
+										value={String(resourceSets.length)}
+										detail="Ordered groups for carousels and bundles"
+									/>
+								</div>
+							</div>
+						</div>
+					</SurfaceCard>
+
+					<DashboardPanel
+						title="Command strip"
+						description="Upload, search, and move between reusable assets and collections without turning the page into a control panel."
+					>
+						<div className="flex flex-col gap-4">
+							<div className="flex flex-wrap items-center gap-2">
+								<Button
+									variant={view === "assets" ? "secondary" : "outline"}
+									size="sm"
+									className="rounded-full"
+									onClick={() => setView("assets")}
+								>
+									<ImagePlus className="size-4" />
+									Assets
+								</Button>
+								<Button
+									variant={view === "collections" ? "secondary" : "outline"}
+									size="sm"
+									className="rounded-full"
+									onClick={() => setView("collections")}
+								>
+									<FolderKanban className="size-4" />
+									Collections
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									className="rounded-full"
+									onClick={() => setUploadTrayOpen((current) => !current)}
+								>
+									<Upload className="size-4" />
+									{queue.length > 0
+										? `Upload tray (${queue.length})`
+										: "Upload tray"}
+									<ChevronDown
+										className={cn(
+											"size-4 transition-transform",
+											uploadTrayOpen && "rotate-180",
+										)}
+									/>
+								</Button>
+								{view === "collections" ? (
 									<Button
-										variant="ghost"
+										variant="outline"
 										size="sm"
 										className="rounded-full"
-										onClick={() => removeQueueItem(item.id)}
+										onClick={() => navigate("/dashboard/library/sets/new")}
 									>
-										Remove
+										Create collection
+									</Button>
+								) : null}
+							</div>
+
+							<div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+								<div className="relative">
+									<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+									<Input
+										value={query}
+										onChange={(event) => setQuery(event.target.value)}
+										className="dashboard-input-height rounded-full pl-10"
+										placeholder={
+											view === "assets"
+												? "Search assets, filenames, and formats"
+												: "Search collections, bundles, and carousel groups"
+										}
+									/>
+								</div>
+								{view === "assets" ? (
+									<div className="flex flex-wrap gap-2">
+										{(["all", "image", "video", "document"] as const).map(
+											(filterValue) => (
+												<Button
+													key={filterValue}
+													variant={
+														assetFilter === filterValue ? "secondary" : "outline"
+													}
+													size="sm"
+													className="rounded-full capitalize"
+													onClick={() => setAssetFilter(filterValue)}
+												>
+													{filterValue === "all" ? "All media" : filterValue}
+												</Button>
+											),
+										)}
+									</div>
+								) : null}
+							</div>
+						</div>
+					</DashboardPanel>
+
+					{uploadTrayOpen || queue.length > 0 ? (
+						<DashboardPanel
+							title="Upload tray"
+							description="Drop files, review them quickly, and get them into the shared library without turning uploads into a whole page."
+							action={
+								<div className="flex flex-wrap items-center gap-2">
+									<Button
+										variant={optimizeImages ? "secondary" : "outline"}
+										size="sm"
+										className="rounded-full"
+										onClick={() => setOptimizeImages((current) => !current)}
+									>
+										Optimize images {optimizeImages ? "on" : "off"}
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										className="rounded-full"
+										onClick={clearQueue}
+										disabled={queue.length === 0}
+									>
+										Clear
+									</Button>
+									<Button
+										size="sm"
+										className="rounded-full border-0 bg-gradient-brand text-white"
+										disabled={uploading || uploadReadyCount === 0}
+										onClick={() => void uploadQueue()}
+									>
+										{uploading ? "Uploading..." : "Add to library"}
 									</Button>
 								</div>
+							}
+						>
+							<div
+								className="dashboard-card-sm rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55"
+								onDragOver={(event) => event.preventDefault()}
+								onDrop={(event) => {
+									event.preventDefault();
+									if (event.dataTransfer.files?.length) {
+										enqueueFiles(event.dataTransfer.files);
+									}
+								}}
+							>
+								<button
+									type="button"
+									className="flex w-full items-start gap-4 text-left"
+									onClick={() => fileInputRef.current?.click()}
+								>
+									<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/80">
+										<Upload className="size-5 text-primary" />
+									</div>
+									<div className="space-y-1">
+										<div className="font-medium">Drop files or choose from your device</div>
+										<div className="text-sm text-muted-foreground">
+											Images, video, and documents become reusable assets for posts,
+											collections, and Studio.
+										</div>
+									</div>
+								</button>
 							</div>
-						))
-					)}
-				</div>
-				{queue.length > 1 ? (
-					<div className="mt-3 text-sm text-muted-foreground">
-						Drag queued files to set their upload and initial asset-set order.
-					</div>
-				) : null}
-			</DashboardPanel>
 
-			{error ? (
-				<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
-					{error}
-				</SurfaceCard>
-			) : null}
-			{notice ? (
-				<SurfaceCard className="dashboard-card-sm border border-emerald-500/20 bg-emerald-500/10 text-sm text-emerald-700 dark:text-emerald-300">
-					{notice}
-				</SurfaceCard>
-			) : null}
-
-			<SurfaceCard className="dashboard-card-sm">
-				<div className="flex flex-wrap items-center gap-2">
-					<Button
-						variant={libraryMode === "resources" ? "secondary" : "outline"}
-						size="sm"
-						className="rounded-full"
-						onClick={() => setLibraryMode("resources")}
-					>
-						<Layers3 className="size-4" />
-						Resources
-					</Button>
-					<Button
-						variant={libraryMode === "sets" ? "secondary" : "outline"}
-						size="sm"
-						className="rounded-full"
-						onClick={() => setLibraryMode("sets")}
-					>
-						<FolderKanban className="size-4" />
-						Asset sets
-					</Button>
-				</div>
-			</SurfaceCard>
-
-			<SurfaceCard className="dashboard-card">
-				{libraryMode === "resources" ? (
-					<DataTable
-						title="Workspace resources"
-						description={`Tracking ${capabilities?.rules.length ?? 0} backend-owned platform surface rules. Grid view stays the default because previews matter here.`}
-						storageKey="dashboard-library-resources-table"
-						rows={resources}
-						columns={resourceColumns}
-						getRowId={(resource) => resource.id}
-						getSearchText={(resource) =>
-							[
-								resource.displayName,
-								resource.originalName,
-								resource.mediaKind,
-								resource.mimeType,
-								getResourceHealth(resource),
-							].join(" ")
-						}
-						filters={[
-							{
-								id: "media",
-								label: "Media",
-								options: [
-									{ label: "Images", value: "image" },
-									{ label: "Videos", value: "video" },
-									{ label: "Documents", value: "document" },
-								],
-								getValue: (resource) => resource.mediaKind,
-							},
-							{
-								id: "health",
-								label: "Readiness",
-								options: [
-									{ label: "Ready", value: "ready" },
-									{ label: "Warnings", value: "warning" },
-									{ label: "Blocked", value: "blocked" },
-								],
-								getValue: (resource) => getResourceHealth(resource),
-							},
-						]}
-						loading={loading}
-						error={null}
-						initialView="grid"
-						pageSizeOptions={[6, 12, 24]}
-						searchPlaceholder="Search resources, filenames, media types, or MIME types..."
-						emptyState={{
-							title: "No resources found",
-							description:
-								"Upload your first image, video, or document to start building the shared workspace media library.",
-							actionLabel: "Add resources",
-							onAction: () => fileInputRef.current?.click(),
-						}}
-						onRowClick={(resource) =>
-							navigate(`/dashboard/library/${resource.id}`)
-						}
-						renderGridCard={(resource) => (
-							<>
-								<div className="aspect-[16/10] overflow-hidden bg-muted">
-									<ResourceThumb resource={resource} variant="minimal" />
-								</div>
-								<div className="space-y-3 p-4">
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<div className="truncate text-lg font-medium">
-												{resource.displayName}
-											</div>
-											<div className="mt-1 text-sm text-muted-foreground">
-												{formatResourceMeta(resource)}
+							{queue.length >= 2 ? (
+								<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+									<div className="flex flex-wrap items-center justify-between gap-3">
+										<div>
+											<div className="font-medium">Also make a collection</div>
+											<div className="text-sm text-muted-foreground">
+												Helpful for carousels, bundles, or ordered sequences.
 											</div>
 										</div>
-										<ResourceCompatibilityBadge resource={resource} />
+										<div className="flex items-center gap-2 text-sm text-muted-foreground">
+											<Switch
+												checked={createCollectionFromBatch}
+												onCheckedChange={(checked) =>
+													setCreateCollectionFromBatch(Boolean(checked))
+												}
+											/>
+											Create collection
+										</div>
 									</div>
-									<div className="flex flex-wrap gap-2">
-										<Badge
-											variant="outline"
-											className="rounded-full capitalize"
-										>
-											{resource.mediaKind}
-										</Badge>
-										<Badge variant="outline" className="rounded-full">
-											{resource.usageCount} uses
-										</Badge>
-										<Badge variant="outline" className="rounded-full">
-											{resource.setCount} sets
-										</Badge>
-										{resource.parentResourceId ? (
-											<Badge variant="outline" className="rounded-full">
-												Variant
-											</Badge>
-										) : null}
-									</div>
-									<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
-										<Button
-											variant="outline"
-											size="sm"
-											className="rounded-full"
-											onClick={(event) => {
-												event.stopPropagation();
-												navigate(`/dashboard/library/${resource.id}`);
-											}}
-										>
-											Open
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											className="rounded-full"
-											onClick={(event) => {
-												event.stopPropagation();
-												navigate(`/dashboard/library/${resource.id}/edit`);
-											}}
-										>
-											<PencilLine className="size-4" />
-											Edit
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="rounded-full text-red-600"
-											onClick={(event) => {
-												event.stopPropagation();
-												void removeResource(resource.id);
-											}}
-										>
-											<Trash2 className="size-4" />
-											Delete
-										</Button>
-									</div>
+									{createCollectionFromBatch ? (
+										<Input
+											value={collectionName}
+											onChange={(event) => setCollectionName(event.target.value)}
+											className="mt-4 dashboard-input-height rounded-2xl"
+											placeholder="Q2 launch carousel"
+										/>
+									) : null}
 								</div>
-							</>
-						)}
-						gridClassName="xl:grid-cols-3"
-						gridCardClassName="overflow-hidden p-0"
-					/>
-				) : (
-					<DataTable
-						title="Asset sets"
-						description="Reusable ordered groups for sequences like Instagram carousels, story frames, or coordinated document bundles."
-						storageKey="dashboard-library-sets-table"
-						rows={resourceSets}
-						columns={resourceSetColumns}
-						getRowId={(set) => set.id}
-						getSearchText={(set) =>
-							[
-								set.name,
-								set.description,
-								set.intentType,
-								set.intentPlatform ?? "",
-								set.intentSurface ?? "",
-							].join(" ")
-						}
-						filters={[
-							{
-								id: "intent",
-								label: "Intent",
-								options: [
-									{ label: "Generic", value: "generic" },
-									{ label: "Social surface", value: "social_surface" },
-								],
-								getValue: (set) => set.intentType,
-							},
-						]}
-						loading={loading}
-						error={null}
-						initialView="grid"
-						pageSizeOptions={[6, 12, 24]}
-						searchPlaceholder="Search asset sets, descriptions, platforms, or surfaces..."
-						emptyState={{
-							title: "No asset sets yet",
-							description:
-								"Create a set manually or upload multiple related files together to preserve order and reuse them as a group.",
-							actionLabel: "New asset set",
-							onAction: () => navigate("/dashboard/library/sets/new"),
-						}}
-						onRowClick={(set) => navigate(`/dashboard/library/sets/${set.id}`)}
-						renderGridCard={(set) => (
-							<>
-								<div className="aspect-[16/10] overflow-hidden bg-muted">
-									<ResourceSetCover set={set} />
-								</div>
-								<div className="space-y-3 p-4">
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<div className="truncate text-lg font-medium">
-												{set.name}
+							) : null}
+
+							<div className="mt-4 space-y-3">
+								{queue.length === 0 ? (
+									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
+										No files queued yet.
+									</div>
+								) : (
+									queue.map((item) => (
+										<div
+											key={item.id}
+											className="flex flex-wrap items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-3"
+										>
+											<div className="h-20 w-24 overflow-hidden rounded-[18px] bg-muted">
+												<LocalFileThumb
+													file={item.file}
+													previewUrl={item.previewUrl}
+													variant="compact"
+												/>
 											</div>
-											<div className="mt-1 text-sm text-muted-foreground">
-												{set.description || formatAssetSetIntent(set)}
+											<div className="min-w-0 flex-1">
+												<div className="truncate font-medium" title={item.file.name}>
+													{item.file.name}
+												</div>
+												<div className="mt-1 text-sm text-muted-foreground">
+													{formatBytes(item.file.size)}
+													{item.file.type.startsWith("image/")
+														? ` · optimization ${optimizeImages ? "on" : "off"}`
+														: ""}
+												</div>
+												{item.error ? (
+													<div className="mt-1 text-sm text-destructive">
+														{item.error}
+													</div>
+												) : null}
+											</div>
+											<div className="ml-auto flex items-center gap-2">
+												<UploadQueueBadge item={item} />
+												{item.status === "error" ? (
+													<Button
+														variant="outline"
+														size="sm"
+														className="rounded-full"
+														onClick={() =>
+															updateQueueItem(item.id, (entry) => ({
+																...entry,
+																status: "pending",
+																error: undefined,
+															}))
+														}
+													>
+														Retry
+													</Button>
+												) : null}
+												<Button
+													variant="ghost"
+													size="sm"
+													className="rounded-full"
+													onClick={() => removeQueueItem(item.id)}
+												>
+													Remove
+												</Button>
 											</div>
 										</div>
-										<ResourceSetIntentBadge set={set} />
+									))
+								)}
+							</div>
+						</DashboardPanel>
+					) : null}
+
+					{error ? (
+						<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+							{error}
+						</SurfaceCard>
+					) : null}
+					{notice ? (
+						<SurfaceCard className="border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+							{notice}
+						</SurfaceCard>
+					) : null}
+
+					<DashboardPanel
+						title={view === "assets" ? "Reusable assets" : "Collections"}
+						description={
+							view === "assets"
+								? "Single assets lead the page so users can find, reuse, and act quickly."
+								: "Collections stay available for carousels, grouped bundles, and ordered visual sequences."
+						}
+					>
+						{loading ? (
+							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-10 text-sm text-muted-foreground">
+								Loading the library...
+							</div>
+						) : view === "assets" ? (
+							filteredResources.length > 0 ? (
+								<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+									{filteredResources.map((resource) => (
+										<AssetCard
+											key={resource.id}
+											resource={resource}
+											onDelete={removeResource}
+										/>
+									))}
+								</div>
+							) : (
+								<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
+									<div className="text-lg font-semibold">No assets match yet</div>
+									<div className="mt-2 text-sm text-muted-foreground">
+										Upload your first reusable asset or broaden the filters.
 									</div>
-									<ResourceSetMembersPreview
-										resources={set.membersPreview}
-										max={4}
+									<Button
+										className="mt-4 rounded-full border-0 bg-gradient-brand text-white"
+										onClick={() => fileInputRef.current?.click()}
+									>
+										Upload asset
+									</Button>
+								</div>
+							)
+						) : filteredCollections.length > 0 ? (
+							<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+								{filteredCollections.map((resourceSet) => (
+									<CollectionCard
+										key={resourceSet.id}
+										resourceSet={resourceSet}
+										onDelete={removeResourceSet}
 									/>
-									<div className="flex flex-wrap gap-2">
-										<Badge variant="outline" className="rounded-full">
-											{set.itemCount} ordered items
-										</Badge>
-										<Badge
-											variant="outline"
-											className="rounded-full capitalize"
-										>
-											{set.sourceType.replaceAll("_", " ")}
-										</Badge>
-									</div>
-									<div className="flex flex-wrap gap-2 border-t border-[var(--brand-border-soft)] pt-4">
-										<Button
-											variant="outline"
-											size="sm"
-											className="rounded-full"
-											onClick={(event) => {
-												event.stopPropagation();
-												navigate(`/dashboard/library/sets/${set.id}`);
-											}}
-										>
-											Open
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											className="rounded-full"
-											onClick={(event) => {
-												event.stopPropagation();
-												navigate(`/dashboard/library/sets/${set.id}/edit`);
-											}}
-										>
-											<PencilLine className="size-4" />
-											Edit
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="rounded-full text-red-600"
-											onClick={(event) => {
-												event.stopPropagation();
-												void removeResourceSet(set.id);
-											}}
-										>
-											<Trash2 className="size-4" />
-											Delete
-										</Button>
-									</div>
+								))}
+							</div>
+						) : (
+							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
+								<div className="text-lg font-semibold">No collections yet</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									Group related uploads into a reusable ordered bundle when you need
+									carousels or campaign sequences.
 								</div>
-							</>
+								<Button
+									variant="outline"
+									className="mt-4 rounded-full"
+									onClick={() => navigate("/dashboard/library/sets/new")}
+								>
+									Create collection
+								</Button>
+							</div>
 						)}
-						gridClassName="xl:grid-cols-3"
-						gridCardClassName="overflow-hidden p-0"
-					/>
-				)}
-			</SurfaceCard>
-
-			<SurfaceCard tone="muted" className="space-y-4 p-5">
-				<div className="flex items-start gap-3">
-					<div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-						<FolderKanban className="size-5" />
-					</div>
-					<div>
-						<div className="font-medium">Resource reuse and grouping</div>
-						<p className="mt-2 text-sm leading-6 text-muted-foreground">
-							Resources stay separate from post entities so the same media can
-							be attached to multiple destination-specific posts. Asset sets add
-							ordered, reusable relationships on top when files belong together.
-						</p>
-					</div>
+					</DashboardPanel>
 				</div>
-				{libraryMode === "resources" ? (
-					<ResourceChipList resources={resources.slice(0, 4)} />
-				) : (
-					<ResourceSetMembersPreview
-						resources={resourceSets
-							.flatMap((set) => set.membersPreview)
-							.slice(0, 4)}
-					/>
-				)}
-			</SurfaceCard>
+
+				<div className="space-y-6">{rail}</div>
+			</div>
 		</div>
 	);
 }
