@@ -14,13 +14,27 @@ export function useDurableUrl(options: DurableUrlOptions) {
 	const [broken, setBroken] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const refreshAttemptedRef = useRef(false);
+	const objectUrlRef = useRef<string | null>(null);
 
 	useEffect(() => {
+		if (objectUrlRef.current) {
+			URL.revokeObjectURL(objectUrlRef.current);
+			objectUrlRef.current = null;
+		}
 		setUrl(initialUrl ?? "");
 		setBroken(false);
 		setRefreshing(false);
 		refreshAttemptedRef.current = false;
 	}, [initialUrl]);
+
+	useEffect(() => {
+		return () => {
+			if (objectUrlRef.current) {
+				URL.revokeObjectURL(objectUrlRef.current);
+				objectUrlRef.current = null;
+			}
+		};
+	}, []);
 
 	const handleError = useCallback(async () => {
 		if (!refresh || refreshAttemptedRef.current) {
@@ -33,6 +47,14 @@ export function useDurableUrl(options: DurableUrlOptions) {
 		try {
 			const nextUrl = await refresh();
 			if (nextUrl) {
+				if (objectUrlRef.current && objectUrlRef.current !== nextUrl) {
+					URL.revokeObjectURL(objectUrlRef.current);
+				}
+				if (nextUrl.startsWith("blob:")) {
+					objectUrlRef.current = nextUrl;
+				} else {
+					objectUrlRef.current = null;
+				}
 				setUrl(nextUrl);
 				setBroken(false);
 				return;
@@ -69,15 +91,10 @@ export async function refreshResourceDownloadUrl(input: {
 	const response = await fetch(`/api/v1/resources/${input.resourceId}/download`, {
 		headers,
 		credentials: "include",
-		redirect: "manual",
 	});
-
-	const locationHeader = response.headers.get("Location");
-	if (locationHeader) {
-		return locationHeader;
-	}
-	if (response.ok && response.url) {
-		return response.url;
+	if (response.ok) {
+		const blob = await response.blob();
+		return URL.createObjectURL(blob);
 	}
 	throw new Error(`Unable to refresh preview URL (${response.status}).`);
 }
