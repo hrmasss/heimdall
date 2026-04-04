@@ -15,6 +15,8 @@ import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
+	DashboardStatStrip,
+	DashboardStatusStrip,
 } from "@/components/app/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,10 +60,13 @@ export function DashboardSettings() {
 		}
 		setSaving(true);
 		try {
-			await customerRequest<WorkspaceSummary>(`/workspaces/${activeWorkspaceId}`, {
-				method: "PATCH",
-				body: { name },
-			});
+			await customerRequest<WorkspaceSummary>(
+				`/workspaces/${activeWorkspaceId}`,
+				{
+					method: "PATCH",
+					body: { name },
+				},
+			);
 			toast.success("Workspace profile updated.");
 			await reload();
 		} catch (saveError) {
@@ -78,92 +83,102 @@ export function DashboardSettings() {
 	return (
 		<div className="dashboard-page-stack">
 			<DashboardPageHeader
-				eyebrow="Command center"
+				eyebrow="Workspace operations"
 				title="Settings"
-				description="See whether the workspace is ready to publish, which setup areas still need attention, and where to go next."
+				description="Check workspace readiness, keep publishing healthy, and reach the settings that matter without turning this into a control room."
+				secondaryActions={
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/setup">Continue setup</Link>
+					</Button>
+				}
+				primaryAction={
+					readiness.publishingReady ? (
+						<Button
+							className="rounded-full border-0 bg-gradient-brand text-white"
+							asChild
+						>
+							<Link to="/dashboard/posts/new">
+								Create post
+								<ArrowRight className="size-4" />
+							</Link>
+						</Button>
+					) : (
+						<Button
+							className="rounded-full border-0 bg-gradient-brand text-white"
+							asChild
+						>
+							<Link to="/dashboard/settings/platforms">
+								Open platform setup
+								<ArrowRight className="size-4" />
+							</Link>
+						</Button>
+					)
+				}
 			/>
 
-			<SurfaceCard className="media-hero-surface overflow-hidden rounded-[32px] p-6 md:p-7">
-				<div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-					<div className="space-y-4">
-						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							<Settings2 className="size-3.5 text-primary" />
-							Workspace readiness
-						</div>
-						<div className="space-y-3">
-							<h2 className="text-2xl font-semibold tracking-tight">
-								{readiness.publishingReady
-									? "Yes, this workspace is ready to publish."
-									: "Not yet. One more publishing path still needs setup."}
-							</h2>
-							<p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-								{readiness.summary}
-							</p>
-						</div>
-						<div className="flex flex-wrap gap-2">
-							<Badge variant="outline" className={`rounded-full ${readinessTone(readiness.publishingReady)}`}>
-								Publishing {readiness.publishingReady ? "ready" : "needs setup"}
-							</Badge>
-							<Badge variant="outline" className={`rounded-full ${readinessTone(readiness.intelligenceReady)}`}>
-								Intelligence {readiness.intelligenceReady ? "ready" : "optional"}
-							</Badge>
-							<Badge variant="outline" className="rounded-full border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground">
-								{readiness.completedStepCount}/{readiness.requiredStepCount} recommended steps complete
-							</Badge>
-						</div>
+			<DashboardStatusStrip
+				eyebrow="Workspace readiness"
+				title={
+					readiness.publishingReady
+						? "This workspace is ready to publish."
+						: "One more publishing path still needs setup."
+				}
+				description={readiness.summary}
+				action={
+					<div className="flex flex-wrap gap-2">
+						<Badge
+							variant="outline"
+							className={`rounded-full ${readinessTone(readiness.publishingReady)}`}
+						>
+							Publishing {readiness.publishingReady ? "ready" : "needs setup"}
+						</Badge>
+						<Badge
+							variant="outline"
+							className={`rounded-full ${readinessTone(readiness.intelligenceReady)}`}
+						>
+							Intelligence {readiness.intelligenceReady ? "ready" : "optional"}
+						</Badge>
 					</div>
+				}
+			/>
 
-					<div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-						<SurfaceCard tone="muted" className="p-5">
-							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Healthy providers
-							</div>
-							<div className="mt-3 text-3xl font-semibold tracking-tight">
-								{social?.connections.filter((connection) => connection.healthStatus === "healthy").length ?? 0}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								Connections that can currently support publishing.
-							</div>
-						</SurfaceCard>
-						<SurfaceCard tone="muted" className="p-5">
-							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Selected destinations
-							</div>
-							<div className="mt-3 text-3xl font-semibold tracking-tight">
-								{social?.targets.filter((target) => target.isSelected).length ?? 0}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								Default places Heimdall will publish to.
-							</div>
-						</SurfaceCard>
-						<SurfaceCard tone="muted" className="p-5">
-							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								AI basics
-							</div>
-							<div className="mt-3 text-lg font-semibold tracking-tight">
-								{readiness.intelligenceReady ? "In place" : "Still optional"}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								Business context and AI access improve drafts and workflows later.
-							</div>
-						</SurfaceCard>
-					</div>
-				</div>
-
-				<div className="mt-5 flex flex-wrap gap-2">
-					<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
-						<Link to="/dashboard/setup">
-							Continue setup
-							<ArrowRight className="size-4" />
-						</Link>
-					</Button>
-					{readiness.publishingReady ? (
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/posts/new">Create post</Link>
-						</Button>
-					) : null}
-				</div>
-			</SurfaceCard>
+			<DashboardStatStrip
+				items={[
+					{
+						label: "Healthy providers",
+						value:
+							social?.connections.filter(
+								(connection) => connection.healthStatus === "healthy",
+							).length ?? 0,
+						detail: "Connections that can currently support publishing.",
+						icon: Settings2,
+						tone: "success",
+					},
+					{
+						label: "Selected destinations",
+						value:
+							social?.targets.filter((target) => target.isSelected).length ?? 0,
+						detail: "Default places Heimdall will publish to.",
+						icon: ShieldCheck,
+						tone: readiness.publishingReady ? "success" : "warning",
+					},
+					{
+						label: "AI basics",
+						value: readiness.intelligenceReady ? "In place" : "Optional",
+						detail:
+							"Business context and AI access improve drafts and workflows later.",
+						icon: Sparkles,
+						tone: readiness.intelligenceReady ? "success" : "default",
+					},
+					{
+						label: "Recommended steps",
+						value: `${readiness.completedStepCount}/${readiness.requiredStepCount}`,
+						detail:
+							"A quick read on how much guided setup is already complete.",
+						icon: Building2,
+					},
+				]}
+			/>
 
 			<DashboardPanel
 				title="Workspace operations"
@@ -175,13 +190,17 @@ export function DashboardSettings() {
 							<div>
 								<div className="flex items-center gap-2 text-lg font-medium">
 									<Settings2 className="size-5 text-primary" />
-									Publishing layer
+									Publishing readiness
 								</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									Connect providers, choose destinations, and keep publishing health green.
+									Connect providers, choose destinations, and keep publishing
+									health green.
 								</div>
 							</div>
-							<Badge variant="outline" className={`rounded-full ${readinessTone(readiness.publishingReady)}`}>
+							<Badge
+								variant="outline"
+								className={`rounded-full ${readinessTone(readiness.publishingReady)}`}
+							>
 								{readiness.publishingReady ? "Ready" : "Needs attention"}
 							</Badge>
 						</div>
@@ -191,8 +210,13 @@ export function DashboardSettings() {
 								{(social?.connections.length ?? 0) === 1 ? "" : "s"} total
 							</div>
 							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4 text-sm text-muted-foreground">
-								{social?.targets.filter((target) => target.isSelected).length ?? 0} selected destination
-								{(social?.targets.filter((target) => target.isSelected).length ?? 0) === 1 ? "" : "s"}
+								{social?.targets.filter((target) => target.isSelected).length ??
+									0}{" "}
+								selected destination
+								{(social?.targets.filter((target) => target.isSelected)
+									.length ?? 0) === 1
+									? ""
+									: "s"}
 							</div>
 						</div>
 						<Button variant="outline" className="rounded-full" asChild>
@@ -211,25 +235,35 @@ export function DashboardSettings() {
 									Intelligence basics
 								</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									Add the shortest set of business facts and access preferences that materially change output.
+									Add the shortest set of business facts and access preferences
+									that materially change output.
 								</div>
 							</div>
-							<Badge variant="outline" className={`rounded-full ${readinessTone(readiness.intelligenceReady)}`}>
+							<Badge
+								variant="outline"
+								className={`rounded-full ${readinessTone(readiness.intelligenceReady)}`}
+							>
 								{readiness.intelligenceReady ? "Ready" : "Optional"}
 							</Badge>
 						</div>
 						<div className="space-y-3">
 							<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm">
 								<span>Business context</span>
-								<span>{context?.readiness.hasBusinessContext ? "Ready" : "Missing"}</span>
+								<span>
+									{context?.readiness.hasBusinessContext ? "Ready" : "Missing"}
+								</span>
 							</div>
 							<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm">
 								<span>AI access</span>
-								<span>{context?.readiness.hasAiAccess ? "Ready" : "Needs setup"}</span>
+								<span>
+									{context?.readiness.hasAiAccess ? "Ready" : "Needs setup"}
+								</span>
 							</div>
 							<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3 text-sm">
 								<span>Brand guidance</span>
-								<span>{context?.readiness.hasBrandContext ? "Ready" : "Optional"}</span>
+								<span>
+									{context?.readiness.hasBrandContext ? "Ready" : "Optional"}
+								</span>
 							</div>
 						</div>
 						<Button variant="outline" className="rounded-full" asChild>
@@ -248,10 +282,14 @@ export function DashboardSettings() {
 									Workspace identity
 								</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									Keep the workspace name and slug accurate for sharing, billing, and team coordination.
+									Keep the workspace name and slug accurate for sharing,
+									billing, and team coordination.
 								</div>
 							</div>
-							<Badge variant="outline" className="rounded-full border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground">
+							<Badge
+								variant="outline"
+								className="rounded-full border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground"
+							>
 								{workspace?.slug ?? "Not loaded"}
 							</Badge>
 						</div>
@@ -292,13 +330,17 @@ export function DashboardSettings() {
 							<div>
 								<div className="flex items-center gap-2 text-lg font-medium">
 									<ShieldCheck className="size-5 text-primary" />
-									Team, billing, and governance
+									People and billing
 								</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									Review who can access the workspace and which finance controls are available in this role bundle.
+									Review who can access the workspace and which finance controls
+									are available in this role bundle.
 								</div>
 							</div>
-							<Badge variant="outline" className="rounded-full border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground">
+							<Badge
+								variant="outline"
+								className="rounded-full border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground"
+							>
 								{workspace?.capabilities.length ?? 0} capabilities
 							</Badge>
 						</div>
@@ -343,10 +385,15 @@ export function DashboardSettings() {
 						<div className="space-y-2">
 							<div className="text-sm font-medium">Display density</div>
 							<div className="text-sm text-muted-foreground">
-								Comfortable keeps the roomy command-deck feel. Compact trims shell padding when you want more on screen.
+								Comfortable keeps the roomy command-deck feel. Compact trims
+								shell padding when you want more on screen.
 							</div>
 						</div>
-						<div className="dashboard-density-toggle w-fit" role="tablist" aria-label="Display density">
+						<div
+							className="dashboard-density-toggle w-fit"
+							role="tablist"
+							aria-label="Display density"
+						>
 							<button
 								type="button"
 								role="tab"

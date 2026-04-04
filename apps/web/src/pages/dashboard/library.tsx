@@ -20,7 +20,11 @@ import {
 	AssetCommandBar,
 	AssetWorkspaceShell,
 } from "@/components/app/asset-workspace";
-import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+	DashboardStatStrip,
+} from "@/components/app/dashboard";
 import {
 	LocalFileThumb,
 	ResourceCompatibilityBadge,
@@ -292,7 +296,8 @@ function CollectionCard({
 								{resourceSet.name}
 							</div>
 							<div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-								{resourceSet.description || "Reusable ordered media for a sequence, bundle, or carousel."}
+								{resourceSet.description ||
+									"Reusable ordered media for a sequence, bundle, or carousel."}
 							</div>
 						</div>
 						<ResourceSetIntentBadge set={resourceSet} />
@@ -361,7 +366,8 @@ export function DashboardLibrary() {
 	const [uploadTrayOpen, setUploadTrayOpen] = useState(false);
 	const [optimizeImages, setOptimizeImages] = useState(true);
 	const [uploading, setUploading] = useState(false);
-	const [createCollectionFromBatch, setCreateCollectionFromBatch] = useState(false);
+	const [createCollectionFromBatch, setCreateCollectionFromBatch] =
+		useState(false);
 	const [collectionName, setCollectionName] = useState("");
 
 	useEffect(() => {
@@ -424,8 +430,7 @@ export function DashboardLibrary() {
 		const nextItems = Array.from(files).map<UploadQueueItem>((file) => {
 			let validationError: string | undefined;
 			if (!isSupportedFile(file)) {
-				validationError =
-					"Unsupported file type for the shared asset library.";
+				validationError = "Unsupported file type for the shared asset library.";
 			} else if (file.size > MAX_CLIENT_UPLOAD_BYTES) {
 				validationError = "File exceeds the current 512 MB upload limit.";
 			}
@@ -560,7 +565,9 @@ export function DashboardLibrary() {
 					...entry,
 					status: "error",
 					error:
-						uploadError instanceof Error ? uploadError.message : "Upload failed.",
+						uploadError instanceof Error
+							? uploadError.message
+							: "Upload failed.",
 				}));
 			}
 		}
@@ -660,7 +667,8 @@ export function DashboardLibrary() {
 			)
 			.sort(
 				(left, right) =>
-					new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+					new Date(right.updatedAt).getTime() -
+					new Date(left.updatedAt).getTime(),
 			);
 	}, [assetFilter, query, resources]);
 
@@ -682,22 +690,30 @@ export function DashboardLibrary() {
 			)
 			.sort(
 				(left, right) =>
-					new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+					new Date(right.updatedAt).getTime() -
+					new Date(left.updatedAt).getTime(),
 			);
 	}, [query, resourceSets]);
 
 	const readyAssets = useMemo(
-		() => resources.filter((resource) => getResourceHealth(resource) === "ready").length,
+		() =>
+			resources.filter((resource) => getResourceHealth(resource) === "ready")
+				.length,
 		[resources],
 	);
 	const recentAssets = useMemo(() => resources.slice(0, 4), [resources]);
-	const recentCollections = useMemo(() => resourceSets.slice(0, 4), [resourceSets]);
-	const uploadReadyCount = queue.filter((item) => item.status === "pending").length;
+	const recentCollections = useMemo(
+		() => resourceSets.slice(0, 4),
+		[resourceSets],
+	);
+	const uploadReadyCount = queue.filter(
+		(item) => item.status === "pending",
+	).length;
 
 	const rail = (
 		<div className="space-y-5">
 			<DashboardPanel
-				title="Transform with Studio"
+				title="Studio shortcuts"
 				description="Open the editor already scoped to the job you want done."
 			>
 				<div className="space-y-3">
@@ -751,9 +767,12 @@ export function DashboardLibrary() {
 										<ResourceSetCover set={resourceSet} compact />
 									</div>
 									<div className="min-w-0 flex-1">
-										<div className="truncate font-medium">{resourceSet.name}</div>
+										<div className="truncate font-medium">
+											{resourceSet.name}
+										</div>
 										<div className="mt-1 text-sm text-muted-foreground">
-											{resourceSet.itemCount} items · {formatAssetSetIntent(resourceSet)}
+											{resourceSet.itemCount} items ·{" "}
+											{formatAssetSetIntent(resourceSet)}
 										</div>
 									</div>
 								</div>
@@ -768,7 +787,7 @@ export function DashboardLibrary() {
 			</DashboardPanel>
 
 			<DashboardPanel
-				title="Recent activity"
+				title="Recent uploads"
 				description="The latest reusable assets, kept close without turning the page into a feed."
 			>
 				<div className="space-y-3">
@@ -783,7 +802,9 @@ export function DashboardLibrary() {
 									<ResourceThumb resource={resource} variant="compact" />
 								</div>
 								<div className="min-w-0 flex-1">
-									<div className="truncate font-medium">{resource.displayName}</div>
+									<div className="truncate font-medium">
+										{resource.displayName}
+									</div>
 									<div className="mt-1 text-sm text-muted-foreground">
 										{formatResourceMeta(resource)}
 									</div>
@@ -803,10 +824,10 @@ export function DashboardLibrary() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Reusable assets"
-				title="Library"
-				description="Keep one shared media library for the whole workspace, then reuse the same asset across posts, collections, and Studio tasks without re-uploading."
-				actions={
+				eyebrow="Asset-first workflow"
+				title="Media"
+				description="Keep reusable assets ready for posts, then jump into upload, Studio, or collections without turning the page into a separate library workspace."
+				secondaryActions={
 					<>
 						<Button
 							variant="outline"
@@ -817,21 +838,28 @@ export function DashboardLibrary() {
 							<RefreshCw className="size-4" />
 							Refresh
 						</Button>
-						<Button variant="outline" size="sm" className="rounded-full" asChild>
+						<Button
+							variant="outline"
+							size="sm"
+							className="rounded-full"
+							asChild
+						>
 							<Link to="/dashboard/studio">
 								<Sparkles className="size-4" />
 								Open Studio
 							</Link>
 						</Button>
-						<Button
-							size="sm"
-							className="rounded-full border-0 bg-gradient-brand text-white"
-							onClick={() => fileInputRef.current?.click()}
-						>
-							<Upload className="size-4" />
-							Upload asset
-						</Button>
 					</>
+				}
+				primaryAction={
+					<Button
+						size="sm"
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						onClick={() => fileInputRef.current?.click()}
+					>
+						<Upload className="size-4" />
+						Upload asset
+					</Button>
 				}
 			/>
 
@@ -846,6 +874,40 @@ export function DashboardLibrary() {
 						event.target.value = "";
 					}
 				}}
+			/>
+
+			<DashboardStatStrip
+				items={[
+					{
+						label: "Reusable assets",
+						value: resources.length,
+						detail: "Images, video, and documents ready to reuse.",
+						icon: ImagePlus,
+					},
+					{
+						label: "Ready now",
+						value: readyAssets,
+						detail: "Assets with no current compatibility blockers.",
+						icon: Sparkles,
+						tone: "success",
+					},
+					{
+						label: "Collections",
+						value: resourceSets.length,
+						detail: "Grouped sequences kept nearby, not front-and-center.",
+						icon: FolderKanban,
+					},
+					{
+						label: "Upload tray",
+						value: queue.length,
+						detail:
+							queue.length > 0
+								? `${uploadReadyCount} file${uploadReadyCount === 1 ? "" : "s"} ready to upload.`
+								: "Open the tray when you want to batch new files.",
+						icon: Upload,
+						tone: queue.length > 0 ? "warning" : "default",
+					},
+				]}
 			/>
 
 			<AssetWorkspaceShell
@@ -901,19 +963,10 @@ export function DashboardLibrary() {
 									) : null}
 								</div>
 
-								<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-									<div className="asset-inline-stat rounded-full px-3 py-1.5">
-										<span className="font-medium text-foreground">{resources.length}</span>{" "}
-										assets
-									</div>
-									<div className="asset-inline-stat rounded-full px-3 py-1.5">
-										<span className="font-medium text-foreground">{readyAssets}</span>{" "}
-										ready
-									</div>
-									<div className="asset-inline-stat rounded-full px-3 py-1.5">
-										<span className="font-medium text-foreground">{resourceSets.length}</span>{" "}
-										collections
-									</div>
+								<div className="text-xs text-muted-foreground">
+									{view === "assets"
+										? "Upload, search, and reuse one shared asset pool."
+										: "Collections stay nearby for grouped carousels and bundles."}
 								</div>
 							</div>
 
@@ -938,7 +991,9 @@ export function DashboardLibrary() {
 												<Button
 													key={filterValue}
 													variant={
-														assetFilter === filterValue ? "secondary" : "outline"
+														assetFilter === filterValue
+															? "secondary"
+															: "outline"
 													}
 													size="sm"
 													className="rounded-full capitalize"
@@ -955,246 +1010,254 @@ export function DashboardLibrary() {
 					</AssetCommandBar>
 				}
 				rail={rail}
-				railTitle="Library context"
-				railDescription="Studio shortcuts, recent collections, and recent activity stay nearby without crowding the main feed."
-				railTriggerLabel="Open library context"
+				railTitle="Media context"
+				railDescription="Studio shortcuts, recent collections, and recent uploads stay nearby without crowding the main feed."
+				railTriggerLabel="Open media context"
 			>
-
-					{uploadTrayOpen || queue.length > 0 ? (
-						<DashboardPanel
-							title="Upload tray"
-							description="Drop files, review them quickly, and get them into the shared library without turning uploads into a whole page."
-							action={
-								<div className="flex flex-wrap items-center gap-2">
-									<Button
-										variant={optimizeImages ? "secondary" : "outline"}
-										size="sm"
-										className="rounded-full"
-										onClick={() => setOptimizeImages((current) => !current)}
-									>
-										Optimize images {optimizeImages ? "on" : "off"}
-									</Button>
-									<Button
-										variant="outline"
-										size="sm"
-										className="rounded-full"
-										onClick={clearQueue}
-										disabled={queue.length === 0}
-									>
-										Clear
-									</Button>
-									<Button
-										size="sm"
-										className="rounded-full border-0 bg-gradient-brand text-white"
-										disabled={uploading || uploadReadyCount === 0}
-										onClick={() => void uploadQueue()}
-									>
-										{uploading ? "Uploading..." : "Add to library"}
-									</Button>
-								</div>
-							}
-						>
-							<div
-								className="dashboard-card-sm rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55"
-								onDragOver={(event) => event.preventDefault()}
-								onDrop={(event) => {
-									event.preventDefault();
-									if (event.dataTransfer.files?.length) {
-										enqueueFiles(event.dataTransfer.files);
-									}
-								}}
-							>
-								<button
-									type="button"
-									className="flex w-full items-start gap-4 text-left"
-									onClick={() => fileInputRef.current?.click()}
-								>
-									<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/80">
-										<Upload className="size-5 text-primary" />
-									</div>
-									<div className="space-y-1">
-										<div className="font-medium">Drop files or choose from your device</div>
-										<div className="text-sm text-muted-foreground">
-											Images, video, and documents become reusable assets for posts,
-											collections, and Studio.
-										</div>
-									</div>
-								</button>
-							</div>
-
-							{queue.length >= 2 ? (
-								<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-									<div className="flex flex-wrap items-center justify-between gap-3">
-										<div>
-											<div className="font-medium">Also make a collection</div>
-											<div className="text-sm text-muted-foreground">
-												Helpful for carousels, bundles, or ordered sequences.
-											</div>
-										</div>
-										<div className="flex items-center gap-2 text-sm text-muted-foreground">
-											<Switch
-												checked={createCollectionFromBatch}
-												onCheckedChange={(checked) =>
-													setCreateCollectionFromBatch(Boolean(checked))
-												}
-											/>
-											Create collection
-										</div>
-									</div>
-									{createCollectionFromBatch ? (
-										<Input
-											value={collectionName}
-											onChange={(event) => setCollectionName(event.target.value)}
-											className="mt-4 dashboard-input-height rounded-2xl"
-											placeholder="Q2 launch carousel"
-										/>
-									) : null}
-								</div>
-							) : null}
-
-							<div className="mt-4 space-y-3">
-								{queue.length === 0 ? (
-									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
-										No files queued yet.
-									</div>
-								) : (
-									queue.map((item) => (
-										<div
-											key={item.id}
-											className="flex flex-wrap items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-3"
-										>
-											<div className="h-20 w-24 overflow-hidden rounded-[18px] bg-muted">
-												<LocalFileThumb
-													file={item.file}
-													previewUrl={item.previewUrl}
-													variant="compact"
-												/>
-											</div>
-											<div className="min-w-0 flex-1">
-												<div className="truncate font-medium" title={item.file.name}>
-													{item.file.name}
-												</div>
-												<div className="mt-1 text-sm text-muted-foreground">
-													{formatBytes(item.file.size)}
-													{item.file.type.startsWith("image/")
-														? ` · optimization ${optimizeImages ? "on" : "off"}`
-														: ""}
-												</div>
-												{item.error ? (
-													<div className="mt-1 text-sm text-destructive">
-														{item.error}
-													</div>
-												) : null}
-											</div>
-											<div className="ml-auto flex items-center gap-2">
-												<UploadQueueBadge item={item} />
-												{item.status === "error" ? (
-													<Button
-														variant="outline"
-														size="sm"
-														className="rounded-full"
-														onClick={() =>
-															updateQueueItem(item.id, (entry) => ({
-																...entry,
-																status: "pending",
-																error: undefined,
-															}))
-														}
-													>
-														Retry
-													</Button>
-												) : null}
-												<Button
-													variant="ghost"
-													size="sm"
-													className="rounded-full"
-													onClick={() => removeQueueItem(item.id)}
-												>
-													Remove
-												</Button>
-											</div>
-										</div>
-									))
-								)}
-							</div>
-							</DashboardPanel>
-						) : null}
-
-					{error ? (
-						<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-							{error}
-						</SurfaceCard>
-					) : null}
-					{notice ? (
-						<SurfaceCard className="border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-							{notice}
-						</SurfaceCard>
-					) : null}
-
+				{uploadTrayOpen || queue.length > 0 ? (
 					<DashboardPanel
-						title={view === "assets" ? "Reusable assets" : "Collections"}
-						description={
-							view === "assets"
-								? "Single assets lead the page so users can find, reuse, and act quickly."
-								: "Collections stay available for carousels, grouped bundles, and ordered visual sequences."
+						title="Upload tray"
+						description="Drop files, review them quickly, and get them into the shared library without turning uploads into a whole page."
+						action={
+							<div className="flex flex-wrap items-center gap-2">
+								<Button
+									variant={optimizeImages ? "secondary" : "outline"}
+									size="sm"
+									className="rounded-full"
+									onClick={() => setOptimizeImages((current) => !current)}
+								>
+									Optimize images {optimizeImages ? "on" : "off"}
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									className="rounded-full"
+									onClick={clearQueue}
+									disabled={queue.length === 0}
+								>
+									Clear
+								</Button>
+								<Button
+									size="sm"
+									className="rounded-full border-0 bg-gradient-brand text-white"
+									disabled={uploading || uploadReadyCount === 0}
+									onClick={() => void uploadQueue()}
+								>
+									{uploading ? "Uploading..." : "Add to library"}
+								</Button>
+							</div>
 						}
 					>
-						{loading ? (
-							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-10 text-sm text-muted-foreground">
-								Loading the library...
-							</div>
-						) : view === "assets" ? (
-							filteredResources.length > 0 ? (
-								<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-									{filteredResources.map((resource) => (
-										<AssetCard
-											key={resource.id}
-											resource={resource}
-											onDelete={removeResource}
+						<div
+							className="dashboard-card-sm rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55"
+							onDragOver={(event) => event.preventDefault()}
+							onDrop={(event) => {
+								event.preventDefault();
+								if (event.dataTransfer.files?.length) {
+									enqueueFiles(event.dataTransfer.files);
+								}
+							}}
+						>
+							<button
+								type="button"
+								className="flex w-full items-start gap-4 text-left"
+								onClick={() => fileInputRef.current?.click()}
+							>
+								<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/80">
+									<Upload className="size-5 text-primary" />
+								</div>
+								<div className="space-y-1">
+									<div className="font-medium">
+										Drop files or choose from your device
+									</div>
+									<div className="text-sm text-muted-foreground">
+										Images, video, and documents become reusable assets for
+										posts, collections, and Studio.
+									</div>
+								</div>
+							</button>
+						</div>
+
+						{queue.length >= 2 ? (
+							<div className="mt-4 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<div className="font-medium">Also make a collection</div>
+										<div className="text-sm text-muted-foreground">
+											Helpful for carousels, bundles, or ordered sequences.
+										</div>
+									</div>
+									<div className="flex items-center gap-2 text-sm text-muted-foreground">
+										<Switch
+											checked={createCollectionFromBatch}
+											onCheckedChange={(checked) =>
+												setCreateCollectionFromBatch(Boolean(checked))
+											}
 										/>
-									))}
+										Create collection
+									</div>
+								</div>
+								{createCollectionFromBatch ? (
+									<Input
+										value={collectionName}
+										onChange={(event) => setCollectionName(event.target.value)}
+										className="mt-4 dashboard-input-height rounded-2xl"
+										placeholder="Q2 launch carousel"
+									/>
+								) : null}
+							</div>
+						) : null}
+
+						<div className="mt-4 space-y-3">
+							{queue.length === 0 ? (
+								<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
+									No files queued yet.
 								</div>
 							) : (
-								<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
-									<div className="text-lg font-semibold">No assets match yet</div>
-									<div className="mt-2 text-sm text-muted-foreground">
-										Upload your first reusable asset or broaden the filters.
-									</div>
-									<Button
-										className="mt-4 rounded-full border-0 bg-gradient-brand text-white"
-										onClick={() => fileInputRef.current?.click()}
+								queue.map((item) => (
+									<div
+										key={item.id}
+										className="flex flex-wrap items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/65 p-3"
 									>
-										Upload asset
-									</Button>
-								</div>
-							)
-						) : filteredCollections.length > 0 ? (
+										<div className="h-20 w-24 overflow-hidden rounded-[18px] bg-muted">
+											<LocalFileThumb
+												file={item.file}
+												previewUrl={item.previewUrl}
+												variant="compact"
+											/>
+										</div>
+										<div className="min-w-0 flex-1">
+											<div
+												className="truncate font-medium"
+												title={item.file.name}
+											>
+												{item.file.name}
+											</div>
+											<div className="mt-1 text-sm text-muted-foreground">
+												{formatBytes(item.file.size)}
+												{item.file.type.startsWith("image/")
+													? ` · optimization ${optimizeImages ? "on" : "off"}`
+													: ""}
+											</div>
+											{item.error ? (
+												<div className="mt-1 text-sm text-destructive">
+													{item.error}
+												</div>
+											) : null}
+										</div>
+										<div className="ml-auto flex items-center gap-2">
+											<UploadQueueBadge item={item} />
+											{item.status === "error" ? (
+												<Button
+													variant="outline"
+													size="sm"
+													className="rounded-full"
+													onClick={() =>
+														updateQueueItem(item.id, (entry) => ({
+															...entry,
+															status: "pending",
+															error: undefined,
+														}))
+													}
+												>
+													Retry
+												</Button>
+											) : null}
+											<Button
+												variant="ghost"
+												size="sm"
+												className="rounded-full"
+												onClick={() => removeQueueItem(item.id)}
+											>
+												Remove
+											</Button>
+										</div>
+									</div>
+								))
+							)}
+						</div>
+					</DashboardPanel>
+				) : null}
+
+				{error ? (
+					<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+						{error}
+					</SurfaceCard>
+				) : null}
+				{notice ? (
+					<SurfaceCard className="border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+						{notice}
+					</SurfaceCard>
+				) : null}
+
+				<DashboardPanel
+					title={
+						view === "assets"
+							? "Assets ready to use"
+							: "Collections ready to reuse"
+					}
+					description={
+						view === "assets"
+							? "Single assets lead the page so users can find, reuse, and act quickly."
+							: "Collections stay available for carousels, grouped bundles, and ordered visual sequences."
+					}
+				>
+					{loading ? (
+						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-10 text-sm text-muted-foreground">
+							Loading the library...
+						</div>
+					) : view === "assets" ? (
+						filteredResources.length > 0 ? (
 							<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-								{filteredCollections.map((resourceSet) => (
-									<CollectionCard
-										key={resourceSet.id}
-										resourceSet={resourceSet}
-										onDelete={removeResourceSet}
+								{filteredResources.map((resource) => (
+									<AssetCard
+										key={resource.id}
+										resource={resource}
+										onDelete={removeResource}
 									/>
 								))}
 							</div>
 						) : (
 							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
-								<div className="text-lg font-semibold">No collections yet</div>
+								<div className="text-lg font-semibold">No assets match yet</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									Group related uploads into a reusable ordered bundle when you need
-									carousels or campaign sequences.
+									Upload your first reusable asset or broaden the filters.
 								</div>
 								<Button
-									variant="outline"
-									className="mt-4 rounded-full"
-									onClick={() => navigate("/dashboard/library/sets/new")}
+									className="mt-4 rounded-full border-0 bg-gradient-brand text-white"
+									onClick={() => fileInputRef.current?.click()}
 								>
-									Create collection
+									Upload asset
 								</Button>
 							</div>
-						)}
-					</DashboardPanel>
+						)
+					) : filteredCollections.length > 0 ? (
+						<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+							{filteredCollections.map((resourceSet) => (
+								<CollectionCard
+									key={resourceSet.id}
+									resourceSet={resourceSet}
+									onDelete={removeResourceSet}
+								/>
+							))}
+						</div>
+					) : (
+						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
+							<div className="text-lg font-semibold">No collections yet</div>
+							<div className="mt-2 text-sm text-muted-foreground">
+								Group related uploads into a reusable ordered bundle when you
+								need carousels or campaign sequences.
+							</div>
+							<Button
+								variant="outline"
+								className="mt-4 rounded-full"
+								onClick={() => navigate("/dashboard/library/sets/new")}
+							>
+								Create collection
+							</Button>
+						</div>
+					)}
+				</DashboardPanel>
 			</AssetWorkspaceShell>
 		</div>
 	);

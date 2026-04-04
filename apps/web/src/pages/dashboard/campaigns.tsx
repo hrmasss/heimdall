@@ -62,7 +62,10 @@ function formatSetupSummary(campaign: CampaignSummary) {
 		`${campaign.deliveryTargetCount} target${campaign.deliveryTargetCount === 1 ? "" : "s"}`,
 		`${campaign.scheduleRuleCount} rule${campaign.scheduleRuleCount === 1 ? "" : "s"}`,
 	];
-	if (!campaign.automationReadiness.ready && campaign.automationReadiness.issues.length > 0) {
+	if (
+		!campaign.automationReadiness.ready &&
+		campaign.automationReadiness.issues.length > 0
+	) {
 		parts.push("Needs setup");
 	}
 	return parts.join(" · ");
@@ -176,25 +179,25 @@ export function DashboardCampaigns() {
 			<DashboardPageHeader
 				eyebrow="Campaign planning"
 				title="Campaigns"
-				description="Plan goal-based windows, keep posts tied back to the campaign they support, and carry lightweight paid tracking without waiting on ad-platform integrations."
-				actions={
-					<>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/automations">
-								<Sparkles className="size-4" />
-								Plan campaign
-							</Link>
-						</Button>
-						<Button
-							className="rounded-full bg-gradient-brand border-0 text-white"
-							asChild
-						>
-							<Link to="/dashboard/campaigns/new">
-								<Plus className="size-4" />
-								New campaign
-							</Link>
-						</Button>
-					</>
+				description="Plan launch windows, keep posts tied to the campaign they support, and carry light paid tracking without turning this into an ad-ops workspace."
+				secondaryActions={
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/automations">
+							<Sparkles className="size-4" />
+							Plan campaign
+						</Link>
+					</Button>
+				}
+				primaryAction={
+					<Button
+						className="rounded-full bg-gradient-brand border-0 text-white"
+						asChild
+					>
+						<Link to="/dashboard/campaigns/new">
+							<Plus className="size-4" />
+							New campaign
+						</Link>
+					</Button>
 				}
 			/>
 
@@ -266,21 +269,21 @@ export function DashboardCampaigns() {
 									{row.postCount} posts
 								</Badge>
 							</div>
-				<div className="text-sm text-muted-foreground">
-					{formatDateRange(row)}
-				</div>
-				<div className="text-sm text-muted-foreground">
-					{formatSetupSummary(row)}
-				</div>
-				<div className="text-sm text-muted-foreground">
-					{formatPaidSummary(row)}
-				</div>
-			</div>
+							<div className="text-sm text-muted-foreground">
+								{formatDateRange(row)}
+							</div>
+							<div className="text-sm text-muted-foreground">
+								{formatSetupSummary(row)}
+							</div>
+							<div className="text-sm text-muted-foreground">
+								{formatPaidSummary(row)}
+							</div>
+						</div>
 					)}
 				/>
 			</SurfaceCard>
 
-			<SurfaceCard className="rounded-[28px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,255,255,0.76))] p-5">
+			<SurfaceCard tone="muted" className="dashboard-card">
 				<div className="flex items-start gap-3">
 					<div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
 						<Megaphone className="size-5" />

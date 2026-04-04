@@ -217,10 +217,10 @@ export function DashboardTeam() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Workspace Access"
+				eyebrow="Workspace access"
 				title="Team"
-				description="Invite members, assign multiple preset roles, and manage workspace access from one surface."
-				actions={
+				description="Invite members, assign role bundles, and manage workspace access from one compact surface."
+				primaryAction={
 					canManageMembers ? (
 						<Dialog>
 							<DialogTrigger asChild>

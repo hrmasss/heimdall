@@ -14,6 +14,8 @@ import { SurfaceCard } from "@/components/app/brand";
 import {
 	DashboardPageHeader,
 	DashboardPanel,
+	DashboardStatStrip,
+	DashboardStatusStrip,
 } from "@/components/app/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,10 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { WorkspaceAISettings, WorkspaceSystemPrompts } from "@/lib/api-types";
+import type {
+	WorkspaceAISettings,
+	WorkspaceSystemPrompts,
+} from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspaceSetupReadiness } from "@/hooks/use-workspace-setup-readiness";
 
@@ -84,16 +89,19 @@ export function DashboardSetupPage() {
 		setSavingBasics(true);
 		try {
 			await Promise.all([
-				customerRequest(`/workspaces/${activeWorkspaceId}/ai/context/business`, {
-					method: "PATCH",
-					body: {
-						narrative: businessNarrative,
-						summary: context.business.summary,
-						understandingScore: context.business.understandingScore,
-						missingGaps: context.business.missingGaps,
-						facts: context.business.facts,
+				customerRequest(
+					`/workspaces/${activeWorkspaceId}/ai/context/business`,
+					{
+						method: "PATCH",
+						body: {
+							narrative: businessNarrative,
+							summary: context.business.summary,
+							understandingScore: context.business.understandingScore,
+							missingGaps: context.business.missingGaps,
+							facts: context.business.facts,
+						},
 					},
-				}),
+				),
 				customerRequest(`/workspaces/${activeWorkspaceId}/ai/settings`, {
 					method: "PATCH",
 					body: {
@@ -128,69 +136,81 @@ export function DashboardSetupPage() {
 		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
 				eyebrow="Workspace setup"
-				title="Get Heimdall usable fast"
-				description="Create the workspace, connect one destination, and add only the basics that materially improve output. Everything else can stay out of the way until later."
-				actions={
-					<>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard">Skip for now</Link>
-						</Button>
-						<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
-							<Link to={readiness.publishingReady ? "/dashboard/posts/new" : "/dashboard/settings/platforms"}>
-								{readiness.publishingReady ? "Create first post" : "Finish publishing setup"}
-								<ArrowRight className="size-4" />
-							</Link>
-						</Button>
-					</>
+				title="Get publishing working fast"
+				description="Set up the workspace, connect one destination, and add only the inputs that materially improve drafts. Everything else can wait until the first publish path works."
+				secondaryActions={
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard">Skip for now</Link>
+					</Button>
+				}
+				primaryAction={
+					<Button
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						asChild
+					>
+						<Link
+							to={
+								readiness.publishingReady
+									? "/dashboard/posts/new"
+									: "/dashboard/settings/platforms"
+							}
+						>
+							{readiness.publishingReady
+								? "Create first post"
+								: "Finish publishing setup"}
+							<ArrowRight className="size-4" />
+						</Link>
+					</Button>
 				}
 			/>
 
-			<SurfaceCard className="media-hero-surface overflow-hidden rounded-[32px] p-6 md:p-7">
-				<div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-					<div className="space-y-4">
-						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							<Rocket className="size-3.5 text-primary" />
-							Guided setup
-						</div>
-						<div className="space-y-3">
-							<h2 className="text-2xl font-semibold tracking-tight">
-								{readiness.publishingReady
-									? "Your first publish path is almost there."
-									: "Build one working publish path before worrying about the rest."}
-							</h2>
-							<p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-								{readiness.summary}
-							</p>
-						</div>
-					</div>
-					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-						<SurfaceCard tone="muted" className="p-5">
-							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Recommended steps complete
-							</div>
-							<div className="mt-3 text-3xl font-semibold tracking-tight">
-								{readiness.completedStepCount}/{readiness.requiredStepCount}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								Only workspace creation is mandatory. The rest is guided, not blocking.
-							</div>
-						</SurfaceCard>
-						<SurfaceCard tone="muted" className="p-5">
-							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Publishing layer
-							</div>
-							<div className="mt-3 text-lg font-semibold tracking-tight">
-								{readiness.publishingReady ? "Ready" : "Needs setup"}
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								{readiness.targetReady
-									? "A healthy selected destination is in place."
-									: "Connect one provider and choose one destination target."}
-							</div>
-						</SurfaceCard>
-					</div>
-				</div>
-			</SurfaceCard>
+			<DashboardStatusStrip
+				eyebrow="First publish path"
+				title={
+					readiness.publishingReady
+						? "The workspace is ready for the first real post."
+						: "Build one working publish path before worrying about the rest."
+				}
+				description={readiness.summary}
+				action={
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/settings/platforms">
+							Open platform setup
+							<ArrowRight className="size-4" />
+						</Link>
+					</Button>
+				}
+			/>
+
+			<DashboardStatStrip
+				className="xl:grid-cols-3"
+				items={[
+					{
+						label: "Recommended steps",
+						value: `${readiness.completedStepCount}/${readiness.requiredStepCount}`,
+						detail:
+							"Only workspace creation is mandatory. The rest is guided, not blocking.",
+						icon: Rocket,
+					},
+					{
+						label: "Publishing layer",
+						value: readiness.publishingReady ? "Ready" : "Needs setup",
+						detail: readiness.targetReady
+							? "A healthy selected destination is in place."
+							: "Connect one provider and choose one destination target.",
+						icon: readiness.publishingReady ? Rocket : ChevronRight,
+						tone: readiness.publishingReady ? "success" : "warning",
+					},
+					{
+						label: "Intelligence basics",
+						value: readiness.intelligenceReady ? "In place" : "Optional",
+						detail:
+							"Business context and AI access help drafts later, but they do not block the first publish path.",
+						icon: Sparkles,
+						tone: readiness.intelligenceReady ? "success" : "default",
+					},
+				]}
+			/>
 
 			<DashboardPanel
 				title="Setup checklist"
@@ -215,13 +235,21 @@ export function DashboardSetupPage() {
 									variant="outline"
 									className={`rounded-full ${statusTone(step.complete, step.optional)}`}
 								>
-									{step.complete ? "Complete" : step.optional ? "Optional" : "Next"}
+									{step.complete
+										? "Complete"
+										: step.optional
+											? "Optional"
+											: "Next"}
 								</Badge>
 							</div>
 							{step.ctaHref ? (
 								<Button
 									variant={step.complete ? "outline" : "default"}
-									className={step.complete ? "rounded-full" : "rounded-full border-0 bg-gradient-brand text-white"}
+									className={
+										step.complete
+											? "rounded-full"
+											: "rounded-full border-0 bg-gradient-brand text-white"
+									}
 									asChild
 								>
 									<Link to={step.ctaHref}>
@@ -284,7 +312,9 @@ export function DashboardSetupPage() {
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="native">Use Heimdall-managed AI</SelectItem>
+										<SelectItem value="native">
+											Use Heimdall-managed AI
+										</SelectItem>
 										<SelectItem value="byok">Use my own keys later</SelectItem>
 									</SelectContent>
 								</Select>
@@ -306,19 +336,39 @@ export function DashboardSetupPage() {
 							<div className="space-y-3">
 								<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 px-4 py-3 text-sm">
 									<span>Business context</span>
-									<span className={context?.readiness.hasBusinessContext ? "text-emerald-700" : "text-amber-700"}>
-										{context?.readiness.hasBusinessContext ? "Ready" : "Missing"}
+									<span
+										className={
+											context?.readiness.hasBusinessContext
+												? "text-emerald-700"
+												: "text-amber-700"
+										}
+									>
+										{context?.readiness.hasBusinessContext
+											? "Ready"
+											: "Missing"}
 									</span>
 								</div>
 								<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 px-4 py-3 text-sm">
 									<span>AI access</span>
-									<span className={context?.readiness.hasAiAccess ? "text-emerald-700" : "text-amber-700"}>
+									<span
+										className={
+											context?.readiness.hasAiAccess
+												? "text-emerald-700"
+												: "text-amber-700"
+										}
+									>
 										{context?.readiness.hasAiAccess ? "Ready" : "Needs setup"}
 									</span>
 								</div>
 								<div className="flex items-center justify-between rounded-[20px] border border-[var(--brand-border-soft)] bg-background/60 px-4 py-3 text-sm">
 									<span>Brand guidance</span>
-									<span className={context?.readiness.hasBrandContext ? "text-emerald-700" : "text-sky-700"}>
+									<span
+										className={
+											context?.readiness.hasBrandContext
+												? "text-emerald-700"
+												: "text-sky-700"
+										}
+									>
 										{context?.readiness.hasBrandContext ? "Ready" : "Optional"}
 									</span>
 								</div>

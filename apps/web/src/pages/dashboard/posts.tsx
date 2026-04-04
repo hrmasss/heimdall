@@ -1,9 +1,13 @@
-import { FilePlus2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CircleAlert, CircleCheckBig, Clock3, FilePlus2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { SurfaceCard } from "@/components/app/brand";
-import { DashboardPageHeader } from "@/components/app/dashboard";
+import {
+	DashboardPageHeader,
+	DashboardPanel,
+	DashboardStatStrip,
+	DashboardStatusStrip,
+} from "@/components/app/dashboard";
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
 import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summary";
@@ -114,6 +118,46 @@ export function DashboardPosts() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const setupNeeded = !summary.hasHealthySelectedTarget;
+	const queueStats = useMemo(
+		() => [
+			{
+				label: "Queue size",
+				value: posts.length,
+				detail: "All drafts, scheduled items, and published records.",
+				icon: FilePlus2,
+			},
+			{
+				label: "Scheduled soon",
+				value: posts.filter((post) =>
+					["scheduled", "publishing"].includes(post.aggregatePublicationState),
+				).length,
+				detail: "Items already lined up to go out.",
+				icon: Clock3,
+				tone: "warning" as const,
+			},
+			{
+				label: "Needs review",
+				value: posts.filter((post) =>
+					["draft", "in_review", "changes_requested"].includes(
+						post.aggregateApprovalState,
+					),
+				).length,
+				detail: "Posts that still need a decision before sending.",
+				icon: CircleAlert,
+				tone: "warning" as const,
+			},
+			{
+				label: "Healthy destinations",
+				value: summary.selectedTargetCount,
+				detail: setupNeeded
+					? "Finish one publish path to move drafts into the real queue."
+					: "Selected publish destinations ready for the workspace.",
+				icon: CircleCheckBig,
+				tone: setupNeeded ? ("warning" as const) : ("success" as const),
+			},
+		],
+		[posts, setupNeeded, summary.selectedTargetCount],
+	);
 
 	useEffect(() => {
 		if (!activeWorkspaceId) {
@@ -151,56 +195,56 @@ export function DashboardPosts() {
 	}, [activeWorkspaceId, customerRequest]);
 
 	return (
-		<div className="space-y-6">
+		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
 				eyebrow="Publishing queue"
 				title="Posts"
-				description="Track generic posts, platform variants, approval state, and planned publication timing from one queue."
-				actions={
-					<>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/settings/platforms">
-								{setupNeeded ? "Connect platforms" : "Manage platforms"}
-							</Link>
-						</Button>
-						<Button
-							className="rounded-full bg-gradient-brand text-white border-0"
-							asChild
-						>
-							<Link to="/dashboard/posts/new">
-								<FilePlus2 className="size-4" />
-								New post
-							</Link>
-						</Button>
-					</>
+				description="Stay on top of what is ready to schedule, what still needs review, and where to jump back into creation without the page turning into an admin workbench."
+				secondaryActions={
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link to="/dashboard/settings/platforms">
+							{setupNeeded ? "Connect platforms" : "Manage platforms"}
+						</Link>
+					</Button>
+				}
+				primaryAction={
+					<Button
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						asChild
+					>
+						<Link to="/dashboard/posts/new">
+							<FilePlus2 className="size-4" />
+							Create post
+						</Link>
+					</Button>
 				}
 			/>
 
 			{setupNeeded ? (
-				<SurfaceCard className="rounded-[28px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,255,255,0.76))] p-5">
-					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-						<div>
-							<div className="text-lg font-medium">
-								Connect platforms to turn drafts into real scheduled or
-								published posts.
-							</div>
-							<div className="mt-2 text-sm text-muted-foreground">
-								Your team can already write, review, and plan here. Connection
-								setup is what lets Heimdall post on behalf of the workspace and
-								monitor those destinations more directly.
-							</div>
-						</div>
-						<Button className="rounded-full" asChild>
+				<DashboardStatusStrip
+					eyebrow="Needs one publish path"
+					title="The queue is usable now, but it still needs one connected destination to schedule for real."
+					description="Write and review here first, then connect one healthy destination so Heimdall can turn the queue into actual scheduled or published work."
+					action={
+						<Button
+							className="rounded-full border-0 bg-gradient-brand text-white"
+							asChild
+						>
 							<Link to="/dashboard/settings/platforms">Connect now</Link>
 						</Button>
-					</div>
-				</SurfaceCard>
+					}
+				/>
 			) : null}
 
-			<SurfaceCard className="p-5 md:p-6">
+			<DashboardStatStrip items={queueStats} />
+
+			<DashboardPanel
+				title="Owner queue"
+				description="Open any row to refine the shared draft, inspect variants, and confirm the next publish step."
+			>
 				<DataTable
 					title="Post queue"
-					description="Open any post to inspect its generic source, platform variants, planned slots, and KPI rollups."
+					description="One compact queue for the shared draft, destination variants, planned slots, and KPI rollups."
 					storageKey="dashboard-posts-table"
 					rows={posts}
 					columns={columns}
@@ -282,7 +326,7 @@ export function DashboardPosts() {
 						</div>
 					)}
 				/>
-			</SurfaceCard>
+			</DashboardPanel>
 		</div>
 	);
 }

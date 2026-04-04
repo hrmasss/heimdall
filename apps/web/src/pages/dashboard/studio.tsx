@@ -18,6 +18,7 @@ import {
 import {
 	DashboardPageHeader,
 	DashboardPanel,
+	DashboardStatStrip,
 } from "@/components/app/dashboard";
 import {
 	ResourceThumb,
@@ -120,7 +121,9 @@ export function DashboardStudio() {
 	const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
 	const [runs, setRuns] = useState<AutomationRun[]>([]);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
-	const [aiSettings, setAiSettings] = useState<WorkspaceAISettings | null>(null);
+	const [aiSettings, setAiSettings] = useState<WorkspaceAISettings | null>(
+		null,
+	);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -148,7 +151,8 @@ export function DashboardStudio() {
 	const selectedResource = useMemo(
 		() =>
 			selectedResourceId
-				? resources.find((resource) => resource.id === selectedResourceId) ?? null
+				? (resources.find((resource) => resource.id === selectedResourceId) ??
+					null)
 				: null,
 		[resources, selectedResourceId],
 	);
@@ -187,10 +191,14 @@ export function DashboardStudio() {
 			setRuns(runResponse.items);
 			setResources(resourceResponse.items);
 			setAiSettings(settingsResponse);
-			setSelectedRunId((current) => current ?? runResponse.items[0]?.id ?? null);
+			setSelectedRunId(
+				(current) => current ?? runResponse.items[0]?.id ?? null,
+			);
 		} catch (loadError) {
 			setError(
-				loadError instanceof Error ? loadError.message : "Unable to load studio.",
+				loadError instanceof Error
+					? loadError.message
+					: "Unable to load studio.",
 			);
 		} finally {
 			setLoading(false);
@@ -419,7 +427,9 @@ export function DashboardStudio() {
 		}
 	}
 
-	function updateStudioSearchParams(next: Partial<Record<string, string | null>>) {
+	function updateStudioSearchParams(
+		next: Partial<Record<string, string | null>>,
+	) {
 		const nextParams = new URLSearchParams(searchParams);
 		for (const [key, value] of Object.entries(next)) {
 			if (!value) {
@@ -471,7 +481,9 @@ export function DashboardStudio() {
 						{studioToolsByMode[mode].map((tool) => (
 							<Button
 								key={tool.value}
-								variant={tool.value === activeTool.value ? "secondary" : "outline"}
+								variant={
+									tool.value === activeTool.value ? "secondary" : "outline"
+								}
 								className="h-auto justify-start rounded-[20px] px-4 py-3 text-left whitespace-normal"
 								disabled={tool.status === "soon"}
 								onClick={() => updateStudioSearchParams({ tool: tool.value })}
@@ -508,7 +520,9 @@ export function DashboardStudio() {
 								<ResourceThumb resource={selectedResource} variant="compact" />
 							</div>
 							<div className="min-w-0 flex-1">
-								<div className="truncate font-medium">{selectedResource.displayName}</div>
+								<div className="truncate font-medium">
+									{selectedResource.displayName}
+								</div>
 								<div className="mt-1 text-sm text-muted-foreground">
 									{formatResourceMeta(selectedResource)}
 								</div>
@@ -534,7 +548,10 @@ export function DashboardStudio() {
 							<div className="grid gap-3 sm:grid-cols-2">
 								<div className="space-y-2">
 									<Label>Aspect ratio</Label>
-									<Select value={imageAspectRatio} onValueChange={setImageAspectRatio}>
+									<Select
+										value={imageAspectRatio}
+										onValueChange={setImageAspectRatio}
+									>
 										<SelectTrigger className="h-11 rounded-2xl">
 											<SelectValue />
 										</SelectTrigger>
@@ -645,7 +662,8 @@ export function DashboardStudio() {
 							<div>
 								<div className="text-sm font-medium">Advanced</div>
 								<div className="mt-1 text-xs text-muted-foreground">
-									Model controls, prompt policy, and deeper run context stay nearby.
+									Model controls, prompt policy, and deeper run context stay
+									nearby.
 								</div>
 							</div>
 							<CollapsibleTrigger asChild>
@@ -691,8 +709,15 @@ export function DashboardStudio() {
 
 							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
 								<div className="mb-2 flex items-center justify-between gap-3">
-									<div className="font-medium text-foreground">Prompt policy</div>
-									<Button variant="outline" size="sm" className="rounded-full" asChild>
+									<div className="font-medium text-foreground">
+										Prompt policy
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										className="rounded-full"
+										asChild
+									>
 										<Link to="/dashboard/settings/intelligence">
 											<Settings2 className="size-4" />
 											Edit
@@ -707,7 +732,7 @@ export function DashboardStudio() {
 												: mode === "pdf"
 													? "studioPdf"
 													: "studioReel",
-									  )
+										)
 									: "Loading prompt policy..."}
 							</div>
 
@@ -726,13 +751,13 @@ export function DashboardStudio() {
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
-				eyebrow="Contextual editor"
+				eyebrow="Media editing"
 				title="Studio"
-				description="Work from a selected asset and a clear task, not a generic control room."
-				actions={
+				description="Edit one asset for a post, run a focused task, and keep recent outputs close without feeling like you entered another product."
+				secondaryActions={
 					<>
 						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/library">Back to library</Link>
+							<Link to="/dashboard/library">Back to media</Link>
 						</Button>
 						<Button variant="outline" className="rounded-full" asChild>
 							<Link to="/dashboard/settings/intelligence">
@@ -742,6 +767,34 @@ export function DashboardStudio() {
 						</Button>
 					</>
 				}
+			/>
+
+			<DashboardStatStrip
+				className="xl:grid-cols-3"
+				items={[
+					{
+						label: "Task family",
+						value: currentModeMeta.label,
+						detail: activeTool.label,
+						icon: ModeIcon,
+					},
+					{
+						label: "Source asset",
+						value: selectedResource ? "Selected" : "Choose one",
+						detail:
+							selectedResource?.displayName ??
+							"Pick a source asset to keep the task grounded.",
+						icon: selectedResource ? ImagePlus : FileText,
+					},
+					{
+						label: "Recent runs",
+						value: filteredRuns.length,
+						detail:
+							"History stays nearby for reuse, not as the main workspace.",
+						icon: WandSparkles,
+						tone: filteredRuns.length > 0 ? "success" : "default",
+					},
+				]}
 			/>
 
 			{error ? (
@@ -759,7 +812,9 @@ export function DashboardStudio() {
 									{currentModeMeta.label}
 								</div>
 								<div>
-									<div className="text-lg font-semibold">{activeTool.label}</div>
+									<div className="text-lg font-semibold">
+										{activeTool.label}
+									</div>
 									<div className="mt-1 text-sm text-muted-foreground">
 										{activeTool.description}
 									</div>
@@ -769,7 +824,9 @@ export function DashboardStudio() {
 								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
 									<span className="text-muted-foreground">Source:</span>{" "}
 									<span className="font-medium text-foreground">
-										{selectedResource ? selectedResource.displayName : "Choose a source"}
+										{selectedResource
+											? selectedResource.displayName
+											: "Choose a source"}
 									</span>
 								</div>
 								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
@@ -780,20 +837,22 @@ export function DashboardStudio() {
 								</div>
 								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
 									<span className="text-muted-foreground">Runs:</span>{" "}
-									<span className="font-medium text-foreground">{filteredRuns.length}</span>
+									<span className="font-medium text-foreground">
+										{filteredRuns.length}
+									</span>
 								</div>
 							</div>
 						</div>
 					</AssetCommandBar>
 				}
 				rail={inspector}
-				railTitle="Studio settings"
+				railTitle="Task settings"
 				railDescription="Task family, essentials, and advanced controls stay nearby without squeezing the canvas."
-				railTriggerLabel="Open Studio settings"
+				railTriggerLabel="Open task settings"
 			>
 				<div className="space-y-6">
 					<DashboardPanel
-						title={`${currentModeMeta.label} canvas`}
+						title="Active output"
 						description="Preview the active output first, then scan recent runs without the history taking over the page."
 					>
 						<SurfaceCard className="overflow-hidden p-0">
@@ -810,7 +869,10 @@ export function DashboardStudio() {
 										</div>
 									</div>
 									{selectedRun ? (
-										<Badge variant="outline" className="rounded-full capitalize">
+										<Badge
+											variant="outline"
+											className="rounded-full capitalize"
+										>
 											{selectedRun.status}
 										</Badge>
 									) : null}
@@ -821,7 +883,9 @@ export function DashboardStudio() {
 										{studioPreview.broken ? (
 											<div className="media-preview-canvas flex min-h-[280px] items-center justify-center rounded-[28px] border border-[var(--brand-border-soft)] px-6 py-10 text-center">
 												<div className="max-w-sm space-y-3">
-													<div className="text-base font-medium">Preview unavailable</div>
+													<div className="text-base font-medium">
+														Preview unavailable
+													</div>
 													<div className="text-sm text-muted-foreground">
 														{studioPreview.refreshing
 															? "Refreshing the generated image preview..."
@@ -844,13 +908,23 @@ export function DashboardStudio() {
 
 								{mode === "pdf" && pdfArtifact ? (
 									<div className="mt-6 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/80 p-6">
-										<div className="text-lg font-medium">{pdfArtifact.label}</div>
+										<div className="text-lg font-medium">
+											{pdfArtifact.label}
+										</div>
 										<div className="mt-3 text-sm text-muted-foreground">
 											Document output ready for review or reuse.
 										</div>
 										{typeof pdfArtifact.data?.downloadUrl === "string" ? (
-											<Button variant="outline" className="mt-5 rounded-full" asChild>
-												<a href={pdfArtifact.data.downloadUrl} target="_blank" rel="noreferrer">
+											<Button
+												variant="outline"
+												className="mt-5 rounded-full"
+												asChild
+											>
+												<a
+													href={pdfArtifact.data.downloadUrl}
+													target="_blank"
+													rel="noreferrer"
+												>
 													<FileText className="size-4" />
 													Open PDF
 												</a>
@@ -861,7 +935,9 @@ export function DashboardStudio() {
 
 								{mode === "reel" && reelArtifact ? (
 									<div className="mt-6 rounded-[28px] border border-[var(--brand-border-soft)] bg-background/80 p-6">
-										<div className="text-lg font-medium">{reelArtifact.label}</div>
+										<div className="text-lg font-medium">
+											{reelArtifact.label}
+										</div>
 										<div className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
 											{typeof reelArtifact.data?.caption === "string"
 												? reelArtifact.data.caption
@@ -872,7 +948,8 @@ export function DashboardStudio() {
 
 								{!selectedRun ? (
 									<div className="mt-10 rounded-[28px] border border-dashed border-[var(--brand-border-soft)] bg-background/60 px-5 py-10 text-center text-sm text-muted-foreground">
-										{currentModeMeta.outputLabel} will appear here after the first run.
+										{currentModeMeta.outputLabel} will appear here after the
+										first run.
 									</div>
 								) : null}
 							</div>
@@ -895,12 +972,17 @@ export function DashboardStudio() {
 												: "border-[var(--brand-border-soft)] bg-background/70"
 										}`}
 									>
-										<div className="font-medium">{summarizeRunArtifacts(run)}</div>
+										<div className="font-medium">
+											{summarizeRunArtifacts(run)}
+										</div>
 										<div className="mt-2 text-xs text-muted-foreground">
 											{formatAutomationWhen(run.updatedAt)}
 										</div>
 										<div className="mt-3 flex items-center justify-between gap-3">
-											<Badge variant="outline" className="rounded-full capitalize">
+											<Badge
+												variant="outline"
+												className="rounded-full capitalize"
+											>
 												{run.status}
 											</Badge>
 											<Link

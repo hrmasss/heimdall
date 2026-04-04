@@ -167,3 +167,102 @@ export function DashboardPanel({
 		</SurfaceCard>
 	);
 }
+
+type DashboardStatStripItem = {
+	label: string;
+	value: string | number;
+	detail?: string;
+	icon?: LucideIcon;
+	tone?: "default" | "success" | "warning";
+};
+
+export function DashboardStatStrip({
+	items,
+	className,
+}: {
+	items: DashboardStatStripItem[];
+	className?: string;
+}) {
+	return (
+		<div className={cn("grid gap-3 md:grid-cols-2 xl:grid-cols-4", className)}>
+			{items.map((item) => {
+				const Icon = item.icon;
+				return (
+					<SurfaceCard
+						key={item.label}
+						tone="muted"
+						className="dashboard-card-sm space-y-3"
+					>
+						<div className="flex items-start justify-between gap-3">
+							<div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								{item.label}
+							</div>
+							{Icon ? (
+								<div
+									className={cn(
+										"flex size-9 shrink-0 items-center justify-center rounded-2xl bg-background/80 text-[var(--brand-primary)]",
+										item.tone === "success" &&
+											"text-[var(--brand-success)] bg-[color-mix(in_srgb,var(--brand-success)_12%,transparent)]",
+										item.tone === "warning" &&
+											"text-[var(--brand-warning)] bg-[color-mix(in_srgb,var(--brand-warning)_12%,transparent)]",
+									)}
+								>
+									<Icon className="size-4" />
+								</div>
+							) : null}
+						</div>
+						<div className="space-y-1">
+							<div className="text-2xl font-semibold tracking-tight">
+								{item.value}
+							</div>
+							{item.detail ? (
+								<div className="text-sm text-muted-foreground">
+									{item.detail}
+								</div>
+							) : null}
+						</div>
+					</SurfaceCard>
+				);
+			})}
+		</div>
+	);
+}
+
+export function DashboardStatusStrip({
+	eyebrow,
+	title,
+	description,
+	action,
+	className,
+}: {
+	eyebrow?: string;
+	title: string;
+	description: string;
+	action?: ReactNode;
+	className?: string;
+}) {
+	return (
+		<SurfaceCard
+			tone="muted"
+			className={cn(
+				"dashboard-card flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
+				className,
+			)}
+		>
+			<div className="space-y-2">
+				{eyebrow ? (
+					<div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--brand-accent)]">
+						{eyebrow}
+					</div>
+				) : null}
+				<div className="space-y-1.5">
+					<div className="text-xl font-semibold tracking-tight">{title}</div>
+					<div className="max-w-3xl text-sm text-muted-foreground">
+						{description}
+					</div>
+				</div>
+			</div>
+			{action ? <div className="shrink-0">{action}</div> : null}
+		</SurfaceCard>
+	);
+}
