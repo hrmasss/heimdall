@@ -747,6 +747,7 @@ function DestinationRow({ platform, count }: { platform: string; count: number }
 
 function PlanningCard({
 	item,
+	compact = false,
 	draggable,
 	dragging,
 	onClick,
@@ -754,6 +755,7 @@ function PlanningCard({
 	onDragEnd,
 }: {
 	item: PlanningCalendarItem;
+	compact?: boolean;
 	draggable: boolean;
 	dragging: boolean;
 	onClick: () => void;
@@ -774,46 +776,57 @@ function PlanningCard({
 			onDragEnd={onDragEnd}
 			onClick={onClick}
 			className={cn(
-				"group w-full rounded-[22px] border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,244,239,0.88))] p-3 text-left shadow-[0_20px_40px_-34px_rgba(15,23,42,0.56)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_44px_-30px_rgba(15,23,42,0.46)]",
+				"calendar-card-surface group w-full shrink-0 text-left transition hover:-translate-y-[1px]",
+				compact ? "rounded-2xl p-2.5" : "rounded-[22px] p-3",
 				dragging && "opacity-45",
 			)}
 		>
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<Badge className={cn("rounded-full border", statusTone(item))}>{planningStateLabel(item)}</Badge>
-						<Badge variant="outline" className="rounded-full text-xs">{readinessLabel(item)}</Badge>
-						{item.campaign ? <Badge variant="outline" className="rounded-full text-xs">{item.campaign.name}</Badge> : null}
+						<Badge className={cn("rounded-full border", statusTone(item), compact && "px-2 py-0.5 text-[10px]")}>
+							{planningStateLabel(item)}
+						</Badge>
+						<Badge variant="outline" className={cn("rounded-full text-xs", compact && "px-2 py-0.5 text-[10px]")}>
+							{readinessLabel(item)}
+						</Badge>
+						{item.campaign ? (
+							<Badge variant="outline" className={cn("rounded-full text-xs", compact && "max-w-[9rem] truncate px-2 py-0.5 text-[10px]")}>
+								{item.campaign.name}
+							</Badge>
+						) : null}
 					</div>
-					<div className="truncate text-sm font-semibold text-foreground">{item.title}</div>
+					<div className={cn("font-semibold text-foreground", compact ? "line-clamp-1 text-[0.82rem]" : "truncate text-sm")}>
+						{item.title}
+					</div>
 				</div>
 				{draggable ? (
-					<span className="mt-0.5 inline-flex size-8 items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/88 text-muted-foreground">
+					<span className={cn("mt-0.5 inline-flex items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/88 text-muted-foreground", compact ? "size-7" : "size-8")}>
 						<GripVertical className="size-4" />
 					</span>
 				) : null}
 			</div>
-			{item.excerpt ? (
+			{!compact && item.excerpt ? (
 				<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.excerpt}</p>
-			) : (
+			) : !compact ? (
 				<p className="mt-2 text-xs leading-5 text-muted-foreground">
 					Add the core message, then refine any platform-specific details only if you need them.
 				</p>
-			)}
-			<div className="mt-3 flex flex-wrap items-center gap-2">
+			) : null}
+			<div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-2" : "mt-3")}>
 				{item.platforms.map((platform) => (
 					<span key={platform}>
 						{platformIcon(platform, {
-							containerClassName: "size-6",
-							iconClassName: "size-3.5",
+							containerClassName: compact ? "size-5" : "size-6",
+							iconClassName: compact ? "size-3" : "size-3.5",
 							backgroundAlpha: 0.1,
 							borderAlpha: 0.16,
 						})}
 					</span>
 				))}
-				<span className="text-xs text-muted-foreground">{primaryMeta}</span>
+				<span className={cn("text-muted-foreground", compact ? "text-[11px]" : "text-xs")}>{primaryMeta}</span>
 				{item.assetCount > 0 ? (
-					<span className="text-xs text-muted-foreground">
+					<span className={cn("text-muted-foreground", compact ? "text-[11px]" : "text-xs")}>
 						{item.assetCount} asset{item.assetCount === 1 ? "" : "s"}
 					</span>
 				) : null}
@@ -1556,7 +1569,7 @@ export function DashboardCalendar() {
 
 	return (
 		<div className="dashboard-page-stack space-y-6">
-			<SurfaceCard className="dashboard-card border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(255,249,244,0.74))]">
+			<SurfaceCard className="calendar-shell-surface dashboard-card">
 				<div className="space-y-5">
 					<div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
 						<div className="space-y-4">
@@ -1625,7 +1638,7 @@ export function DashboardCalendar() {
 					</div>
 
 					{setupNeeded ? (
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),rgba(255,255,255,0.82)] p-5">
+						<div className="calendar-callout-surface rounded-[24px] p-5">
 							<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 								<div>
 									<div className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--brand-accent)]">
@@ -1649,7 +1662,7 @@ export function DashboardCalendar() {
 				</div>
 			</SurfaceCard>
 
-			<SurfaceCard className="dashboard-card border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(247,243,236,0.78))]">
+			<SurfaceCard className="calendar-shell-surface dashboard-card">
 				<div className="space-y-5">
 					<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 						<div className="flex flex-wrap items-center gap-3">
@@ -1802,7 +1815,7 @@ export function DashboardCalendar() {
 									</div>
 								</div>
 							) : normalizedView === "month" ? (
-								<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(252,248,243,0.7))]">
+								<div className="calendar-board-surface overflow-hidden rounded-[28px]">
 									<div className="grid grid-cols-7 border-b border-[var(--brand-border-soft)] bg-background/72">
 										{weekDays(anchorDate).map((day) => (
 											<div key={day.toISOString()} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -1810,7 +1823,7 @@ export function DashboardCalendar() {
 											</div>
 										))}
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-7">
+									<div className="grid grid-cols-1 md:grid-cols-7 md:auto-rows-[19rem]">
 										{monthDays.map((day) => {
 											const key = startOfDay(day).toISOString();
 											const items = monthBuckets.get(key) ?? [];
@@ -1828,9 +1841,9 @@ export function DashboardCalendar() {
 													}}
 													onDrop={(event) => void handleDayDrop(day, event)}
 													className={cn(
-														"min-h-[15rem] border-b border-r border-[var(--brand-border-soft)] p-3 align-top last:border-r-0 md:min-h-[12rem]",
-														!inActiveMonth && "bg-[rgba(148,163,184,0.05)]",
-														activeDropKey === `day:${key}` && "bg-[rgba(195,123,79,0.08)]",
+														"min-h-[15rem] overflow-hidden border-b border-r border-[var(--brand-border-soft)] p-3 align-top last:border-r-0 md:flex md:h-full md:min-h-0 md:flex-col",
+														!inActiveMonth && "calendar-day-muted",
+														activeDropKey === `day:${key}` && "calendar-drop-target",
 													)}
 												>
 													<div className="flex items-center justify-between gap-2">
@@ -1849,11 +1862,12 @@ export function DashboardCalendar() {
 															Add
 														</Button>
 													</div>
-													<div className="mt-3 space-y-3">
+													<div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
 														{items.slice(0, MONTH_VISIBLE_STACK_COUNT).map((item) => (
 															<PlanningCard
 																key={item.postId}
 																item={item}
+																compact
 																draggable={!item.splitSchedule}
 																dragging={draggingPostId === item.postId}
 																onClick={() => setPanelState({ mode: "item", item })}
@@ -1862,11 +1876,14 @@ export function DashboardCalendar() {
 															/>
 														))}
 														{items.length > MONTH_VISIBLE_STACK_COUNT ? (
-															<button type="button" className="w-full rounded-[18px] border border-dashed border-[var(--brand-border-soft)] px-3 py-2 text-left text-xs font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => setAnchorDate(day)}>
+															<button type="button" className="mt-auto w-full rounded-[18px] border border-dashed border-[var(--brand-border-soft)] px-3 py-2 text-left text-xs font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => startTransition(() => {
+																setAnchorDate(day);
+																setView("week");
+															})}>
 																+{items.length - MONTH_VISIBLE_STACK_COUNT} more in week board
 															</button>
 														) : items.length === 0 ? (
-															<button type="button" className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-6 text-sm text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+															<button type="button" className="flex min-h-[8rem] flex-1 items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-6 text-sm text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
 																<Plus className="mr-2 size-4" />
 																Plan something here
 															</button>
@@ -1895,8 +1912,8 @@ export function DashboardCalendar() {
 												}}
 												onDrop={(event) => void handleDayDrop(day, event)}
 												className={cn(
-													"rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-4 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.52)]",
-													activeDropKey === `day:${key}` && "bg-[rgba(195,123,79,0.08)]",
+													"calendar-rail-surface rounded-[24px] p-4",
+													activeDropKey === `day:${key}` && "calendar-drop-target",
 												)}
 											>
 												<div className="flex items-start justify-between gap-3">
@@ -1940,7 +1957,7 @@ export function DashboardCalendar() {
 							)}
 						</div>
 
-						<div className="space-y-4">
+						<div className="space-y-4 xl:sticky xl:self-start xl:max-h-[calc(100dvh-var(--density-dashboard-sticky-top)-1rem)] xl:overflow-y-auto dashboard-sticky-rail">
 							<div
 								onDragOver={(event) => {
 									event.preventDefault();
@@ -1951,8 +1968,8 @@ export function DashboardCalendar() {
 								}}
 								onDrop={(event) => void handleBacklogDrop(event)}
 								className={cn(
-									"rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-4 shadow-[0_20px_40px_-34px_rgba(15,23,42,0.52)]",
-									activeDropKey === "backlog" && "bg-[rgba(195,123,79,0.08)]",
+									"calendar-rail-surface rounded-[24px] p-4",
+									activeDropKey === "backlog" && "calendar-drop-target",
 								)}
 							>
 								<div className="flex items-center justify-between gap-3">
@@ -1984,7 +2001,7 @@ export function DashboardCalendar() {
 								</div>
 							</div>
 
-							<Collapsible className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/68 p-4">
+							<Collapsible className="calendar-rail-surface rounded-[24px] p-4">
 								<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
 									<div>
 										<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Future automation</div>
@@ -2010,7 +2027,7 @@ export function DashboardCalendar() {
 			</SurfaceCard>
 
 			<Sheet open={panelState.mode !== "closed"} onOpenChange={(open) => (!open ? closePanel() : undefined)}>
-				<SheetContent className="w-full overflow-y-auto border-l border-[var(--brand-border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,244,239,0.92))] sm:max-w-[38rem]">
+				<SheetContent className="calendar-drawer-surface w-full overflow-y-auto sm:max-w-[38rem]">
 					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
 						<SheetTitle>{panelState.mode === "item" ? activeItem?.title ?? "Planning drawer" : "Quick add"}</SheetTitle>
 						<SheetDescription>
