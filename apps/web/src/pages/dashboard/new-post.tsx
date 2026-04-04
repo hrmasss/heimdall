@@ -2704,22 +2704,26 @@ export function DashboardNewPost() {
 									{
 										label: "Ready",
 										items: readyDestinations,
-										tone: "border-emerald-200/70 bg-emerald-50/70",
+										tone:
+											"border-emerald-200/75 bg-emerald-50/75 dark:border-emerald-500/30 dark:bg-emerald-500/10",
 									},
 									{
 										label: "Needs attention",
 										items: attentionDestinations,
-										tone: "border-amber-200/70 bg-amber-50/70",
+										tone:
+											"border-amber-200/75 bg-amber-50/75 dark:border-amber-500/30 dark:bg-amber-500/10",
 									},
 									{
 										label: "Blocked",
 										items: blockedDestinations,
-										tone: "border-rose-200/70 bg-rose-50/70",
+										tone:
+											"border-rose-200/75 bg-rose-50/75 dark:border-rose-500/30 dark:bg-rose-500/10",
 									},
 									{
 										label: "Not connected",
 										items: notConnectedDestinations,
-										tone: "border-slate-200/70 bg-slate-50/70",
+										tone:
+											"border-slate-200/75 bg-slate-50/75 dark:border-slate-400/25 dark:bg-slate-500/10",
 									},
 								].map((group) => (
 									<div
@@ -2744,7 +2748,7 @@ export function DashboardNewPost() {
 																destination.platform,
 															);
 														}}
-														className="flex w-full items-start justify-between gap-3 rounded-[20px] border border-white/80 bg-white/90 px-4 py-4 text-left transition hover:-translate-y-0.5"
+														className="flex w-full items-start justify-between gap-3 rounded-[20px] border border-border/70 bg-card/95 px-4 py-4 text-left text-foreground shadow-[0_18px_40px_-30px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5 hover:border-[var(--brand-border-strong)] hover:bg-card dark:shadow-[0_18px_44px_-32px_rgba(0,0,0,0.52)]"
 													>
 														<div className="flex min-w-0 items-start gap-3">
 															<div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">

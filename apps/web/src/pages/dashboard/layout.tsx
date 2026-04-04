@@ -244,14 +244,14 @@ function Sidebar({
 
 			<aside
 				className={cn(
-					"dashboard-sidebar fixed inset-y-0 left-0 z-40 w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-[var(--density-dashboard-sidebar-shell-p)] py-[var(--density-dashboard-sidebar-shell-p)] backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-[var(--density-dashboard-sidebar-shell-p)] lg:py-[var(--density-dashboard-sidebar-shell-p)] lg:backdrop-blur-none",
+					"dashboard-sidebar fixed inset-y-0 left-0 z-40 overflow-x-hidden w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-[var(--density-dashboard-sidebar-shell-p)] py-[var(--density-dashboard-sidebar-shell-p)] backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-[var(--density-dashboard-sidebar-shell-p)] lg:py-[var(--density-dashboard-sidebar-shell-p)] lg:backdrop-blur-none",
 					sidebarTransitionClass,
 					collapsed && "lg:w-[var(--density-dashboard-sidebar-collapsed-width)]",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
 					"lg:translate-x-0",
 				)}
 			>
-				<div className="relative z-10 flex h-full flex-col">
+				<div className="relative z-10 flex h-full min-w-0 flex-col overflow-x-hidden">
 					<div className="flex items-center justify-between gap-3 px-[var(--density-dashboard-sidebar-header-px)]">
 						<Link
 							to="/dashboard"
@@ -277,7 +277,12 @@ function Sidebar({
 						<WorkspaceSwitcher compact={collapsed} />
 					</div>
 
-					<nav className="mt-4 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+					<nav
+						className={cn(
+							"mt-4 min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto",
+							collapsed ? "pr-0" : "pr-1",
+						)}
+					>
 						{navigation.map((item) => {
 							const active =
 								item.href === "/dashboard"
