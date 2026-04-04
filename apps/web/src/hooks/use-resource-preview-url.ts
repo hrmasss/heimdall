@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ResourceRecord } from "@/lib/api-types";
+import { buildApiUrl } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
 type DurableUrlOptions = {
@@ -88,10 +89,13 @@ export async function refreshResourceDownloadUrl(input: {
 		headers.set("X-Workspace-ID", input.workspaceId);
 	}
 
-	const response = await fetch(`/api/v1/resources/${input.resourceId}/download`, {
+	const response = await fetch(
+		buildApiUrl(`/resources/${input.resourceId}/download`),
+		{
 		headers,
 		credentials: "include",
-	});
+		},
+	);
 	if (response.ok) {
 		const blob = await response.blob();
 		return URL.createObjectURL(blob);

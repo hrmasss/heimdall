@@ -14,6 +14,10 @@ function resolveApiBase() {
 const API_BASE = resolveApiBase();
 const API_PREFIX = `${API_BASE}/api/v1`;
 
+export function buildApiUrl(path: string) {
+	return `${API_PREFIX}${path}`;
+}
+
 export class ApiError extends Error {
 	status: number;
 
@@ -48,7 +52,7 @@ export async function apiRequest<T>(
 
 	let response: Response;
 	try {
-		response = await fetch(`${API_PREFIX}${path}`, {
+		response = await fetch(buildApiUrl(path), {
 			method: options.method ?? "GET",
 			headers,
 			body:
