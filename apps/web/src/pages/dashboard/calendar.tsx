@@ -37,6 +37,11 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -146,13 +151,27 @@ type PlanningDraft = {
 	destinations: string[];
 };
 
+type MonthPillLegendState = "ready" | "attention" | "blocked" | "neutral";
+
+type MonthPlanningPill = {
+	title: string;
+	primaryMeta: string;
+	visiblePlatforms: string[];
+	extraPlatformCount: number;
+	planningLabel: string;
+	readinessLabel: string;
+	planningTone: MonthPillLegendState;
+	readinessTone: MonthPillLegendState;
+	assetLabel: string | null;
+};
+
 type DragPayload = {
 	postId: string;
 	source: "calendar" | "backlog";
 };
 
 const CALENDAR_VIEW_STORAGE_KEY = "dashboard-calendar-view";
-const MONTH_VISIBLE_STACK_COUNT = 3;
+const MONTH_VISIBLE_PILL_COUNT = 2;
 const DEFAULT_HOUR = 9;
 
 function padNumber(value: number) {
@@ -396,6 +415,61 @@ function readinessLabel(item: PlanningCalendarItem) {
 		return "Needs attention";
 	}
 	return "Ready";
+}
+
+function monthLegendToneClass(tone: MonthPillLegendState) {
+	switch (tone) {
+		case "blocked":
+			return "bg-rose-500";
+		case "attention":
+			return "bg-amber-500";
+		case "ready":
+			return "bg-emerald-500";
+		default:
+			return "bg-muted-foreground/60";
+	}
+}
+
+function planningLegendTone(item: PlanningCalendarItem): MonthPillLegendState {
+	if (item.splitSchedule) {
+		return "attention";
+	}
+	if (item.displayState === "published" || item.displayState === "scheduled") {
+		return "ready";
+	}
+	if (item.displayState === "tentative" || item.displayState === "mixed") {
+		return "attention";
+	}
+	return "neutral";
+}
+
+function buildMonthPlanningPill(item: PlanningCalendarItem): MonthPlanningPill {
+	const primaryMeta =
+		item.primaryDate && !item.splitSchedule
+			? `${item.primaryDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · ${formatTime(item.primaryDate)}`
+			: item.primaryDate
+				? `${item.primaryDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · split`
+				: "Unscheduled";
+	return {
+		title: item.title,
+		primaryMeta,
+		visiblePlatforms: item.platforms.slice(0, 3),
+		extraPlatformCount: Math.max(item.platforms.length - 3, 0),
+		planningLabel: planningStateLabel(item),
+		readinessLabel: readinessLabel(item),
+		planningTone: planningLegendTone(item),
+		readinessTone:
+			item.readinessState === "blocked"
+				? "blocked"
+				: item.readinessState === "attention"
+					? "attention"
+					: "ready",
+		assetLabel: item.assetCount > 0 ? `${item.assetCount}a` : null,
+	};
+}
+
+function platformCountForItem(item: PlanningCalendarItem, platform: string) {
+	return item.nodes.filter((node) => node.item.platform === platform).length;
 }
 
 function itemSearchText(item: PlanningCalendarItem) {
@@ -835,6 +909,215 @@ function PlanningCard({
 	);
 }
 
+function MonthPlanningPill({
+	item,
+	dragging,
+	draggable,
+	onClick,
+	onDragStart,
+	onDragEnd,
+}: {
+	item: PlanningCalendarItem;
+	dragging: boolean;
+	draggable: boolean;
+	onClick: () => void;
+	onDragStart: (event: DragEvent<HTMLButtonElement>) => void;
+	onDragEnd: () => void;
+}) {
+	const pill = buildMonthPlanningPill(item);
+	return (
+		<HoverCard openDelay={120} closeDelay={90}>
+			<HoverCardTrigger asChild>
+				<button
+					type="button"
+					draggable={draggable}
+					onDragStart={onDragStart}
+					onDragEnd={onDragEnd}
+					onClick={onClick}
+					className={cn(
+						"calendar-month-pill group w-full shrink-0 rounded-[18px] px-2.5 py-2 text-left transition hover:-translate-y-[1px]",
+						dragging && "opacity-45",
+					)}
+				>
+					<div className="flex min-w-0 items-start gap-2">
+						<div className="flex shrink-0 items-center -space-x-1">
+							{pill.visiblePlatforms.map((platform) => (
+								<span key={platform}>
+									{platformIcon(platform, {
+										containerClassName: "size-5 ring-2 ring-background",
+										iconClassName: "size-3",
+										backgroundAlpha: 0.12,
+										borderAlpha: 0.18,
+									})}
+								</span>
+							))}
+							{pill.extraPlatformCount > 0 ? (
+								<span className="inline-flex size-5 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background/84 text-[10px] font-semibold text-muted-foreground">
+									+{pill.extraPlatformCount}
+								</span>
+							) : null}
+						</div>
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-[0.78rem] font-semibold leading-5 text-foreground">
+								{pill.title}
+							</div>
+							<div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground">
+								<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.planningTone))} aria-hidden="true" />
+								<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.readinessTone))} aria-hidden="true" />
+								{pill.assetLabel ? (
+									<span className="rounded-full border border-[var(--brand-border-soft)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+										{pill.assetLabel}
+									</span>
+								) : null}
+								<span className="truncate">{pill.primaryMeta}</span>
+							</div>
+						</div>
+					</div>
+				</button>
+			</HoverCardTrigger>
+			<HoverCardContent
+				align="start"
+				side="right"
+				className="calendar-hover-surface w-[18rem] space-y-3 rounded-[22px] border border-[var(--brand-border-soft)] p-4"
+			>
+				<div className="space-y-2">
+					<div className="text-sm font-semibold leading-5 text-foreground">
+						{item.title}
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<Badge variant="outline" className="rounded-full text-[11px]">
+							<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.planningTone))} aria-hidden="true" />
+							{pill.planningLabel}
+						</Badge>
+						<Badge variant="outline" className="rounded-full text-[11px]">
+							<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.readinessTone))} aria-hidden="true" />
+							{pill.readinessLabel}
+						</Badge>
+						{item.campaign ? (
+							<Badge variant="outline" className="rounded-full text-[11px]">
+								{item.campaign.name}
+							</Badge>
+						) : null}
+						{item.splitSchedule ? (
+							<Badge variant="outline" className="rounded-full text-[11px]">
+								Split schedule
+							</Badge>
+						) : null}
+					</div>
+				</div>
+				<div className="space-y-2 text-xs text-muted-foreground">
+					<div>{pill.primaryMeta}</div>
+					{pill.assetLabel ? <div>{item.assetCount} attached asset{item.assetCount === 1 ? "" : "s"}</div> : null}
+				</div>
+				<div className="flex flex-wrap gap-2">
+					{item.platforms.map((platform) => (
+						<DestinationRow
+							key={platform}
+							platform={platform}
+							count={platformCountForItem(item, platform)}
+						/>
+					))}
+				</div>
+			</HoverCardContent>
+		</HoverCard>
+	);
+}
+
+function BacklogRailPanel({
+	backlogItems,
+	draggingPostId,
+	activeDrop,
+	allowDrop = false,
+	onOpenItem,
+	onDragStart,
+	onDragEnd,
+	onBacklogOver,
+	onBacklogLeave,
+	onBacklogDrop,
+}: {
+	backlogItems: PlanningCalendarItem[];
+	draggingPostId: string | null;
+	activeDrop: boolean;
+	allowDrop?: boolean;
+	onOpenItem: (item: PlanningCalendarItem) => void;
+	onDragStart: (item: PlanningCalendarItem, event: DragEvent<HTMLButtonElement>) => void;
+	onDragEnd: () => void;
+	onBacklogOver?: (event: DragEvent<HTMLDivElement>) => void;
+	onBacklogLeave?: () => void;
+	onBacklogDrop?: (event: DragEvent<HTMLDivElement>) => void;
+}) {
+	return (
+		<div
+			onDragOver={allowDrop ? onBacklogOver : undefined}
+			onDragLeave={allowDrop ? onBacklogLeave : undefined}
+			onDrop={allowDrop ? onBacklogDrop : undefined}
+			className={cn(
+				"calendar-rail-surface rounded-[24px] p-4",
+				activeDrop && "calendar-drop-target",
+			)}
+		>
+			<div className="flex items-center justify-between gap-3">
+				<div>
+					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Backlog rail</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						Keep drafts close, then drag them onto the board when you are ready to place them.
+					</div>
+				</div>
+				<Badge variant="outline" className="rounded-full">
+					{backlogItems.length}
+				</Badge>
+			</div>
+			<div className="mt-4 space-y-3">
+				{backlogItems.map((item) => (
+					<PlanningCard
+						key={item.postId}
+						item={item}
+						draggable={!item.splitSchedule}
+						dragging={draggingPostId === item.postId}
+						onClick={() => onOpenItem(item)}
+						onDragStart={(event) => onDragStart(item, event)}
+						onDragEnd={onDragEnd}
+					/>
+				))}
+				{backlogItems.length === 0 ? (
+					<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
+						No backlog items in this view. Save a draft here or return posts from the board when priorities shift.
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function FutureAutomationPanel({
+	suggestedAutomationCount,
+}: {
+	suggestedAutomationCount: number;
+}) {
+	return (
+		<Collapsible className="calendar-rail-surface rounded-[24px] p-4">
+			<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
+				<div>
+					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Future automation</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						Trend research, hook generation, and AI suggestions can land here later without interrupting manual planning.
+					</div>
+				</div>
+				<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/80 px-3 py-1.5 text-xs">
+					<Sparkles className="size-3.5" />
+					{suggestedAutomationCount} suggestions
+					<ChevronDown className="size-3.5" />
+				</div>
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<div className="mt-4 rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
+					Automation stays intentionally quiet for now. This space is reserved for future content ideas, trend-based suggestions, and generated hooks when those systems are ready.
+				</div>
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
 function alertLine({
 	icon: Icon,
 	title,
@@ -893,6 +1176,7 @@ export function DashboardCalendar() {
 	const [advancedOpen, setAdvancedOpen] = useState(false);
 	const [draggingPostId, setDraggingPostId] = useState<string | null>(null);
 	const [activeDropKey, setActiveDropKey] = useState<string | null>(null);
+	const [backlogRailOpen, setBacklogRailOpen] = useState(false);
 	const deferredSearch = useDeferredValue(search);
 
 	useEffect(() => {
@@ -1796,6 +2080,17 @@ export function DashboardCalendar() {
 									<SelectItem value="split">Split schedule</SelectItem>
 								</SelectContent>
 							</Select>
+							<Button
+								variant="outline"
+								className="hidden rounded-full border-[var(--brand-border-soft)] bg-background/88 xl:inline-flex 2xl:hidden"
+								onClick={() => setBacklogRailOpen(true)}
+							>
+								<FolderKanban className="size-4" />
+								Backlog
+								<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+									{backlogItems.length}
+								</span>
+							</Button>
 						</div>
 					</div>
 
@@ -1805,7 +2100,7 @@ export function DashboardCalendar() {
 						</div>
 					) : null}
 
-					<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+					<div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
 						<div className="space-y-4">
 							{loading ? (
 								<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/70 px-5 py-16 text-center text-sm text-muted-foreground">
@@ -1823,7 +2118,7 @@ export function DashboardCalendar() {
 											</div>
 										))}
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-7 md:auto-rows-[19rem]">
+									<div className="grid grid-cols-1 md:grid-cols-7 md:auto-rows-[12rem] xl:auto-rows-[12.5rem] 2xl:auto-rows-[13rem]">
 										{monthDays.map((day) => {
 											const key = startOfDay(day).toISOString();
 											const items = monthBuckets.get(key) ?? [];
@@ -1862,12 +2157,11 @@ export function DashboardCalendar() {
 															Add
 														</Button>
 													</div>
-													<div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-														{items.slice(0, MONTH_VISIBLE_STACK_COUNT).map((item) => (
-															<PlanningCard
+													<div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+														{items.slice(0, MONTH_VISIBLE_PILL_COUNT).map((item) => (
+															<MonthPlanningPill
 																key={item.postId}
 																item={item}
-																compact
 																draggable={!item.splitSchedule}
 																dragging={draggingPostId === item.postId}
 																onClick={() => setPanelState({ mode: "item", item })}
@@ -1875,16 +2169,16 @@ export function DashboardCalendar() {
 																onDragEnd={clearDragState}
 															/>
 														))}
-														{items.length > MONTH_VISIBLE_STACK_COUNT ? (
-															<button type="button" className="mt-auto w-full rounded-[18px] border border-dashed border-[var(--brand-border-soft)] px-3 py-2 text-left text-xs font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => startTransition(() => {
+														{items.length > MONTH_VISIBLE_PILL_COUNT ? (
+															<button type="button" className="mt-auto w-full rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => startTransition(() => {
 																setAnchorDate(day);
 																setView("week");
 															})}>
-																+{items.length - MONTH_VISIBLE_STACK_COUNT} more in week board
+																+{items.length - MONTH_VISIBLE_PILL_COUNT} more in week board
 															</button>
 														) : items.length === 0 ? (
-															<button type="button" className="flex min-h-[8rem] flex-1 items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-6 text-sm text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
-																<Plus className="mr-2 size-4" />
+															<button type="button" className="calendar-quiet-add mt-1 inline-flex w-full items-center gap-2 rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+																<Plus className="size-3.5" />
 																Plan something here
 															</button>
 														) : null}
@@ -1957,74 +2251,54 @@ export function DashboardCalendar() {
 							)}
 						</div>
 
-						<div className="space-y-4 xl:sticky xl:self-start xl:max-h-[calc(100dvh-var(--density-dashboard-sticky-top)-1rem)] xl:overflow-y-auto dashboard-sticky-rail">
-							<div
-								onDragOver={(event) => {
+						<div className="space-y-4 xl:hidden 2xl:block 2xl:sticky 2xl:self-start 2xl:max-h-[calc(100dvh-var(--density-dashboard-sticky-top)-1rem)] 2xl:overflow-y-auto dashboard-sticky-rail">
+							<BacklogRailPanel
+								backlogItems={backlogItems}
+								draggingPostId={draggingPostId}
+								activeDrop={activeDropKey === "backlog"}
+								allowDrop
+								onOpenItem={(item) => setPanelState({ mode: "item", item })}
+								onDragStart={beginDrag}
+								onDragEnd={clearDragState}
+								onBacklogOver={(event) => {
 									event.preventDefault();
 									setActiveDropKey("backlog");
 								}}
-								onDragLeave={() => {
+								onBacklogLeave={() => {
 									setActiveDropKey((current) => (current === "backlog" ? null : current));
 								}}
-								onDrop={(event) => void handleBacklogDrop(event)}
-								className={cn(
-									"calendar-rail-surface rounded-[24px] p-4",
-									activeDropKey === "backlog" && "calendar-drop-target",
-								)}
-							>
-								<div className="flex items-center justify-between gap-3">
-									<div>
-										<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Backlog rail</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											Keep drafts close, then drag them onto the board when you are ready to place them.
-										</div>
-									</div>
-									<Badge variant="outline" className="rounded-full">{backlogItems.length}</Badge>
-								</div>
-								<div className="mt-4 space-y-3">
-									{backlogItems.map((item) => (
-										<PlanningCard
-											key={item.postId}
-											item={item}
-											draggable={!item.splitSchedule}
-											dragging={draggingPostId === item.postId}
-											onClick={() => setPanelState({ mode: "item", item })}
-											onDragStart={(event) => beginDrag(item, event)}
-											onDragEnd={clearDragState}
-										/>
-									))}
-									{backlogItems.length === 0 ? (
-										<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
-											No backlog items in this view. Save a draft here or return posts from the board when priorities shift.
-										</div>
-									) : null}
-								</div>
-							</div>
-
-							<Collapsible className="calendar-rail-surface rounded-[24px] p-4">
-								<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
-									<div>
-										<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Future automation</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											Trend research, hook generation, and AI suggestions can land here later without interrupting manual planning.
-										</div>
-									</div>
-									<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/80 px-3 py-1.5 text-xs">
-										<Sparkles className="size-3.5" />
-										{suggestedAutomationCount} suggestions
-										<ChevronDown className="size-3.5" />
-									</div>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<div className="mt-4 rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
-										Automation stays intentionally quiet for now. This space is reserved for future content ideas, trend-based suggestions, and generated hooks when those systems are ready.
-									</div>
-								</CollapsibleContent>
-							</Collapsible>
+								onBacklogDrop={(event) => void handleBacklogDrop(event)}
+							/>
+							<FutureAutomationPanel suggestedAutomationCount={suggestedAutomationCount} />
 						</div>
 					</div>
 				</div>
 			</SurfaceCard>
+
+			<Sheet open={backlogRailOpen} onOpenChange={setBacklogRailOpen}>
+				<SheetContent className="calendar-drawer-surface w-full overflow-y-auto sm:max-w-[28rem]">
+					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
+						<SheetTitle>Backlog</SheetTitle>
+						<SheetDescription>
+							Keep the month board wide on laptop, then open backlog only when you need to slot or inspect drafts.
+						</SheetDescription>
+					</SheetHeader>
+					<div className="space-y-5 px-5 py-5">
+						<BacklogRailPanel
+							backlogItems={backlogItems}
+							draggingPostId={draggingPostId}
+							activeDrop={false}
+							onOpenItem={(item) => {
+								setBacklogRailOpen(false);
+								setPanelState({ mode: "item", item });
+							}}
+							onDragStart={beginDrag}
+							onDragEnd={clearDragState}
+						/>
+						<FutureAutomationPanel suggestedAutomationCount={suggestedAutomationCount} />
+					</div>
+				</SheetContent>
+			</Sheet>
 
 			<Sheet open={panelState.mode !== "closed"} onOpenChange={(open) => (!open ? closePanel() : undefined)}>
 				<SheetContent className="calendar-drawer-surface w-full overflow-y-auto sm:max-w-[38rem]">

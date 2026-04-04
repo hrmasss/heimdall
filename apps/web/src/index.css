@@ -770,6 +770,37 @@ body {
 		inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
 }
 
+.customer-dashboard-shell .calendar-month-pill {
+	border: 1px solid color-mix(in srgb, var(--brand-border-soft) 88%, transparent);
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--card) 94%, transparent) 0%,
+		color-mix(in srgb, var(--card) 84%, var(--background) 16%) 100%
+	);
+	box-shadow: 0 16px 32px -28px color-mix(in srgb, var(--brand-ink) 42%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.customer-dashboard-shell .calendar-month-pill:hover {
+	box-shadow: 0 20px 38px -28px color-mix(in srgb, var(--brand-ink) 34%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+
+.customer-dashboard-shell .calendar-hover-surface {
+	background:
+		radial-gradient(
+			circle at top right,
+			color-mix(in srgb, var(--brand-highlight) 18%, transparent),
+			transparent 35%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 97%, transparent) 0%,
+			color-mix(in srgb, var(--card) 88%, var(--background) 12%) 100%
+		);
+	box-shadow: 0 28px 62px -40px color-mix(in srgb, var(--brand-ink) 42%, transparent);
+}
+
 .customer-dashboard-shell .calendar-drawer-surface {
 	border-left: 1px solid var(--brand-border-soft);
 	background:
@@ -816,6 +847,18 @@ body {
 
 .customer-dashboard-shell .calendar-drop-target {
 	background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
+}
+
+.customer-dashboard-shell .calendar-legend-dot {
+	display: inline-flex;
+	height: 0.45rem;
+	width: 0.45rem;
+	border-radius: 999px;
+	flex-shrink: 0;
+}
+
+.customer-dashboard-shell .calendar-quiet-add {
+	background: color-mix(in srgb, var(--card) 52%, transparent);
 }
 
 .hero-halo {
