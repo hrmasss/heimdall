@@ -1,17 +1,17 @@
 const dashboardLabels: Record<string, string> = {
-	"/dashboard": "Overview",
+	"/dashboard": "Today",
 	"/dashboard/onboarding": "Create workspace",
 	"/dashboard/setup": "Setup",
 	"/dashboard/campaigns": "Campaigns",
 	"/dashboard/campaigns/new": "Create campaign",
 	"/dashboard/posts": "Posts",
-	"/dashboard/posts/new": "Create post",
+	"/dashboard/posts/new": "Create",
 	"/dashboard/calendar": "Calendar",
-	"/dashboard/analytics": "Analytics",
+	"/dashboard/analytics": "Insights",
 	"/dashboard/automations": "Automations",
 	"/dashboard/automations/workflows/new": "New workflow",
 	"/dashboard/studio": "Studio",
-	"/dashboard/library": "Assets",
+	"/dashboard/library": "Media",
 	"/dashboard/team": "Team",
 	"/dashboard/settings": "Settings",
 	"/dashboard/settings/intelligence": "Intelligence",
@@ -74,8 +74,6 @@ function resolveDashboardLabel(pathname: string) {
 	}
 	return (
 		dashboardLabels[pathname] ??
-		formatBreadcrumbLabel(
-			pathname.split("/").filter(Boolean).at(-1) ?? "Overview",
-		)
+		formatBreadcrumbLabel(pathname.split("/").filter(Boolean).at(-1) ?? "Today")
 	);
 }

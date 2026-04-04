@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server && node scripts/prerender.mjs",
     "preview": "node scripts/preview-prerendered.mjs",
     "lint": "biome check .",
+    "lint:dashboard": "biome check src/components/app/dashboard.tsx src/components/app/dashboard-context.ts src/components/app/search-command.tsx src/lib/display-density.tsx src/pages/dashboard/layout.tsx src/pages/dashboard/overview.tsx src/pages/dashboard/analytics.tsx src/pages/dashboard/new-post.tsx src/pages/dashboard/calendar.tsx src/index.css",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"

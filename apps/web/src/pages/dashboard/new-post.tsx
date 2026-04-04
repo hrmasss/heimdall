@@ -6,10 +6,10 @@ import {
 	CheckCircle2,
 	ChevronDown,
 	ChevronUp,
-	Clock3,
 	CircleAlert,
 	CircleCheckBig,
 	CircleSlash,
+	Clock3,
 	Globe2,
 	LoaderCircle,
 	PanelRightOpen,
@@ -47,19 +47,19 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
-import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -899,12 +899,16 @@ function pickBestRuleForPlatform(
 	}
 	const assetKinds = assets.map((asset) => asset.mediaKind);
 	const assetCount = assets.length;
-	const allImages = assetCount > 0 && assetKinds.every((kind) => kind === "image");
-	const allVideos = assetCount > 0 && assetKinds.every((kind) => kind === "video");
+	const allImages =
+		assetCount > 0 && assetKinds.every((kind) => kind === "image");
+	const allVideos =
+		assetCount > 0 && assetKinds.every((kind) => kind === "video");
 
 	const scored = rules.map((rule) => {
 		let score = 0;
-		const supportsCurrentKind = rule.supportedContentKinds.includes(content.kind);
+		const supportsCurrentKind = rule.supportedContentKinds.includes(
+			content.kind,
+		);
 		if (supportsCurrentKind) {
 			score += 18;
 		}
@@ -912,7 +916,10 @@ function pickBestRuleForPlatform(
 			if (!rule.assetRequired) {
 				score += 24;
 			}
-			if (/text|feed|post/i.test(rule.surface) || /text|feed/i.test(rule.label)) {
+			if (
+				/text|feed|post/i.test(rule.surface) ||
+				/text|feed/i.test(rule.label)
+			) {
 				score += 12;
 			}
 		} else {
@@ -932,10 +939,16 @@ function pickBestRuleForPlatform(
 			if (typeof rule.maxItems === "number" && assetCount <= rule.maxItems) {
 				score += 6;
 			}
-			if (allImages && /image|photo|carousel|multi/i.test(`${rule.surface} ${rule.label}`)) {
+			if (
+				allImages &&
+				/image|photo|carousel|multi/i.test(`${rule.surface} ${rule.label}`)
+			) {
 				score += 10;
 			}
-			if (allVideos && /video|reel|short/i.test(`${rule.surface} ${rule.label}`)) {
+			if (
+				allVideos &&
+				/video|reel|short/i.test(`${rule.surface} ${rule.label}`)
+			) {
 				score += 10;
 			}
 		}
@@ -962,10 +975,16 @@ function createAutoVariant(
 	return {
 		id: undefined,
 		platform,
-		surface: rule?.surface ?? surfaceOptions(capabilities, platform)[0]?.surface ?? "feed_post",
+		surface:
+			rule?.surface ??
+			surfaceOptions(capabilities, platform)[0]?.surface ??
+			"feed_post",
 		inheritSource: "shared",
 		contentMode: defaultModes.contentMode,
-		content: coerceDraftContentForRule(createDraftContent(sharedDraft.kind), rule),
+		content: coerceDraftContentForRule(
+			createDraftContent(sharedDraft.kind),
+			rule,
+		),
 		assetMode: defaultModes.assetMode,
 		assetIds: [],
 		removedInheritedResourceIds: [],
@@ -983,7 +1002,10 @@ function destinationWarnings(
 	if (!destination.snapshot || !destination.variant) {
 		return warnings;
 	}
-	const content = contentFromDestination(destination.variant, destination.snapshot);
+	const content = contentFromDestination(
+		destination.variant,
+		destination.snapshot,
+	);
 	const bodyLength = extractCaptionFromDraftContent(content).trim().length;
 	if (destination.platform === "x" && bodyLength > 240) {
 		warnings.push({
@@ -1015,10 +1037,7 @@ function contentFromDestination(
 		: extractDraftContent(snapshot.contentKind, snapshot.contentPayload);
 }
 
-function buildBulkPlannedAt(
-	date: Date | null,
-	time: PlannedTimeDraft,
-) {
+function buildBulkPlannedAt(date: Date | null, time: PlannedTimeDraft) {
 	if (!date) {
 		return undefined;
 	}
@@ -1098,15 +1117,21 @@ export function DashboardNewPost() {
 	const [legacyVariants, setLegacyVariants] = useState<PostVariant[]>([]);
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
 	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
-	const [aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(null);
-	const [aiContext, setAIContext] = useState<WorkspaceContextResponse | null>(null);
+	const [aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(
+		null,
+	);
+	const [aiContext, setAIContext] = useState<WorkspaceContextResponse | null>(
+		null,
+	);
 	const [aiPrompt, setAIPrompt] = useState("");
 	const [aiMode, setAIMode] = useState<"native" | "byok">("native");
 	const [aiProvider, setAIProvider] = useState("");
 	const [aiModel, setAIModel] = useState("");
 	const [aiGenerating, setAIGenerating] = useState(false);
 	const [aiWarnings, setAIWarnings] = useState<string[]>([]);
-	const [lastAIDraft, setLastAIDraft] = useState<AIGeneratedPostDraft | null>(null);
+	const [lastAIDraft, setLastAIDraft] = useState<AIGeneratedPostDraft | null>(
+		null,
+	);
 
 	function addUploadedResources(created: ResourceRecord[]) {
 		setResources((current) => [
@@ -1124,7 +1149,8 @@ export function DashboardNewPost() {
 	const aiProviders = aiCatalog?.providers ?? [];
 	const workspacePermissions = useMemo(
 		() =>
-			activeWorkspaceMembership?.roles.flatMap((role) => role.permissions) ?? [],
+			activeWorkspaceMembership?.roles.flatMap((role) => role.permissions) ??
+			[],
 		[activeWorkspaceMembership],
 	);
 	const canPublish = hasCustomerPermission(
@@ -1132,7 +1158,8 @@ export function DashboardNewPost() {
 		workspacePermissions,
 	);
 	const activeAIProviderConfig = useMemo(
-		() => aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
+		() =>
+			aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
 		[aiProvider, aiProviders],
 	);
 	const resourcesById = useMemo(() => resourceMap(resources), [resources]);
@@ -1201,8 +1228,9 @@ export function DashboardNewPost() {
 		() =>
 			allDestinationPlatforms.map((platform) => {
 				const target = selectedTargetsByPlatform.get(platform) ?? null;
-				const variant = variants.find((entry) => entry.platform === platform) ?? null;
-				const snapshot = variant ? snapshots.get(platform) ?? null : null;
+				const variant =
+					variants.find((entry) => entry.platform === platform) ?? null;
+				const snapshot = variant ? (snapshots.get(platform) ?? null) : null;
 				const blockers = snapshot
 					? summarizeIssues(snapshot.readiness.publishBlockers)
 					: [];
@@ -1221,18 +1249,21 @@ export function DashboardNewPost() {
 					return {
 						...initialView,
 						status: "not_connected",
-						summary: "Connect and select a healthy target to include this platform.",
+						summary:
+							"Connect and select a healthy target to include this platform.",
 					};
 				}
 				if (!variant || !snapshot) {
 					return {
 						...initialView,
 						status: "blocked",
-						summary: "Variant setup is still loading for this connected platform.",
+						summary:
+							"Variant setup is still loading for this connected platform.",
 						blockers: [
 							{
 								code: "variant_missing",
-								message: "Variant setup is still loading for this connected platform.",
+								message:
+									"Variant setup is still loading for this connected platform.",
 							},
 						],
 					};
@@ -1250,7 +1281,8 @@ export function DashboardNewPost() {
 					return {
 						...initialView,
 						status: "attention",
-						summary: warnings[0]?.message ?? "Needs attention before you publish.",
+						summary:
+							warnings[0]?.message ?? "Needs attention before you publish.",
 						warnings,
 					};
 				}
@@ -1273,9 +1305,10 @@ export function DashboardNewPost() {
 	const selectedDestination = useMemo(
 		() =>
 			selectedDestinationPlatform
-				? destinationViews.find(
-						(destination) => destination.platform === selectedDestinationPlatform,
-					) ?? null
+				? (destinationViews.find(
+						(destination) =>
+							destination.platform === selectedDestinationPlatform,
+					) ?? null)
 				: null,
 		[destinationViews, selectedDestinationPlatform],
 	);
@@ -1341,7 +1374,7 @@ export function DashboardNewPost() {
 									aiCatalogResponse.providers[0].defaultModel ??
 									aiCatalogResponse.providers[0].approvedModels[0] ??
 									"",
-						  }
+							}
 						: { provider: "", model: "" });
 				setAIProvider(defaultAISelection.provider);
 				setAIModel(defaultAISelection.model);
@@ -1544,7 +1577,9 @@ export function DashboardNewPost() {
 			return;
 		}
 		setVariants((current) => {
-			const existingPlatforms = new Set(current.map((variant) => variant.platform));
+			const existingPlatforms = new Set(
+				current.map((variant) => variant.platform),
+			);
 			const missing = connectedPlatforms.filter(
 				(platform) => !existingPlatforms.has(platform),
 			);
@@ -1647,10 +1682,7 @@ export function DashboardNewPost() {
 		if (!activeAIProviderConfig) {
 			return;
 		}
-		if (
-			aiModel &&
-			activeAIProviderConfig.approvedModels.includes(aiModel)
-		) {
+		if (aiModel && activeAIProviderConfig.approvedModels.includes(aiModel)) {
 			return;
 		}
 		setAIModel(
@@ -1810,9 +1842,7 @@ export function DashboardNewPost() {
 			setLastAIDraft(response);
 			setAIWarnings(response.warnings);
 			const nextTitle =
-				response.title.trim() ||
-				title ||
-				aiPrompt.trim().slice(0, 80);
+				response.title.trim() || title || aiPrompt.trim().slice(0, 80);
 			setTitle(nextTitle);
 			const nextKind = response.contentKind as ContentKind;
 			const nextDraft = extractDraftContent(nextKind, response.contentPayload);
@@ -1887,20 +1917,18 @@ export function DashboardNewPost() {
 					normalizedModes.assetMode === "inherit" &&
 					variant.assetIds.length === 0 &&
 					variant.removedInheritedResourceIds.length === 0;
-				const effectiveContentMode =
-					shouldPromoteContentInheritance
-						? "inherit"
-						: variant.contentMode === "inherit" &&
-							  normalizedModes.contentMode === "custom"
-							? "custom"
-							: variant.contentMode;
-				const effectiveAssetMode =
-					shouldPromoteAssetInheritance
-						? "inherit"
-						: variant.assetMode === "inherit" &&
-							  normalizedModes.assetMode === "replace"
-							? "replace"
-							: variant.assetMode;
+				const effectiveContentMode = shouldPromoteContentInheritance
+					? "inherit"
+					: variant.contentMode === "inherit" &&
+							normalizedModes.contentMode === "custom"
+						? "custom"
+						: variant.contentMode;
+				const effectiveAssetMode = shouldPromoteAssetInheritance
+					? "inherit"
+					: variant.assetMode === "inherit" &&
+							normalizedModes.assetMode === "replace"
+						? "replace"
+						: variant.assetMode;
 				const savedVariant = variant.id
 					? await customerRequest<PostVariant>(
 							`/posts/variants/${variant.id}`,
@@ -2003,7 +2031,9 @@ export function DashboardNewPost() {
 				if (!persisted) {
 					return;
 				}
-				const savedVariant = persisted.savedVariantsByPlatform.get(variant.platform);
+				const savedVariant = persisted.savedVariantsByPlatform.get(
+					variant.platform,
+				);
 				variantId = savedVariant?.id;
 				latestPlannedAt = savedVariant?.latestPublication?.plannedAt;
 			}
@@ -2022,17 +2052,14 @@ export function DashboardNewPost() {
 					body: { source: "social_api" },
 				});
 			} else if (action === "approve" || action === "changes") {
-				await customerRequest(
-					`/posts/variants/${variantId}/reviews/decision`,
-					{
-						method: "POST",
-						body: {
-							approvalState:
-								action === "approve" ? "approved" : "changes_requested",
-							comment: "",
-						},
+				await customerRequest(`/posts/variants/${variantId}/reviews/decision`, {
+					method: "POST",
+					body: {
+						approvalState:
+							action === "approve" ? "approved" : "changes_requested",
+						comment: "",
 					},
-				);
+				});
 			} else if (action === "schedule") {
 				await customerRequest(
 					`/posts/variants/${variantId}/publication/schedule`,
@@ -2086,7 +2113,10 @@ export function DashboardNewPost() {
 			);
 			return;
 		}
-		const bulkPlannedAt = buildBulkPlannedAt(bulkScheduleDate, bulkScheduleTime);
+		const bulkPlannedAt = buildBulkPlannedAt(
+			bulkScheduleDate,
+			bulkScheduleTime,
+		);
 		if (action === "schedule" && !bulkPlannedAt) {
 			setError("Choose a date and time before scheduling.");
 			return;
@@ -2119,10 +2149,13 @@ export function DashboardNewPost() {
 				}
 				try {
 					if (action === "publish") {
-						await customerRequest(`/social/variants/${savedVariant.id}/publish`, {
-							method: "POST",
-							body: { source: "social_api" },
-						});
+						await customerRequest(
+							`/social/variants/${savedVariant.id}/publish`,
+							{
+								method: "POST",
+								body: { source: "social_api" },
+							},
+						);
 					} else if (action === "schedule") {
 						await customerRequest(
 							`/posts/variants/${savedVariant.id}/publication/schedule`,
@@ -2132,10 +2165,13 @@ export function DashboardNewPost() {
 							},
 						);
 					} else {
-						await customerRequest(`/posts/variants/${savedVariant.id}/reviews/submit`, {
-							method: "POST",
-							body: { comment: "" },
-						});
+						await customerRequest(
+							`/posts/variants/${savedVariant.id}/reviews/submit`,
+							{
+								method: "POST",
+								body: { comment: "" },
+							},
+						);
 					}
 					summary.succeeded.push({
 						platform: destination.platform,
@@ -2158,7 +2194,10 @@ export function DashboardNewPost() {
 			}
 
 			if (action !== "submit") {
-				for (const destination of [...blockedDestinations, ...notConnectedDestinations]) {
+				for (const destination of [
+					...blockedDestinations,
+					...notConnectedDestinations,
+				]) {
 					summary.skipped.push({
 						platform: destination.platform,
 						detail: destination.summary,
@@ -2344,16 +2383,13 @@ export function DashboardNewPost() {
 
 	function commitBulkScheduleTime() {
 		setBulkScheduleTime((current) => {
-			const hourValue = current.hour === "" ? DEFAULT_HOUR : Number(current.hour);
+			const hourValue =
+				current.hour === "" ? DEFAULT_HOUR : Number(current.hour);
 			const minuteValue =
 				current.minute === "" ? DEFAULT_MINUTE : Number(current.minute);
 			return {
 				hour: padNumber(
-					clamp(
-						Number.isFinite(hourValue) ? hourValue : DEFAULT_HOUR,
-						1,
-						12,
-					),
+					clamp(Number.isFinite(hourValue) ? hourValue : DEFAULT_HOUR, 1, 12),
 				),
 				minute: padNumber(
 					clamp(
@@ -2414,28 +2450,24 @@ export function DashboardNewPost() {
 		<>
 			<AdminFormPage
 				eyebrow="Compose"
-				title={
-					isEditMode
-						? "Publish everywhere from one composer"
-						: "Create once, publish everywhere"
-				}
-				description="Build the shared post first, then let Heimdall fan it out to every connected destination that can support it."
+				title={isEditMode ? "Refine your next post" : "Create your next post"}
+				description="Start with one shared version, attach media, then schedule or customize only where it helps."
 				actions={
-					<>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}>
-								<ArrowLeft className="size-4" />
-								Back
-							</Link>
-						</Button>
-					</>
+					<Button variant="outline" className="rounded-full" asChild>
+						<Link
+							to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}
+						>
+							<ArrowLeft className="size-4" />
+							Back
+						</Link>
+					</Button>
 				}
 				aside={
 					<div className="dashboard-page-stack space-y-6 xl:sticky xl:self-start dashboard-sticky-rail">
 						<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-gradient-to-br from-white via-white to-orange-50/70 p-5">
 							<div>
 								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-									Command deck
+									Post pulse
 								</div>
 								<div className="mt-2 text-2xl font-semibold">
 									{title.trim() || "Untitled post"}
@@ -2479,7 +2511,7 @@ export function DashboardNewPost() {
 								</div>
 							</div>
 							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
-								<div className="text-sm font-medium">Shared preview</div>
+								<div className="text-sm font-medium">Preview</div>
 								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
 									{renderContentPreview(
 										sharedDraft.kind,
@@ -2493,7 +2525,7 @@ export function DashboardNewPost() {
 							{bulkActionSummary ? (
 								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4 text-sm text-muted-foreground">
 									<div className="font-medium text-foreground">
-										Latest bulk action
+										Recent bulk action
 									</div>
 									<div className="mt-2">
 										{bulkActionSummary.succeeded.length} succeeded,{" "}
@@ -2523,17 +2555,19 @@ export function DashboardNewPost() {
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-									Unified composer
+									Guided flow
 								</div>
 								<div className="mt-2 text-2xl font-semibold">
-									Compose the source once
+									Compose, attach, schedule
 								</div>
 								<div className="mt-1 text-sm text-muted-foreground">
-									Every healthy selected destination is included by default.
+									The default path stays simple, and advanced overrides stay
+									secondary.
 								</div>
 							</div>
 							<Badge variant="outline" className="rounded-full px-3 py-1">
-								{bulkEligibleCount} included by default
+								{bulkEligibleCount} destination
+								{bulkEligibleCount === 1 ? "" : "s"} ready
 							</Badge>
 						</div>
 
@@ -2570,12 +2604,39 @@ export function DashboardNewPost() {
 							</AdminFormField>
 						</AdminFormGrid>
 
+						<div className="grid gap-3 md:grid-cols-3">
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
+								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+									1. Compose
+								</div>
+								<div className="mt-2 text-sm font-medium">
+									Write the shared source version once.
+								</div>
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
+								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+									2. Media
+								</div>
+								<div className="mt-2 text-sm font-medium">
+									Attach assets that can travel across inheriting destinations.
+								</div>
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
+								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+									3. Schedule
+								</div>
+								<div className="mt-2 text-sm font-medium">
+									Save, schedule, or publish from one focused action bar.
+								</div>
+							</div>
+						</div>
+
 						<div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.95fr)]">
 							<div className="space-y-6">
 								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
-											<div className="text-sm font-medium">Shared content</div>
+											<div className="text-sm font-medium">Compose</div>
 											<div className="text-sm text-muted-foreground">
 												This becomes the default for every destination.
 											</div>
@@ -2626,7 +2687,7 @@ export function DashboardNewPost() {
 										<div className="space-y-3">
 											{sharedDraft.threadItems.map((item, index) => (
 												<Textarea
-													key={`shared-thread-${index}`}
+													key={`shared-thread-${item || "empty"}`}
 													value={item}
 													onChange={(event) => {
 														const next = [...sharedDraft.threadItems];
@@ -2673,9 +2734,7 @@ export function DashboardNewPost() {
 										value={sharedTagInput}
 										onChange={(event) => updateSharedTags(event.target.value)}
 										onBlur={() =>
-											setSharedTagInput(
-												formatTagsForEditor(sharedDraft.tags),
-											)
+											setSharedTagInput(formatTagsForEditor(sharedDraft.tags))
 										}
 										className={compactTextareaClassName}
 										placeholder="#launch, #product, #behindthescenes"
@@ -2684,7 +2743,8 @@ export function DashboardNewPost() {
 
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div className="text-sm text-muted-foreground">
-											Shared assets travel with every inheriting destination.
+											Media added here carries across inheriting destinations by
+											default.
 										</div>
 										<ResourcePicker
 											resources={resources}
@@ -2716,7 +2776,9 @@ export function DashboardNewPost() {
 								>
 									<summary className="flex cursor-pointer list-none items-center justify-between gap-3">
 										<div>
-											<div className="text-sm font-medium">Advanced options</div>
+											<div className="text-sm font-medium">
+												Advanced options
+											</div>
 											<div className="text-sm text-muted-foreground">
 												Approval, notes, and AI help stay out of the main flow.
 											</div>
@@ -2734,7 +2796,8 @@ export function DashboardNewPost() {
 											<div>
 												<div className="text-sm font-medium">Approval gate</div>
 												<div className="text-sm text-muted-foreground">
-													Only enable this when a reviewer should stay in the loop.
+													Only enable this when a reviewer should stay in the
+													loop.
 												</div>
 											</div>
 											<Switch
@@ -2744,7 +2807,9 @@ export function DashboardNewPost() {
 										</div>
 										<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
 											<div className="flex items-center justify-between gap-3">
-												<div className="text-sm font-medium">AI draft assist</div>
+												<div className="text-sm font-medium">
+													AI draft assist
+												</div>
 												<Button
 													type="button"
 													variant="outline"
@@ -2773,7 +2838,7 @@ export function DashboardNewPost() {
 
 							<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
 								<div>
-									<div className="text-sm font-medium">Destinations</div>
+									<div className="text-sm font-medium">Review destinations</div>
 									<div className="text-sm text-muted-foreground">
 										Ready and warning-only destinations are included by default.
 									</div>
@@ -2782,26 +2847,22 @@ export function DashboardNewPost() {
 									{
 										label: "Ready",
 										items: readyDestinations,
-										tone:
-											"border-emerald-200/75 bg-emerald-50/75 dark:border-emerald-500/30 dark:bg-emerald-500/10",
+										tone: "border-emerald-200/75 bg-emerald-50/75 dark:border-emerald-500/30 dark:bg-emerald-500/10",
 									},
 									{
 										label: "Needs attention",
 										items: attentionDestinations,
-										tone:
-											"border-amber-200/75 bg-amber-50/75 dark:border-amber-500/30 dark:bg-amber-500/10",
+										tone: "border-amber-200/75 bg-amber-50/75 dark:border-amber-500/30 dark:bg-amber-500/10",
 									},
 									{
 										label: "Blocked",
 										items: blockedDestinations,
-										tone:
-											"border-rose-200/75 bg-rose-50/75 dark:border-rose-500/30 dark:bg-rose-500/10",
+										tone: "border-rose-200/75 bg-rose-50/75 dark:border-rose-500/30 dark:bg-rose-500/10",
 									},
 									{
 										label: "Not connected",
 										items: notConnectedDestinations,
-										tone:
-											"border-slate-200/75 bg-slate-50/75 dark:border-slate-400/25 dark:bg-slate-500/10",
+										tone: "border-slate-200/75 bg-slate-50/75 dark:border-slate-400/25 dark:bg-slate-500/10",
 									},
 								].map((group) => (
 									<div
@@ -2863,7 +2924,9 @@ export function DashboardNewPost() {
 						<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-4 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
 							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 								<div>
-									<div className="text-sm font-medium">{primaryActionLabel}</div>
+									<div className="text-sm font-medium">
+										Schedule and publish
+									</div>
 									<div className="text-sm text-muted-foreground">
 										{primaryActionDescription}
 									</div>
@@ -2872,7 +2935,11 @@ export function DashboardNewPost() {
 									<div className="flex flex-wrap items-center gap-3">
 										<Popover>
 											<PopoverTrigger asChild>
-												<Button type="button" variant="outline" className="rounded-full">
+												<Button
+													type="button"
+													variant="outline"
+													className="rounded-full"
+												>
 													<CalendarDays className="size-4" />
 													{bulkScheduleDate
 														? bulkScheduleDate.toLocaleDateString()
@@ -2982,7 +3049,9 @@ export function DashboardNewPost() {
 			<Sheet
 				open={Boolean(selectedDestinationPlatform)}
 				onOpenChange={(open) =>
-					setSelectedDestinationPlatform(open ? selectedDestinationPlatform : null)
+					setSelectedDestinationPlatform(
+						open ? selectedDestinationPlatform : null,
+					)
 				}
 			>
 				<SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
@@ -2994,7 +3063,8 @@ export function DashboardNewPost() {
 							<span>{selectedDestination?.label ?? "Destination details"}</span>
 						</SheetTitle>
 						<SheetDescription>
-							Keep the shared version by default, and only customize this destination when you need to.
+							Keep the shared version by default, and only customize this
+							destination when you need to.
 						</SheetDescription>
 					</SheetHeader>
 					{selectedDestination ? (
@@ -3053,13 +3123,17 @@ export function DashboardNewPost() {
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													{surfaceOptions(capabilities, selectedVariant.platform).map(
-														(option) => (
-															<SelectItem key={option.surface} value={option.surface}>
-																{formatSurfaceLabel(option)}
-															</SelectItem>
-														),
-													)}
+													{surfaceOptions(
+														capabilities,
+														selectedVariant.platform,
+													).map((option) => (
+														<SelectItem
+															key={option.surface}
+															value={option.surface}
+														>
+															{formatSurfaceLabel(option)}
+														</SelectItem>
+													))}
 												</SelectContent>
 											</Select>
 										</div>
@@ -3077,7 +3151,9 @@ export function DashboardNewPost() {
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value="inherit">Use shared version</SelectItem>
+													<SelectItem value="inherit">
+														Use shared version
+													</SelectItem>
 													<SelectItem value="custom">Customize here</SelectItem>
 												</SelectContent>
 											</Select>
@@ -3114,20 +3190,22 @@ export function DashboardNewPost() {
 											</div>
 										) : selectedVariant.content.kind === "thread" ? (
 											<div className="space-y-3">
-												{selectedVariant.content.threadItems.map((item, index) => (
-													<Textarea
-														key={`drawer-thread-${index}`}
-														value={item}
-														onChange={(event) =>
-															updateThreadItem(
-																selectedVariant.platform,
-																index,
-																event.target.value,
-															)
-														}
-														className={compactTextareaClassName}
-													/>
-												))}
+												{selectedVariant.content.threadItems.map(
+													(item, index) => (
+														<Textarea
+															key={`${selectedVariant.platform}-${item || "empty"}`}
+															value={item}
+															onChange={(event) =>
+																updateThreadItem(
+																	selectedVariant.platform,
+																	index,
+																	event.target.value,
+																)
+															}
+															className={compactTextareaClassName}
+														/>
+													),
+												)}
 											</div>
 										) : (
 											<Textarea
@@ -3159,8 +3237,12 @@ export function DashboardNewPost() {
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="inherit">Use shared assets</SelectItem>
-												<SelectItem value="replace">Replace for this destination</SelectItem>
+												<SelectItem value="inherit">
+													Use shared assets
+												</SelectItem>
+												<SelectItem value="replace">
+													Replace for this destination
+												</SelectItem>
 											</SelectContent>
 										</Select>
 									</div>
@@ -3185,8 +3267,8 @@ export function DashboardNewPost() {
 											selectedVariant.assetMode === "replace"
 												? selectedVariant.assetIds
 														.map((assetId) => resourcesById.get(assetId))
-														.filter(
-															(asset): asset is ResourceRecord => Boolean(asset),
+														.filter((asset): asset is ResourceRecord =>
+															Boolean(asset),
 														)
 												: selectedDestinationAssets
 										}
@@ -3232,6 +3314,7 @@ export function DashboardNewPost() {
 		</>
 	);
 
+	// biome-ignore lint/correctness/noUnreachable: Legacy composer kept temporarily during the phased rewrite.
 	return (
 		<AdminFormPage
 			eyebrow="Compose"
@@ -3246,7 +3329,9 @@ export function DashboardNewPost() {
 						</Link>
 					</Button>
 					<Button variant="outline" className="rounded-full" asChild>
-						<Link to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}>
+						<Link
+							to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}
+						>
 							<ArrowLeft className="size-4" />
 							Back
 						</Link>
@@ -3439,9 +3524,9 @@ export function DashboardNewPost() {
 													AI draft
 												</div>
 												<div className="mt-1 text-sm text-muted-foreground">
-													Generate a shared draft with workspace business context,
-													selected campaign context, and brand signals only when they
-													help.
+													Generate a shared draft with workspace business
+													context, selected campaign context, and brand signals
+													only when they help.
 												</div>
 											</div>
 											{aiContext?.readiness ? (
@@ -3458,7 +3543,9 @@ export function DashboardNewPost() {
 											) : null}
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="ai-post-prompt">What should the post do?</Label>
+											<Label htmlFor="ai-post-prompt">
+												What should the post do?
+											</Label>
 											<Textarea
 												id="ai-post-prompt"
 												value={aiPrompt}
@@ -3476,12 +3563,18 @@ export function DashboardNewPost() {
 														setAIMode(value as "native" | "byok")
 													}
 												>
-													<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="native">Platform native</SelectItem>
-														<SelectItem value="byok">Bring your own key</SelectItem>
+														<SelectItem value="native">
+															Platform native
+														</SelectItem>
+														<SelectItem value="byok">
+															Bring your own key
+														</SelectItem>
 													</SelectContent>
 												</Select>
 											</AdminFormField>
@@ -3491,7 +3584,9 @@ export function DashboardNewPost() {
 													value={aiProvider}
 													onValueChange={(value) => setAIProvider(value)}
 												>
-													<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
 														<SelectValue placeholder="Select provider" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3509,7 +3604,9 @@ export function DashboardNewPost() {
 											<AdminFormField>
 												<Label>Model</Label>
 												<Select value={aiModel} onValueChange={setAIModel}>
-													<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectTrigger
+														className={adminSelectTriggerClassName}
+													>
 														<SelectValue placeholder="Select model" />
 													</SelectTrigger>
 													<SelectContent>
@@ -3567,7 +3664,8 @@ export function DashboardNewPost() {
 										) : null}
 										{lastAIDraft ? (
 											<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/55 p-4 text-sm text-muted-foreground">
-												Generated with {lastAIDraft?.provider} / {lastAIDraft?.model}
+												Generated with {lastAIDraft?.provider} /{" "}
+												{lastAIDraft?.model}
 												{lastAIDraft?.runEvent
 													? ` · run ${lastAIDraft?.runEvent?.id?.slice(0, 8) ?? ""}`
 													: ""}

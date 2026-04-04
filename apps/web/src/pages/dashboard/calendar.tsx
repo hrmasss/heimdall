@@ -12,16 +12,15 @@ import {
 	LoaderCircle,
 	Plus,
 	Search,
-	Sparkles,
 	XCircle,
 } from "lucide-react";
 import {
+	type DragEvent,
 	startTransition,
 	useDeferredValue,
 	useEffect,
 	useMemo,
 	useState,
-	type DragEvent,
 } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -538,7 +537,8 @@ function buildPlanningItems(
 		.map(([postId, nodes]) => {
 			const sortedNodes = [...nodes].sort((left, right) => {
 				const leftDate = left.plannedDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
-				const rightDate = right.plannedDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+				const rightDate =
+					right.plannedDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
 				if (leftDate !== rightDate) {
 					return leftDate - rightDate;
 				}
@@ -546,20 +546,33 @@ function buildPlanningItems(
 			});
 			const first = sortedNodes[0]?.item;
 			const calendarNodes = sortedNodes.filter((node) => node.kind === "entry");
-			const backlogNodes = sortedNodes.filter((node) => node.kind === "backlog");
-			const placementKeys = new Set(sortedNodes.map((node) => node.placementKey));
+			const backlogNodes = sortedNodes.filter(
+				(node) => node.kind === "backlog",
+			);
+			const placementKeys = new Set(
+				sortedNodes.map((node) => node.placementKey),
+			);
 			const splitSchedule = placementKeys.size > 1;
 			const primaryDate = calendarNodes[0]?.plannedDate ?? null;
-			const approvalStates = new Set(sortedNodes.map((node) => node.item.approvalState));
-			const readinessState = sortedNodes.some((node) => itemIsBlocked(node.item))
+			const approvalStates = new Set(
+				sortedNodes.map((node) => node.item.approvalState),
+			);
+			const readinessState = sortedNodes.some((node) =>
+				itemIsBlocked(node.item),
+			)
 				? "blocked"
-				: splitSchedule || sortedNodes.some((node) => itemNeedsAttention(node.item))
+				: splitSchedule ||
+						sortedNodes.some((node) => itemNeedsAttention(node.item))
 					? "attention"
 					: "ready";
-			const hasTentative = sortedNodes.some((node) => node.item.planningState === "tentative");
+			const hasTentative = sortedNodes.some(
+				(node) => node.item.planningState === "tentative",
+			);
 			const allPublished =
 				calendarNodes.length > 0 &&
-				calendarNodes.every((node) => node.item.publicationState === "published");
+				calendarNodes.every(
+					(node) => node.item.publicationState === "published",
+				);
 			const allScheduled =
 				calendarNodes.length > 0 &&
 				calendarNodes.every(
@@ -585,34 +598,52 @@ function buildPlanningItems(
 			return {
 				postId,
 				title: first?.title ?? "Untitled post",
-				excerpt: sortedNodes.find((node) => node.item.excerpt)?.item.excerpt ?? "",
+				excerpt:
+					sortedNodes.find((node) => node.item.excerpt)?.item.excerpt ?? "",
 				campaign: sortedNodes.find((node) => node.item.campaign)?.item.campaign,
 				nodes: sortedNodes,
 				platforms: sortPlatforms(
 					Array.from(new Set(sortedNodes.map((node) => node.item.platform))),
 				),
-				surfaces: Array.from(new Set(sortedNodes.map((node) => node.item.surface))).sort(),
+				surfaces: Array.from(
+					new Set(sortedNodes.map((node) => node.item.surface)),
+				).sort(),
 				primaryDate,
-				primaryDayKey: primaryDate ? startOfDay(primaryDate).toISOString() : null,
+				primaryDayKey: primaryDate
+					? startOfDay(primaryDate).toISOString()
+					: null,
 				splitSchedule,
 				partialPlacement: calendarNodes.length > 0 && backlogNodes.length > 0,
 				readinessState,
 				approvalState:
 					approvalStates.size === 1
-						? sortedNodes[0]?.item.approvalState ?? "draft"
+						? (sortedNodes[0]?.item.approvalState ?? "draft")
 						: "mixed",
 				displayState,
-				assetCount: Math.max(...sortedNodes.map((node) => node.item.assetCount), 0),
-				blockedCount: sortedNodes.filter((node) => itemIsBlocked(node.item)).length,
-				tentativeCount: sortedNodes.filter((node) => node.item.planningState === "tentative").length,
-				finalizableCount: sortedNodes.filter((node) => node.item.finalizable).length,
-				publishedCount: sortedNodes.filter((node) => node.item.publicationState === "published").length,
+				assetCount: Math.max(
+					...sortedNodes.map((node) => node.item.assetCount),
+					0,
+				),
+				blockedCount: sortedNodes.filter((node) => itemIsBlocked(node.item))
+					.length,
+				tentativeCount: sortedNodes.filter(
+					(node) => node.item.planningState === "tentative",
+				).length,
+				finalizableCount: sortedNodes.filter((node) => node.item.finalizable)
+					.length,
+				publishedCount: sortedNodes.filter(
+					(node) => node.item.publicationState === "published",
+				).length,
 				calendarCount: calendarNodes.length,
 				backlogCount: backlogNodes.length,
 				createdAt:
-					sortedNodes.map((node) => node.item.createdAt).sort((left, right) => left.localeCompare(right))[0] ?? "",
+					sortedNodes
+						.map((node) => node.item.createdAt)
+						.sort((left, right) => left.localeCompare(right))[0] ?? "",
 				updatedAt:
-					sortedNodes.map((node) => node.item.updatedAt).sort((left, right) => right.localeCompare(left))[0] ?? "",
+					sortedNodes
+						.map((node) => node.item.updatedAt)
+						.sort((left, right) => right.localeCompare(left))[0] ?? "",
 			} satisfies PlanningCalendarItem;
 		})
 		.sort((left, right) => {
@@ -625,7 +656,10 @@ function buildPlanningItems(
 		});
 }
 
-function matchesStatusFilter(item: PlanningCalendarItem, filter: PlanningStatusFilter) {
+function matchesStatusFilter(
+	item: PlanningCalendarItem,
+	filter: PlanningStatusFilter,
+) {
 	switch (filter) {
 		case "ready":
 			return item.readinessState === "ready";
@@ -644,7 +678,10 @@ function matchesStatusFilter(item: PlanningCalendarItem, filter: PlanningStatusF
 	}
 }
 
-function planningDraftForItem(item: PlanningCalendarItem, post: PostDetail | null) {
+function planningDraftForItem(
+	item: PlanningCalendarItem,
+	post: PostDetail | null,
+) {
 	const sourceDate =
 		item.primaryDate ??
 		new Date(
@@ -658,10 +695,17 @@ function planningDraftForItem(item: PlanningCalendarItem, post: PostDetail | nul
 		);
 	return {
 		title: post?.title ?? item.title,
-		excerpt: post ? contentPayloadText(post.contentKind, post.contentPayload) : item.excerpt,
+		excerpt: post
+			? contentPayloadText(post.contentKind, post.contentPayload)
+			: item.excerpt,
 		plannedLocal: toLocalDateTimeValue(sourceDate),
-		schedulingMode: item.tentativeCount > 0 || item.primaryDate === null ? "tentative" : "exact",
-		requiresApproval: post?.requiresApproval ?? item.nodes.some((node) => node.item.requiresApproval),
+		schedulingMode:
+			item.tentativeCount > 0 || item.primaryDate === null
+				? "tentative"
+				: "exact",
+		requiresApproval:
+			post?.requiresApproval ??
+			item.nodes.some((node) => node.item.requiresApproval),
 		notes: post?.notes ?? "",
 		assetIds: post?.assets.map((asset) => asset.id) ?? [],
 		destinations: item.platforms,
@@ -670,7 +714,15 @@ function planningDraftForItem(item: PlanningCalendarItem, post: PostDetail | nul
 
 function defaultQuickDraft(date: Date | undefined, destinations: string[]) {
 	const seed = date
-		? new Date(date.getFullYear(), date.getMonth(), date.getDate(), DEFAULT_HOUR, 0, 0, 0)
+		? new Date(
+				date.getFullYear(),
+				date.getMonth(),
+				date.getDate(),
+				DEFAULT_HOUR,
+				0,
+				0,
+				0,
+			)
 		: new Date(
 				new Date().getFullYear(),
 				new Date().getMonth(),
@@ -696,7 +748,11 @@ function findVariant(post: PostDetail | null, variantId: string) {
 	if (!post) {
 		return null;
 	}
-	return [...post.variants, ...post.legacyVariants].find((item) => item.id === variantId) ?? null;
+	return (
+		[...post.variants, ...post.legacyVariants].find(
+			(item) => item.id === variantId,
+		) ?? null
+	);
 }
 
 function surfaceOptionsForPlatform(
@@ -727,7 +783,9 @@ function resolvePlanningPlatformOptions(
 	const fromCapabilities = capabilities
 		? Array.from(new Set(capabilities.rules.map((rule) => rule.platform)))
 		: [];
-	return sortPlatforms(Array.from(new Set([...fromCalendar, ...fromCapabilities])));
+	return sortPlatforms(
+		Array.from(new Set([...fromCalendar, ...fromCapabilities])),
+	);
 }
 
 function campaignStrip(campaigns: CalendarCampaignEntry[]) {
@@ -742,7 +800,8 @@ function campaignStrip(campaigns: CalendarCampaignEntry[]) {
 						Campaign windows
 					</div>
 					<div className="mt-1 text-sm text-muted-foreground">
-						Campaign timing stays visible as context, but the board stays focused on content planning.
+						Campaign timing stays visible as context, but the board stays
+						focused on content planning.
 					</div>
 				</div>
 				<Badge variant="outline" className="rounded-full">
@@ -759,9 +818,15 @@ function campaignStrip(campaigns: CalendarCampaignEntry[]) {
 							campaignBadgeClassName(campaign.status),
 						)}
 					>
-						{campaign.name} · {new Date(campaign.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+						{campaign.name} ·{" "}
+						{new Date(campaign.startDate).toLocaleDateString(undefined, {
+							month: "short",
+							day: "numeric",
+						})}
 						{" - "}
-						{new Date(campaign.endDate ?? campaign.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+						{new Date(
+							campaign.endDate ?? campaign.startDate,
+						).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
 					</Link>
 				))}
 			</div>
@@ -798,13 +863,22 @@ function PlanningStatChip({
 	);
 }
 
-function DestinationRow({ platform, count }: { platform: string; count: number }) {
+function DestinationRow({
+	platform,
+	count,
+}: { platform: string; count: number }) {
 	return (
 		<div
 			className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5"
 			style={{
-				borderColor: withAlpha(getPlatformMeta(platform)?.color ?? "#64748B", 0.18),
-				backgroundColor: withAlpha(getPlatformMeta(platform)?.color ?? "#64748B", 0.08),
+				borderColor: withAlpha(
+					getPlatformMeta(platform)?.color ?? "#64748B",
+					0.18,
+				),
+				backgroundColor: withAlpha(
+					getPlatformMeta(platform)?.color ?? "#64748B",
+					0.08,
+				),
 			}}
 		>
 			{platformIcon(platform, {
@@ -813,8 +887,12 @@ function DestinationRow({ platform, count }: { platform: string; count: number }
 				backgroundAlpha: 0.12,
 				borderAlpha: 0.2,
 			})}
-			<span className="text-sm font-medium">{formatPlatformLabel(platform)}</span>
-			{count > 1 ? <span className="text-xs text-muted-foreground">×{count}</span> : null}
+			<span className="text-sm font-medium">
+				{formatPlatformLabel(platform)}
+			</span>
+			{count > 1 ? (
+				<span className="text-xs text-muted-foreground">×{count}</span>
+			) : null}
 		</div>
 	);
 }
@@ -858,36 +936,72 @@ function PlanningCard({
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<Badge className={cn("rounded-full border", statusTone(item), compact && "px-2 py-0.5 text-[10px]")}>
+						<Badge
+							className={cn(
+								"rounded-full border",
+								statusTone(item),
+								compact && "px-2 py-0.5 text-[10px]",
+							)}
+						>
 							{planningStateLabel(item)}
 						</Badge>
-						<Badge variant="outline" className={cn("rounded-full text-xs", compact && "px-2 py-0.5 text-[10px]")}>
+						<Badge
+							variant="outline"
+							className={cn(
+								"rounded-full text-xs",
+								compact && "px-2 py-0.5 text-[10px]",
+							)}
+						>
 							{readinessLabel(item)}
 						</Badge>
 						{item.campaign ? (
-							<Badge variant="outline" className={cn("rounded-full text-xs", compact && "max-w-[9rem] truncate px-2 py-0.5 text-[10px]")}>
+							<Badge
+								variant="outline"
+								className={cn(
+									"rounded-full text-xs",
+									compact && "max-w-[9rem] truncate px-2 py-0.5 text-[10px]",
+								)}
+							>
 								{item.campaign.name}
 							</Badge>
 						) : null}
 					</div>
-					<div className={cn("font-semibold text-foreground", compact ? "line-clamp-1 text-[0.82rem]" : "truncate text-sm")}>
+					<div
+						className={cn(
+							"font-semibold text-foreground",
+							compact ? "line-clamp-1 text-[0.82rem]" : "truncate text-sm",
+						)}
+					>
 						{item.title}
 					</div>
 				</div>
 				{draggable ? (
-					<span className={cn("mt-0.5 inline-flex items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/88 text-muted-foreground", compact ? "size-7" : "size-8")}>
+					<span
+						className={cn(
+							"mt-0.5 inline-flex items-center justify-center rounded-2xl border border-[var(--brand-border-soft)] bg-background/88 text-muted-foreground",
+							compact ? "size-7" : "size-8",
+						)}
+					>
 						<GripVertical className="size-4" />
 					</span>
 				) : null}
 			</div>
 			{!compact && item.excerpt ? (
-				<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.excerpt}</p>
+				<p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+					{item.excerpt}
+				</p>
 			) : !compact ? (
 				<p className="mt-2 text-xs leading-5 text-muted-foreground">
-					Add the core message, then refine any platform-specific details only if you need them.
+					Add the core message, then refine any platform-specific details only
+					if you need them.
 				</p>
 			) : null}
-			<div className={cn("flex flex-wrap items-center gap-2", compact ? "mt-2" : "mt-3")}>
+			<div
+				className={cn(
+					"flex flex-wrap items-center gap-2",
+					compact ? "mt-2" : "mt-3",
+				)}
+			>
 				{item.platforms.map((platform) => (
 					<span key={platform}>
 						{platformIcon(platform, {
@@ -898,9 +1012,21 @@ function PlanningCard({
 						})}
 					</span>
 				))}
-				<span className={cn("text-muted-foreground", compact ? "text-[11px]" : "text-xs")}>{primaryMeta}</span>
+				<span
+					className={cn(
+						"text-muted-foreground",
+						compact ? "text-[11px]" : "text-xs",
+					)}
+				>
+					{primaryMeta}
+				</span>
 				{item.assetCount > 0 ? (
-					<span className={cn("text-muted-foreground", compact ? "text-[11px]" : "text-xs")}>
+					<span
+						className={cn(
+							"text-muted-foreground",
+							compact ? "text-[11px]" : "text-xs",
+						)}
+					>
 						{item.assetCount} asset{item.assetCount === 1 ? "" : "s"}
 					</span>
 				) : null}
@@ -962,8 +1088,20 @@ function MonthPlanningPill({
 								{pill.title}
 							</div>
 							<div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-4 text-muted-foreground">
-								<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.planningTone))} aria-hidden="true" />
-								<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.readinessTone))} aria-hidden="true" />
+								<span
+									className={cn(
+										"calendar-legend-dot",
+										monthLegendToneClass(pill.planningTone),
+									)}
+									aria-hidden="true"
+								/>
+								<span
+									className={cn(
+										"calendar-legend-dot",
+										monthLegendToneClass(pill.readinessTone),
+									)}
+									aria-hidden="true"
+								/>
 								{pill.assetLabel ? (
 									<span className="rounded-full border border-[var(--brand-border-soft)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
 										{pill.assetLabel}
@@ -986,11 +1124,23 @@ function MonthPlanningPill({
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
 						<Badge variant="outline" className="rounded-full text-[11px]">
-							<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.planningTone))} aria-hidden="true" />
+							<span
+								className={cn(
+									"calendar-legend-dot",
+									monthLegendToneClass(pill.planningTone),
+								)}
+								aria-hidden="true"
+							/>
 							{pill.planningLabel}
 						</Badge>
 						<Badge variant="outline" className="rounded-full text-[11px]">
-							<span className={cn("calendar-legend-dot", monthLegendToneClass(pill.readinessTone))} aria-hidden="true" />
+							<span
+								className={cn(
+									"calendar-legend-dot",
+									monthLegendToneClass(pill.readinessTone),
+								)}
+								aria-hidden="true"
+							/>
 							{pill.readinessLabel}
 						</Badge>
 						{item.campaign ? (
@@ -1007,7 +1157,11 @@ function MonthPlanningPill({
 				</div>
 				<div className="space-y-2 text-xs text-muted-foreground">
 					<div>{pill.primaryMeta}</div>
-					{pill.assetLabel ? <div>{item.assetCount} attached asset{item.assetCount === 1 ? "" : "s"}</div> : null}
+					{pill.assetLabel ? (
+						<div>
+							{item.assetCount} attached asset{item.assetCount === 1 ? "" : "s"}
+						</div>
+					) : null}
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{item.platforms.map((platform) => (
@@ -1040,7 +1194,10 @@ function BacklogRailPanel({
 	activeDrop: boolean;
 	allowDrop?: boolean;
 	onOpenItem: (item: PlanningCalendarItem) => void;
-	onDragStart: (item: PlanningCalendarItem, event: DragEvent<HTMLButtonElement>) => void;
+	onDragStart: (
+		item: PlanningCalendarItem,
+		event: DragEvent<HTMLButtonElement>,
+	) => void;
 	onDragEnd: () => void;
 	onBacklogOver?: (event: DragEvent<HTMLDivElement>) => void;
 	onBacklogLeave?: () => void;
@@ -1058,9 +1215,12 @@ function BacklogRailPanel({
 		>
 			<div className="flex items-center justify-between gap-3">
 				<div>
-					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Backlog rail</div>
+					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+						Backlog rail
+					</div>
 					<div className="mt-1 text-sm text-muted-foreground">
-						Keep drafts close, then drag them onto the board when you are ready to place them.
+						Keep drafts close, then drag them onto the board when you are ready
+						to place them.
 					</div>
 				</div>
 				<Badge variant="outline" className="rounded-full">
@@ -1081,40 +1241,12 @@ function BacklogRailPanel({
 				))}
 				{backlogItems.length === 0 ? (
 					<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
-						No backlog items in this view. Save a draft here or return posts from the board when priorities shift.
+						No backlog items in this view. Save a draft here or return posts
+						from the board when priorities shift.
 					</div>
 				) : null}
 			</div>
 		</div>
-	);
-}
-
-function FutureAutomationPanel({
-	suggestedAutomationCount,
-}: {
-	suggestedAutomationCount: number;
-}) {
-	return (
-		<Collapsible className="calendar-rail-surface rounded-[24px] p-4">
-			<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
-				<div>
-					<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Future automation</div>
-					<div className="mt-1 text-sm text-muted-foreground">
-						Trend research, hook generation, and AI suggestions can land here later without interrupting manual planning.
-					</div>
-				</div>
-				<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/80 px-3 py-1.5 text-xs">
-					<Sparkles className="size-3.5" />
-					{suggestedAutomationCount} suggestions
-					<ChevronDown className="size-3.5" />
-				</div>
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<div className="mt-4 rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-center text-sm text-muted-foreground">
-					Automation stays intentionally quiet for now. This space is reserved for future content ideas, trend-based suggestions, and generated hooks when those systems are ready.
-				</div>
-			</CollapsibleContent>
-		</Collapsible>
 	);
 }
 
@@ -1162,7 +1294,8 @@ export function DashboardCalendar() {
 	const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 	const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
 	const [resources, setResources] = useState<ResourceRecord[]>([]);
-	const [capabilities, setCapabilities] = useState<ResourceCapabilityMatrix | null>(null);
+	const [capabilities, setCapabilities] =
+		useState<ResourceCapabilityMatrix | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [panelState, setPanelState] = useState<PanelState>({ mode: "closed" });
@@ -1220,11 +1353,14 @@ export function DashboardCalendar() {
 					end: currentRange.end.toISOString(),
 					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				});
-				const [calendarResponse, capabilityResponse, resourceResponse] = await Promise.all([
-					customerRequest<CalendarResponse>(`/calendar?${params.toString()}`),
-					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-				]);
+				const [calendarResponse, capabilityResponse, resourceResponse] =
+					await Promise.all([
+						customerRequest<CalendarResponse>(`/calendar?${params.toString()}`),
+						customerRequest<ResourceCapabilityMatrix>(
+							"/resources/capabilities",
+						),
+						customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
+					]);
 				if (cancelled) {
 					return;
 				}
@@ -1250,7 +1386,12 @@ export function DashboardCalendar() {
 		return () => {
 			cancelled = true;
 		};
-	}, [activeWorkspaceId, currentRange.end, currentRange.start, customerRequest]);
+	}, [
+		activeWorkspaceId,
+		currentRange.end,
+		currentRange.start,
+		customerRequest,
+	]);
 
 	const planningItems = useMemo(
 		() => buildPlanningItems(calendar?.entries ?? [], calendar?.backlog ?? []),
@@ -1305,19 +1446,20 @@ export function DashboardCalendar() {
 	}, [calendarItems]);
 
 	const currentPanelItem = panelState.mode === "item" ? panelState.item : null;
-	const quickAddDate = panelState.mode === "quick-add" ? panelState.date : undefined;
+	const quickAddDate =
+		panelState.mode === "quick-add" ? panelState.date : undefined;
 	const activeItem = currentPanelItem
-		? filteredItems.find((item) => item.postId === currentPanelItem.postId) ??
-			currentPanelItem
+		? (filteredItems.find((item) => item.postId === currentPanelItem.postId) ??
+			currentPanelItem)
 		: null;
 
 	useEffect(() => {
-		if (panelState.mode !== "item") {
+		if (panelState.mode !== "item" || !currentPanelItem) {
 			setSelectedPost(null);
 			setPanelError(null);
 			return;
 		}
-		const item = panelState.item;
+		const item = currentPanelItem;
 		let cancelled = false;
 		async function loadPost() {
 			setLoadingPost(true);
@@ -1375,7 +1517,9 @@ export function DashboardCalendar() {
 			end: currentRange.end.toISOString(),
 			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		});
-		const response = await customerRequest<CalendarResponse>(`/calendar?${params.toString()}`);
+		const response = await customerRequest<CalendarResponse>(
+			`/calendar?${params.toString()}`,
+		);
 		setCalendar(response);
 		return response;
 	}
@@ -1400,7 +1544,10 @@ export function DashboardCalendar() {
 				originPlatform: post.originPlatform ?? panelDraft.destinations[0] ?? "",
 				originSurface:
 					post.originSurface ??
-					surfaceOptionsForPlatform(capabilities, panelDraft.destinations[0] ?? "")[0]?.value ??
+					surfaceOptionsForPlatform(
+						capabilities,
+						panelDraft.destinations[0] ?? "",
+					)[0]?.value ??
 					"",
 				campaignId: post.campaign?.id ?? "",
 				requiresApproval: panelDraft.requiresApproval,
@@ -1427,11 +1574,13 @@ export function DashboardCalendar() {
 		if (!plannedAt) {
 			throw new Error("Choose a planned day before placing this post.");
 		}
-		const variants = [...post.variants, ...post.legacyVariants].filter((variant) =>
-			item.nodes.some((node) => node.item.variantId === variant.id),
+		const variants = [...post.variants, ...post.legacyVariants].filter(
+			(variant) =>
+				item.nodes.some((node) => node.item.variantId === variant.id),
 		);
 		for (const variant of variants) {
-			const shouldUseTentative = mode === "tentative" || variant.readiness.scheduleBlockers.length > 0;
+			const shouldUseTentative =
+				mode === "tentative" || variant.readiness.scheduleBlockers.length > 0;
 			await customerRequest(
 				shouldUseTentative
 					? `/posts/variants/${variant.id}/planning`
@@ -1457,12 +1606,20 @@ export function DashboardCalendar() {
 			if (!variant) {
 				continue;
 			}
-			if (node.item.planningState === "tentative" || variant.latestTentativePlan) {
-				await customerRequest(`/posts/variants/${variant.id}/planning`, { method: "DELETE" });
-			} else {
-				await customerRequest(`/posts/variants/${variant.id}/publication/unschedule`, {
-					method: "POST",
+			if (
+				node.item.planningState === "tentative" ||
+				variant.latestTentativePlan
+			) {
+				await customerRequest(`/posts/variants/${variant.id}/planning`, {
+					method: "DELETE",
 				});
+			} else {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/unschedule`,
+					{
+						method: "POST",
+					},
+				);
 			}
 		}
 	}
@@ -1473,7 +1630,8 @@ export function DashboardCalendar() {
 			throw new Error("The planning drawer is not ready yet.");
 		}
 		const tentativeNodes = item.nodes.filter(
-			(node) => node.item.planningState === "tentative" && node.item.finalizable,
+			(node) =>
+				node.item.planningState === "tentative" && node.item.finalizable,
 		);
 		if (tentativeNodes.length === 0) {
 			throw new Error("Nothing is ready to finalize yet.");
@@ -1501,7 +1659,9 @@ export function DashboardCalendar() {
 			toast.success("Planning details saved.");
 		} catch (saveError) {
 			setPanelError(
-				saveError instanceof Error ? saveError.message : "Unable to save this planning item.",
+				saveError instanceof Error
+					? saveError.message
+					: "Unable to save this planning item.",
 			);
 		} finally {
 			setSaving(false);
@@ -1591,7 +1751,8 @@ export function DashboardCalendar() {
 		try {
 			const primaryPlatform = destinations[0] ?? "";
 			const primarySurface =
-				surfaceOptionsForPlatform(capabilities, primaryPlatform)[0]?.value ?? "";
+				surfaceOptionsForPlatform(capabilities, primaryPlatform)[0]?.value ??
+				"";
 			const createdPost = await customerRequest<PostDetail>("/posts", {
 				method: "POST",
 				body: {
@@ -1610,7 +1771,8 @@ export function DashboardCalendar() {
 			});
 			const createdVariants: PostVariant[] = [];
 			for (const platform of destinations) {
-				const surface = surfaceOptionsForPlatform(capabilities, platform)[0]?.value ?? "";
+				const surface =
+					surfaceOptionsForPlatform(capabilities, platform)[0]?.value ?? "";
 				if (!surface) {
 					continue;
 				}
@@ -1660,14 +1822,19 @@ export function DashboardCalendar() {
 			);
 		} catch (createError) {
 			setPanelError(
-				createError instanceof Error ? createError.message : "Unable to create this draft.",
+				createError instanceof Error
+					? createError.message
+					: "Unable to create this draft.",
 			);
 		} finally {
 			setSaving(false);
 		}
 	}
 
-	async function placeExistingBacklogItem(item: PlanningCalendarItem, day: Date) {
+	async function placeExistingBacklogItem(
+		item: PlanningCalendarItem,
+		day: Date,
+	) {
 		const planned = new Date(
 			day.getFullYear(),
 			day.getMonth(),
@@ -1698,14 +1865,19 @@ export function DashboardCalendar() {
 			toast.success("Backlog item placed on the calendar.");
 		} catch (placeError) {
 			setPanelError(
-				placeError instanceof Error ? placeError.message : "Unable to place this backlog item.",
+				placeError instanceof Error
+					? placeError.message
+					: "Unable to place this backlog item.",
 			);
 		} finally {
 			setSaving(false);
 		}
 	}
 
-	function beginDrag(item: PlanningCalendarItem, event: DragEvent<HTMLButtonElement>) {
+	function beginDrag(
+		item: PlanningCalendarItem,
+		event: DragEvent<HTMLButtonElement>,
+	) {
 		if (item.splitSchedule) {
 			event.preventDefault();
 			return;
@@ -1739,7 +1911,15 @@ export function DashboardCalendar() {
 	async function moveItemToDay(item: PlanningCalendarItem, day: Date) {
 		const plannedFromItem =
 			item.primaryDate ??
-			new Date(day.getFullYear(), day.getMonth(), day.getDate(), DEFAULT_HOUR, 0, 0, 0);
+			new Date(
+				day.getFullYear(),
+				day.getMonth(),
+				day.getDate(),
+				DEFAULT_HOUR,
+				0,
+				0,
+				0,
+			);
 		const nextPlanned = new Date(
 			day.getFullYear(),
 			day.getMonth(),
@@ -1785,12 +1965,20 @@ export function DashboardCalendar() {
 			if (!variant) {
 				continue;
 			}
-			if (node.item.planningState === "tentative" || variant.latestTentativePlan) {
-				await customerRequest(`/posts/variants/${variant.id}/planning`, { method: "DELETE" });
-			} else {
-				await customerRequest(`/posts/variants/${variant.id}/publication/unschedule`, {
-					method: "POST",
+			if (
+				node.item.planningState === "tentative" ||
+				variant.latestTentativePlan
+			) {
+				await customerRequest(`/posts/variants/${variant.id}/planning`, {
+					method: "DELETE",
 				});
+			} else {
+				await customerRequest(
+					`/posts/variants/${variant.id}/publication/unschedule`,
+					{
+						method: "POST",
+					},
+				);
 			}
 		}
 	}
@@ -1816,7 +2004,9 @@ export function DashboardCalendar() {
 			toast.success("Calendar slot updated.");
 		} catch (dropError) {
 			toast.error(
-				dropError instanceof Error ? dropError.message : "Unable to move this post.",
+				dropError instanceof Error
+					? dropError.message
+					: "Unable to move this post.",
 			);
 		}
 	}
@@ -1847,9 +2037,13 @@ export function DashboardCalendar() {
 
 	const scheduledCount = calendarItems.length;
 	const splitCount = filteredItems.filter((item) => item.splitSchedule).length;
-	const blockedCount = filteredItems.filter((item) => item.readinessState === "blocked").length;
+	const blockedCount = filteredItems.filter(
+		(item) => item.readinessState === "blocked",
+	).length;
 	const monthCoverageCount = new Set(
-		calendarItems.filter((item) => item.primaryDayKey).map((item) => item.primaryDayKey as string),
+		calendarItems
+			.filter((item) => item.primaryDayKey)
+			.map((item) => item.primaryDayKey as string),
 	).size;
 	const rangeLabel =
 		normalizedView === "month"
@@ -1858,8 +2052,6 @@ export function DashboardCalendar() {
 					currentWeek.at(-1) ?? currentWeek[0],
 				)}`;
 	const setupNeeded = !summary.hasHealthySelectedTarget;
-	const suggestedAutomationCount = 0;
-
 	return (
 		<div className="dashboard-page-stack space-y-6">
 			<SurfaceCard className="calendar-shell-surface dashboard-card">
@@ -1868,28 +2060,29 @@ export function DashboardCalendar() {
 						<div className="space-y-4">
 							<div className="space-y-2">
 								<div className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-									Editorial planning
+									Planning flow
 								</div>
 								<div className="space-y-2">
 									<h1 className="text-2xl font-semibold tracking-tight sm:text-[2rem]">
-										Content calendar
+										Calendar
 									</h1>
 									<p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
-										Plan the month, keep unscheduled ideas close, and only drop into advanced controls when a post actually needs them.
+										Keep the month board dominant, keep backlog close, and only
+										open detailed controls when a post needs them.
 									</p>
 								</div>
 							</div>
 							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
 								<PlanningStatChip
-									label="Month coverage"
+									label="Covered days"
 									value={String(monthCoverageCount)}
-									detail="Days carrying content in the active range"
+									detail="Days carrying content this month"
 									icon={CalendarDays}
 								/>
 								<PlanningStatChip
-									label="On calendar"
+									label="Scheduled"
 									value={String(scheduledCount)}
-									detail="Post-level cards already placed"
+									detail="Cards already placed"
 									icon={CalendarRange}
 								/>
 								<PlanningStatChip
@@ -1907,7 +2100,11 @@ export function DashboardCalendar() {
 							</div>
 						</div>
 						<div className="flex flex-wrap items-center gap-3 xl:justify-end">
-							<Button variant="outline" className="rounded-full bg-background/80" asChild>
+							<Button
+								variant="outline"
+								className="rounded-full bg-background/80"
+								asChild
+							>
 								<Link to="/dashboard/settings/platforms">
 									{setupNeeded ? "Connect platforms" : "Manage publishing"}
 								</Link>
@@ -1915,17 +2112,21 @@ export function DashboardCalendar() {
 							<Button
 								variant="outline"
 								className="rounded-full bg-background/80"
-								onClick={() => startTransition(() => setAnchorDate(startOfDay(new Date())))}
+								onClick={() =>
+									startTransition(() => setAnchorDate(startOfDay(new Date())))
+								}
 							>
 								<CalendarDays className="size-4" />
 								Today
 							</Button>
 							<Button
 								className="rounded-full border-0 bg-gradient-brand text-white shadow-[0_18px_40px_-26px_rgba(168,107,76,0.9)]"
-								onClick={() => setPanelState({ mode: "quick-add", date: new Date() })}
+								onClick={() =>
+									setPanelState({ mode: "quick-add", date: new Date() })
+								}
 							>
 								<FilePlus2 className="size-4" />
-								New draft
+								Quick add
 							</Button>
 						</div>
 					</div>
@@ -1938,14 +2139,19 @@ export function DashboardCalendar() {
 										Planning can start now
 									</div>
 									<div className="mt-2 text-lg font-medium">
-										Connect a destination when you want calendar slots to become real publish schedules.
+										Connect a destination when you are ready to turn calendar
+										slots into real publish schedules.
 									</div>
 									<div className="mt-2 max-w-3xl text-sm text-muted-foreground">
-										The calendar still works as your editorial planning board without live targets. Platform connections are what let Heimdall validate destinations and publish from these slots.
+										The calendar still works as your editorial planning board
+										without live targets. Platform connections are what let
+										Heimdall validate destinations and publish from these slots.
 									</div>
 								</div>
 								<Button className="rounded-full" asChild>
-									<Link to="/dashboard/settings/platforms">Connect destinations</Link>
+									<Link to="/dashboard/settings/platforms">
+										Connect destinations
+									</Link>
 								</Button>
 							</div>
 						</div>
@@ -1966,7 +2172,9 @@ export function DashboardCalendar() {
 								onClick={() =>
 									startTransition(() =>
 										setAnchorDate((current) =>
-											normalizedView === "month" ? addMonths(current, -1) : addWeeks(current, -1),
+											normalizedView === "month"
+												? addMonths(current, -1)
+												: addWeeks(current, -1),
 										),
 									)
 								}
@@ -1986,7 +2194,9 @@ export function DashboardCalendar() {
 								onClick={() =>
 									startTransition(() =>
 										setAnchorDate((current) =>
-											normalizedView === "month" ? addMonths(current, 1) : addWeeks(current, 1),
+											normalizedView === "month"
+												? addMonths(current, 1)
+												: addWeeks(current, 1),
 										),
 									)
 								}
@@ -1997,19 +2207,27 @@ export function DashboardCalendar() {
 
 						<Tabs
 							value={normalizedView}
-							onValueChange={(nextValue) => startTransition(() => setView(nextValue as CalendarView))}
+							onValueChange={(nextValue) =>
+								startTransition(() => setView(nextValue as CalendarView))
+							}
 						>
 							<TabsList
 								variant="default"
 								className="dashboard-tabs-min-height !h-auto flex-wrap items-stretch justify-start gap-2 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/55 p-2"
 							>
-								<TabsTrigger value="month" className="h-auto min-h-10 rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90">
+								<TabsTrigger
+									value="month"
+									className="h-auto min-h-10 rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90"
+								>
 									<CalendarDays className="size-4" />
-									Month plan
+									Month
 								</TabsTrigger>
-								<TabsTrigger value="week" className="h-auto min-h-10 rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90">
+								<TabsTrigger
+									value="week"
+									className="h-auto min-h-10 rounded-[16px] border border-transparent px-3 py-2 data-active:border-[var(--brand-border-soft)] data-active:bg-background/90"
+								>
 									<CalendarRange className="size-4" />
-									Week board
+									Week
 								</TabsTrigger>
 							</TabsList>
 						</Tabs>
@@ -2026,9 +2244,11 @@ export function DashboardCalendar() {
 											? "border-transparent bg-foreground text-background"
 											: "border-[var(--brand-border-soft)] bg-background/80",
 									)}
-									onClick={() => startTransition(() => setSelectedPlatforms([]))}
+									onClick={() =>
+										startTransition(() => setSelectedPlatforms([]))
+									}
 								>
-									<span className="font-medium">All destinations</span>
+									<span className="font-medium">All channels</span>
 								</Button>
 								{platformOptions.map((platform) => {
 									const meta = getPlatformMeta(platform);
@@ -2039,8 +2259,12 @@ export function DashboardCalendar() {
 											variant="outline"
 											className="shrink-0 rounded-full border px-2 py-2 shadow-none transition duration-200"
 											style={{
-												borderColor: selected ? withAlpha(meta?.color ?? "#64748B", 0.3) : withAlpha(meta?.color ?? "#64748B", 0.16),
-												backgroundColor: selected ? withAlpha(meta?.color ?? "#64748B", 0.14) : withAlpha(meta?.color ?? "#64748B", 0.06),
+												borderColor: selected
+													? withAlpha(meta?.color ?? "#64748B", 0.3)
+													: withAlpha(meta?.color ?? "#64748B", 0.16),
+												backgroundColor: selected
+													? withAlpha(meta?.color ?? "#64748B", 0.14)
+													: withAlpha(meta?.color ?? "#64748B", 0.06),
 												color: selected ? meta?.color : undefined,
 											}}
 											onClick={() =>
@@ -2059,7 +2283,9 @@ export function DashboardCalendar() {
 												backgroundAlpha: selected ? 0.16 : 0.08,
 												borderAlpha: selected ? 0.24 : 0.14,
 											})}
-											<span className="text-sm font-medium">{formatPlatformLabel(platform)}</span>
+											<span className="text-sm font-medium">
+												{formatPlatformLabel(platform)}
+											</span>
 										</Button>
 									);
 								})}
@@ -2070,12 +2296,21 @@ export function DashboardCalendar() {
 								<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
 									value={search}
-									onChange={(event) => startTransition(() => setSearch(event.target.value))}
-									placeholder="Search titles, campaigns, copy..."
+									onChange={(event) =>
+										startTransition(() => setSearch(event.target.value))
+									}
+									placeholder="Search titles, copy, or campaigns..."
 									className="dashboard-input-height rounded-full border-[var(--brand-border-soft)] bg-background/88 pl-10"
 								/>
 							</div>
-							<Select value={statusFilter} onValueChange={(nextValue) => startTransition(() => setStatusFilter(nextValue as PlanningStatusFilter))}>
+							<Select
+								value={statusFilter}
+								onValueChange={(nextValue) =>
+									startTransition(() =>
+										setStatusFilter(nextValue as PlanningStatusFilter),
+									)
+								}
+							>
 								<SelectTrigger className="dashboard-input-height w-[13rem] rounded-full border-[var(--brand-border-soft)] bg-background/88">
 									<SelectValue placeholder="Filter status" />
 								</SelectTrigger>
@@ -2122,7 +2357,10 @@ export function DashboardCalendar() {
 								<div className="calendar-board-surface overflow-hidden rounded-[28px]">
 									<div className="grid grid-cols-7 border-b border-[var(--brand-border-soft)] bg-background/72">
 										{weekDays(anchorDate).map((day) => (
-											<div key={day.toISOString()} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+											<div
+												key={day.toISOString()}
+												className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+											>
 												{formatWeekday(day)}
 											</div>
 										))}
@@ -2132,7 +2370,8 @@ export function DashboardCalendar() {
 											const key = startOfDay(day).toISOString();
 											const items = monthBuckets.get(key) ?? [];
 											const isToday = isSameDay(day, new Date());
-											const inActiveMonth = day.getMonth() === anchorDate.getMonth();
+											const inActiveMonth =
+												day.getMonth() === anchorDate.getMonth();
 											return (
 												<div
 													key={key}
@@ -2141,52 +2380,95 @@ export function DashboardCalendar() {
 														setActiveDropKey(`day:${key}`);
 													}}
 													onDragLeave={() => {
-														setActiveDropKey((current) => (current === `day:${key}` ? null : current));
+														setActiveDropKey((current) =>
+															current === `day:${key}` ? null : current,
+														);
 													}}
 													onDrop={(event) => void handleDayDrop(day, event)}
 													className={cn(
 														"min-h-[15rem] overflow-hidden border-b border-r border-[var(--brand-border-soft)] p-3 align-top last:border-r-0 md:flex md:h-full md:min-h-0 md:flex-col",
 														!inActiveMonth && "calendar-day-muted",
-														activeDropKey === `day:${key}` && "calendar-drop-target",
+														activeDropKey === `day:${key}` &&
+															"calendar-drop-target",
 													)}
 												>
 													<div className="flex items-center justify-between gap-2">
 														<div className="flex items-center gap-2">
-															<div className={cn("inline-flex size-8 items-center justify-center rounded-full text-sm font-semibold", isToday ? "bg-foreground text-background" : "bg-background/92 text-foreground")}>
+															<div
+																className={cn(
+																	"inline-flex size-8 items-center justify-center rounded-full text-sm font-semibold",
+																	isToday
+																		? "bg-foreground text-background"
+																		: "bg-background/92 text-foreground",
+																)}
+															>
 																{day.getDate()}
 															</div>
 															{items.length > 0 ? (
-																<Badge variant="outline" className="rounded-full text-[11px]">
-																	{items.length} post{items.length === 1 ? "" : "s"}
+																<Badge
+																	variant="outline"
+																	className="rounded-full text-[11px]"
+																>
+																	{items.length} post
+																	{items.length === 1 ? "" : "s"}
 																</Badge>
 															) : null}
 														</div>
-														<Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+														<Button
+															variant="ghost"
+															size="sm"
+															className="rounded-full text-xs"
+															onClick={() =>
+																setPanelState({ mode: "quick-add", date: day })
+															}
+														>
 															<Plus className="size-3.5" />
 															Add
 														</Button>
 													</div>
 													<div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-														{items.slice(0, MONTH_VISIBLE_PILL_COUNT).map((item) => (
-															<MonthPlanningPill
-																key={item.postId}
-																item={item}
-																draggable={!item.splitSchedule}
-																dragging={draggingPostId === item.postId}
-																onClick={() => setPanelState({ mode: "item", item })}
-																onDragStart={(event) => beginDrag(item, event)}
-																onDragEnd={clearDragState}
-															/>
-														))}
+														{items
+															.slice(0, MONTH_VISIBLE_PILL_COUNT)
+															.map((item) => (
+																<MonthPlanningPill
+																	key={item.postId}
+																	item={item}
+																	draggable={!item.splitSchedule}
+																	dragging={draggingPostId === item.postId}
+																	onClick={() =>
+																		setPanelState({ mode: "item", item })
+																	}
+																	onDragStart={(event) =>
+																		beginDrag(item, event)
+																	}
+																	onDragEnd={clearDragState}
+																/>
+															))}
 														{items.length > MONTH_VISIBLE_PILL_COUNT ? (
-															<button type="button" className="mt-auto w-full rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => startTransition(() => {
-																setAnchorDate(day);
-																setView("week");
-															})}>
-																+{items.length - MONTH_VISIBLE_PILL_COUNT} more in week board
+															<button
+																type="button"
+																className="mt-auto w-full rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35"
+																onClick={() =>
+																	startTransition(() => {
+																		setAnchorDate(day);
+																		setView("week");
+																	})
+																}
+															>
+																+{items.length - MONTH_VISIBLE_PILL_COUNT} more
+																in week board
 															</button>
 														) : items.length === 0 ? (
-															<button type="button" className="calendar-quiet-add mt-1 inline-flex w-full items-center gap-2 rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+															<button
+																type="button"
+																className="calendar-quiet-add mt-1 inline-flex w-full items-center gap-2 rounded-[16px] border border-dashed border-[var(--brand-border-soft)] px-2.5 py-2 text-left text-[11px] font-medium text-muted-foreground transition hover:bg-accent/35"
+																onClick={() =>
+																	setPanelState({
+																		mode: "quick-add",
+																		date: day,
+																	})
+																}
+															>
 																<Plus className="size-3.5" />
 																Plan something here
 															</button>
@@ -2211,25 +2493,46 @@ export function DashboardCalendar() {
 													setActiveDropKey(`day:${key}`);
 												}}
 												onDragLeave={() => {
-													setActiveDropKey((current) => (current === `day:${key}` ? null : current));
+													setActiveDropKey((current) =>
+														current === `day:${key}` ? null : current,
+													);
 												}}
 												onDrop={(event) => void handleDayDrop(day, event)}
 												className={cn(
 													"calendar-rail-surface rounded-[24px] p-4",
-													activeDropKey === `day:${key}` && "calendar-drop-target",
+													activeDropKey === `day:${key}` &&
+														"calendar-drop-target",
 												)}
 											>
 												<div className="flex items-start justify-between gap-3">
 													<div>
-														<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{formatWeekday(day)}</div>
+														<div className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+															{formatWeekday(day)}
+														</div>
 														<div className="mt-1 flex items-center gap-2">
-															<div className={cn("inline-flex size-9 items-center justify-center rounded-full text-sm font-semibold", isToday ? "bg-foreground text-background" : "bg-accent/35 text-foreground")}>
+															<div
+																className={cn(
+																	"inline-flex size-9 items-center justify-center rounded-full text-sm font-semibold",
+																	isToday
+																		? "bg-foreground text-background"
+																		: "bg-accent/35 text-foreground",
+																)}
+															>
 																{day.getDate()}
 															</div>
-															<Badge variant="outline" className="rounded-full">{items.length}</Badge>
+															<Badge variant="outline" className="rounded-full">
+																{items.length}
+															</Badge>
 														</div>
 													</div>
-													<Button variant="ghost" size="sm" className="rounded-full text-xs" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="rounded-full text-xs"
+														onClick={() =>
+															setPanelState({ mode: "quick-add", date: day })
+														}
+													>
 														<Plus className="size-3.5" />
 														Add
 													</Button>
@@ -2241,13 +2544,21 @@ export function DashboardCalendar() {
 															item={item}
 															draggable={!item.splitSchedule}
 															dragging={draggingPostId === item.postId}
-															onClick={() => setPanelState({ mode: "item", item })}
+															onClick={() =>
+																setPanelState({ mode: "item", item })
+															}
 															onDragStart={(event) => beginDrag(item, event)}
 															onDragEnd={clearDragState}
 														/>
 													))}
 													{items.length === 0 ? (
-														<button type="button" className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-8 text-sm text-muted-foreground transition hover:bg-accent/35" onClick={() => setPanelState({ mode: "quick-add", date: day })}>
+														<button
+															type="button"
+															className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-[var(--brand-border-soft)] px-3 py-8 text-sm text-muted-foreground transition hover:bg-accent/35"
+															onClick={() =>
+																setPanelState({ mode: "quick-add", date: day })
+															}
+														>
 															<Plus className="mr-2 size-4" />
 															Add or drag a post here
 														</button>
@@ -2274,11 +2585,12 @@ export function DashboardCalendar() {
 									setActiveDropKey("backlog");
 								}}
 								onBacklogLeave={() => {
-									setActiveDropKey((current) => (current === "backlog" ? null : current));
+									setActiveDropKey((current) =>
+										current === "backlog" ? null : current,
+									);
 								}}
 								onBacklogDrop={(event) => void handleBacklogDrop(event)}
 							/>
-							<FutureAutomationPanel suggestedAutomationCount={suggestedAutomationCount} />
 						</div>
 					</div>
 				</div>
@@ -2289,7 +2601,8 @@ export function DashboardCalendar() {
 					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
 						<SheetTitle>Backlog</SheetTitle>
 						<SheetDescription>
-							Keep the month board wide on laptop, then open backlog only when you need to slot or inspect drafts.
+							Keep the month board wide on laptop, then open backlog only when
+							you need to slot or inspect drafts.
 						</SheetDescription>
 					</SheetHeader>
 					<div className="space-y-5 px-5 py-5">
@@ -2304,15 +2617,21 @@ export function DashboardCalendar() {
 							onDragStart={beginDrag}
 							onDragEnd={clearDragState}
 						/>
-						<FutureAutomationPanel suggestedAutomationCount={suggestedAutomationCount} />
 					</div>
 				</SheetContent>
 			</Sheet>
 
-			<Sheet open={panelState.mode !== "closed"} onOpenChange={(open) => (!open ? closePanel() : undefined)}>
+			<Sheet
+				open={panelState.mode !== "closed"}
+				onOpenChange={(open) => (!open ? closePanel() : undefined)}
+			>
 				<SheetContent className="calendar-drawer-surface w-full overflow-y-auto sm:max-w-[38rem]">
 					<SheetHeader className="border-b border-[var(--brand-border-soft)] px-5 py-5">
-						<SheetTitle>{panelState.mode === "item" ? activeItem?.title ?? "Planning drawer" : "Quick add"}</SheetTitle>
+						<SheetTitle>
+							{panelState.mode === "item"
+								? (activeItem?.title ?? "Planning drawer")
+								: "Quick add"}
+						</SheetTitle>
 						<SheetDescription>
 							{panelState.mode === "item"
 								? "Keep the essentials close: title, core copy, destinations, and planning intent."
@@ -2339,17 +2658,38 @@ export function DashboardCalendar() {
 								<>
 									<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/76 p-4">
 										<div className="flex flex-wrap items-center gap-2">
-											<Badge className={cn("rounded-full border", statusTone(activeItem))}>{planningStateLabel(activeItem)}</Badge>
-											<Badge variant="outline" className="rounded-full">{readinessLabel(activeItem)}</Badge>
-											{activeItem.campaign ? <Badge variant="outline" className="rounded-full">{activeItem.campaign.name}</Badge> : null}
-											{activeItem.partialPlacement ? <Badge variant="outline" className="rounded-full">Partial placement</Badge> : null}
+											<Badge
+												className={cn(
+													"rounded-full border",
+													statusTone(activeItem),
+												)}
+											>
+												{planningStateLabel(activeItem)}
+											</Badge>
+											<Badge variant="outline" className="rounded-full">
+												{readinessLabel(activeItem)}
+											</Badge>
+											{activeItem.campaign ? (
+												<Badge variant="outline" className="rounded-full">
+													{activeItem.campaign.name}
+												</Badge>
+											) : null}
+											{activeItem.partialPlacement ? (
+												<Badge variant="outline" className="rounded-full">
+													Partial placement
+												</Badge>
+											) : null}
 										</div>
 										<div className="mt-4 flex flex-wrap gap-2">
 											{activeItem.platforms.map((platform) => (
 												<DestinationRow
 													key={platform}
 													platform={platform}
-													count={activeItem.nodes.filter((node) => node.item.platform === platform).length}
+													count={
+														activeItem.nodes.filter(
+															(node) => node.item.platform === platform,
+														).length
+													}
 												/>
 											))}
 										</div>
@@ -2361,7 +2701,7 @@ export function DashboardCalendar() {
 												title: "This post has diverging destination schedules.",
 												body: "The board still shows one card, but the destinations are no longer aligned. Use the detail list below to keep the split intentionally or straighten it back into one plan.",
 												tone: "warning",
-										  })
+											})
 										: null}
 
 									{activeItem.readinessState === "blocked"
@@ -2370,105 +2710,222 @@ export function DashboardCalendar() {
 												title: "Some destinations are blocked.",
 												body: "The drawer keeps those blockers visible without making the calendar noisy. You can still adjust content and assets here before placing or finalizing.",
 												tone: "error",
-										  })
+											})
 										: activeItem.tentativeCount > 0
 											? alertLine({
 													icon: AlertTriangle,
 													title: "This post is still tentative.",
 													body: "Tentative slots are great for planning. Finalize them once the copy, assets, and review state are ready.",
 													tone: "warning",
-											  })
+												})
 											: alertLine({
 													icon: CheckCircle2,
 													title: "This post is aligned and ready to move.",
 													body: "The main flow is simple here: adjust the essentials, then save, place, finalize, or return to backlog.",
 													tone: "success",
-											  })}
+												})}
 
 									<div className="grid gap-4">
 										<div className="space-y-2">
 											<Label htmlFor="planning-title">Post title</Label>
-											<Input id="planning-title" value={panelDraft.title} onChange={(event) => setPanelDraft((current) => ({ ...current, title: event.target.value }))} className="rounded-2xl" />
+											<Input
+												id="planning-title"
+												value={panelDraft.title}
+												onChange={(event) =>
+													setPanelDraft((current) => ({
+														...current,
+														title: event.target.value,
+													}))
+												}
+												className="rounded-2xl"
+											/>
 										</div>
 
 										<div className="space-y-2">
 											<Label htmlFor="planning-excerpt">Core message</Label>
-											<Textarea id="planning-excerpt" value={panelDraft.excerpt} onChange={(event) => setPanelDraft((current) => ({ ...current, excerpt: event.target.value }))} className="min-h-[10rem] rounded-2xl" />
+											<Textarea
+												id="planning-excerpt"
+												value={panelDraft.excerpt}
+												onChange={(event) =>
+													setPanelDraft((current) => ({
+														...current,
+														excerpt: event.target.value,
+													}))
+												}
+												className="min-h-[10rem] rounded-2xl"
+											/>
 										</div>
 
 										<div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
 											<div className="space-y-2">
 												<Label>Planned day</Label>
-												<DateTimePicker value={panelDraft.plannedLocal} onChange={(value) => setPanelDraft((current) => ({ ...current, plannedLocal: value }))} />
+												<DateTimePicker
+													value={panelDraft.plannedLocal}
+													onChange={(value) =>
+														setPanelDraft((current) => ({
+															...current,
+															plannedLocal: value,
+														}))
+													}
+												/>
 											</div>
 											<div className="space-y-2">
 												<Label>Scheduling mode</Label>
-												<Select value={panelDraft.schedulingMode} onValueChange={(value) => setPanelDraft((current) => ({ ...current, schedulingMode: value as PlanningDraft["schedulingMode"] }))}>
+												<Select
+													value={panelDraft.schedulingMode}
+													onValueChange={(value) =>
+														setPanelDraft((current) => ({
+															...current,
+															schedulingMode:
+																value as PlanningDraft["schedulingMode"],
+														}))
+													}
+												>
 													<SelectTrigger className="h-11 rounded-2xl">
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
 														<SelectItem value="tentative">Tentative</SelectItem>
-														<SelectItem value="exact">Exact schedule</SelectItem>
+														<SelectItem value="exact">
+															Exact schedule
+														</SelectItem>
 													</SelectContent>
 												</Select>
 											</div>
 										</div>
 
-										<Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+										<Collapsible
+											open={advancedOpen}
+											onOpenChange={setAdvancedOpen}
+										>
 											<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/68 p-4">
 												<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
 													<div>
-														<div className="text-sm font-medium">Advanced details</div>
+														<div className="text-sm font-medium">
+															Advanced details
+														</div>
 														<div className="mt-1 text-sm text-muted-foreground">
-															Approval, shared assets, notes, and per-destination detail stay tucked away until you need them.
+															Approval, shared assets, notes, and
+															per-destination detail stay tucked away until you
+															need them.
 														</div>
 													</div>
-													<ChevronDown className={cn("size-4 transition-transform", advancedOpen && "rotate-180")} />
+													<ChevronDown
+														className={cn(
+															"size-4 transition-transform",
+															advancedOpen && "rotate-180",
+														)}
+													/>
 												</CollapsibleTrigger>
 												<CollapsibleContent>
 													<div className="mt-4 space-y-4">
 														<div className="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3">
 															<div>
-																<div className="text-sm font-medium">Require approval</div>
-																<div className="text-sm text-muted-foreground">Keep review gates available without pushing them into the main planning flow.</div>
+																<div className="text-sm font-medium">
+																	Require approval
+																</div>
+																<div className="text-sm text-muted-foreground">
+																	Keep review gates available without pushing
+																	them into the main planning flow.
+																</div>
 															</div>
-															<Switch checked={panelDraft.requiresApproval} onCheckedChange={(checked) => setPanelDraft((current) => ({ ...current, requiresApproval: checked }))} />
+															<Switch
+																checked={panelDraft.requiresApproval}
+																onCheckedChange={(checked) =>
+																	setPanelDraft((current) => ({
+																		...current,
+																		requiresApproval: checked,
+																	}))
+																}
+															/>
 														</div>
 
 														<div className="space-y-2">
 															<Label htmlFor="planning-notes">Notes</Label>
-															<Textarea id="planning-notes" value={panelDraft.notes} onChange={(event) => setPanelDraft((current) => ({ ...current, notes: event.target.value }))} className="min-h-[7rem] rounded-2xl" placeholder="Internal planning notes, reminders, or operational context" />
+															<Textarea
+																id="planning-notes"
+																value={panelDraft.notes}
+																onChange={(event) =>
+																	setPanelDraft((current) => ({
+																		...current,
+																		notes: event.target.value,
+																	}))
+																}
+																className="min-h-[7rem] rounded-2xl"
+																placeholder="Internal planning notes, reminders, or operational context"
+															/>
 														</div>
 
 														<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/78 p-4">
-															<div className="text-sm font-medium">Shared assets</div>
+															<div className="text-sm font-medium">
+																Shared assets
+															</div>
 															{panelDraft.assetIds.length > 0 ? (
-																<ResourceChipList resources={resources.filter((resource) => panelDraft.assetIds.includes(resource.id))} />
+																<ResourceChipList
+																	resources={resources.filter((resource) =>
+																		panelDraft.assetIds.includes(resource.id),
+																	)}
+																/>
 															) : (
-																<div className="text-sm text-muted-foreground">No shared assets attached yet.</div>
+																<div className="text-sm text-muted-foreground">
+																	No shared assets attached yet.
+																</div>
 															)}
-															<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" allowUpload onResourcesCreated={addUploadedResources} />
+															<ResourcePicker
+																resources={resources}
+																value={panelDraft.assetIds}
+																onChange={(assetIds) =>
+																	setPanelDraft((current) => ({
+																		...current,
+																		assetIds,
+																	}))
+																}
+																triggerLabel="Manage shared assets"
+																allowUpload
+																onResourcesCreated={addUploadedResources}
+															/>
 														</div>
 
 														<div className="space-y-3">
-															<div className="text-sm font-medium">Destination detail</div>
+															<div className="text-sm font-medium">
+																Destination detail
+															</div>
 															<div className="space-y-2">
 																{activeItem.nodes.map((node) => (
-																	<div key={node.item.variantId} className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3">
+																	<div
+																		key={node.item.variantId}
+																		className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3"
+																	>
 																		<div className="flex flex-wrap items-center justify-between gap-3">
 																			<div className="flex items-center gap-3">
 																				{platformIcon(node.item.platform)}
 																				<div>
-																					<div className="text-sm font-medium">{formatPlatformLabel(node.item.platform)} · {surfaceLabel(node.item.surface)}</div>
+																					<div className="text-sm font-medium">
+																						{formatPlatformLabel(
+																							node.item.platform,
+																						)}{" "}
+																						· {surfaceLabel(node.item.surface)}
+																					</div>
 																					<div className="text-xs text-muted-foreground">
-																						{node.kind === "entry" && node.plannedDate ? `${node.item.planningState} · ${formatDayHeader(node.plannedDate)} · ${formatTime(node.plannedDate)}` : "Backlog"}
+																						{node.kind === "entry" &&
+																						node.plannedDate
+																							? `${node.item.planningState} · ${formatDayHeader(node.plannedDate)} · ${formatTime(node.plannedDate)}`
+																							: "Backlog"}
 																					</div>
 																				</div>
 																			</div>
 																			<div className="flex flex-wrap items-center gap-2">
-																				<Badge variant="outline" className="rounded-full text-xs">{node.item.approvalState}</Badge>
-																				{itemIsBlocked(node.item) ? <Badge className="rounded-full border border-rose-500/20 bg-rose-500/12 text-rose-800 dark:text-rose-100">blocked</Badge> : null}
+																				<Badge
+																					variant="outline"
+																					className="rounded-full text-xs"
+																				>
+																					{node.item.approvalState}
+																				</Badge>
+																				{itemIsBlocked(node.item) ? (
+																					<Badge className="rounded-full border border-rose-500/20 bg-rose-500/12 text-rose-800 dark:text-rose-100">
+																						blocked
+																					</Badge>
+																				) : null}
 																			</div>
 																		</div>
 																	</div>
@@ -2476,8 +2933,16 @@ export function DashboardCalendar() {
 															</div>
 														</div>
 
-														<Button variant="outline" className="rounded-full" asChild>
-															<Link to={`/dashboard/posts/${activeItem.postId}/edit`}>Open full post editor</Link>
+														<Button
+															variant="outline"
+															className="rounded-full"
+															asChild
+														>
+															<Link
+																to={`/dashboard/posts/${activeItem.postId}/edit`}
+															>
+																Open full post editor
+															</Link>
 														</Button>
 													</div>
 												</CollapsibleContent>
@@ -2495,29 +2960,69 @@ export function DashboardCalendar() {
 											: "Create a draft for the backlog or place it immediately"}
 									</div>
 									<div className="mt-1 text-sm text-muted-foreground">
-										Quick add keeps the flow light: draft the idea, choose the destinations, then either save it to backlog or place it on the board.
+										Quick add keeps the flow light: draft the idea, choose the
+										destinations, then either save it to backlog or place it on
+										the board.
 									</div>
 								</div>
 
 								<div className="grid gap-4">
 									<div className="space-y-2">
 										<Label htmlFor="quick-title">Post title</Label>
-										<Input id="quick-title" value={panelDraft.title} onChange={(event) => setPanelDraft((current) => ({ ...current, title: event.target.value }))} className="rounded-2xl" />
+										<Input
+											id="quick-title"
+											value={panelDraft.title}
+											onChange={(event) =>
+												setPanelDraft((current) => ({
+													...current,
+													title: event.target.value,
+												}))
+											}
+											className="rounded-2xl"
+										/>
 									</div>
 
 									<div className="space-y-2">
 										<Label htmlFor="quick-excerpt">Core message</Label>
-										<Textarea id="quick-excerpt" value={panelDraft.excerpt} onChange={(event) => setPanelDraft((current) => ({ ...current, excerpt: event.target.value }))} className="min-h-[9rem] rounded-2xl" placeholder="What should this post say?" />
+										<Textarea
+											id="quick-excerpt"
+											value={panelDraft.excerpt}
+											onChange={(event) =>
+												setPanelDraft((current) => ({
+													...current,
+													excerpt: event.target.value,
+												}))
+											}
+											className="min-h-[9rem] rounded-2xl"
+											placeholder="What should this post say?"
+										/>
 									</div>
 
 									<div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
 										<div className="space-y-2">
 											<Label>Placement time</Label>
-											<DateTimePicker value={panelDraft.plannedLocal} onChange={(value) => setPanelDraft((current) => ({ ...current, plannedLocal: value }))} />
+											<DateTimePicker
+												value={panelDraft.plannedLocal}
+												onChange={(value) =>
+													setPanelDraft((current) => ({
+														...current,
+														plannedLocal: value,
+													}))
+												}
+											/>
 										</div>
 										<div className="space-y-2">
 											<Label>Placement mode</Label>
-											<Select value={panelDraft.schedulingMode} onValueChange={(value) => setPanelDraft((current) => ({ ...current, schedulingMode: value as PlanningDraft["schedulingMode"] }))}>
+											<Select
+												value={panelDraft.schedulingMode}
+												onValueChange={(value) =>
+													setPanelDraft((current) => ({
+														...current,
+														schedulingMode:
+															value as PlanningDraft["schedulingMode"],
+													}))
+												}
+											>
 												<SelectTrigger className="h-11 rounded-2xl">
 													<SelectValue />
 												</SelectTrigger>
@@ -2533,7 +3038,8 @@ export function DashboardCalendar() {
 										<Label>Destinations</Label>
 										<div className="flex flex-wrap gap-2">
 											{platformOptions.map((platform) => {
-												const selected = panelDraft.destinations.includes(platform);
+												const selected =
+													panelDraft.destinations.includes(platform);
 												const meta = getPlatformMeta(platform);
 												return (
 													<button
@@ -2542,15 +3048,23 @@ export function DashboardCalendar() {
 														onClick={() =>
 															setPanelDraft((current) => ({
 																...current,
-																destinations: current.destinations.includes(platform)
-																	? current.destinations.filter((item) => item !== platform)
+																destinations: current.destinations.includes(
+																	platform,
+																)
+																	? current.destinations.filter(
+																			(item) => item !== platform,
+																		)
 																	: [...current.destinations, platform],
 															}))
 														}
 														className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition"
 														style={{
-															borderColor: selected ? withAlpha(meta?.color ?? "#64748B", 0.32) : withAlpha(meta?.color ?? "#64748B", 0.16),
-															backgroundColor: selected ? withAlpha(meta?.color ?? "#64748B", 0.14) : "rgba(255,255,255,0.82)",
+															borderColor: selected
+																? withAlpha(meta?.color ?? "#64748B", 0.32)
+																: withAlpha(meta?.color ?? "#64748B", 0.16),
+															backgroundColor: selected
+																? withAlpha(meta?.color ?? "#64748B", 0.14)
+																: "rgba(255,255,255,0.82)",
 															color: selected ? meta?.color : undefined,
 														}}
 													>
@@ -2567,36 +3081,93 @@ export function DashboardCalendar() {
 										</div>
 									</div>
 
-									<Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+									<Collapsible
+										open={advancedOpen}
+										onOpenChange={setAdvancedOpen}
+									>
 										<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/68 p-4">
 											<CollapsibleTrigger className="flex w-full items-center justify-between gap-3 text-left">
 												<div>
-													<div className="text-sm font-medium">Optional details</div>
-													<div className="mt-1 text-sm text-muted-foreground">Approval, notes, and shared assets stay hidden unless they help this draft.</div>
+													<div className="text-sm font-medium">
+														Optional details
+													</div>
+													<div className="mt-1 text-sm text-muted-foreground">
+														Approval, notes, and shared assets stay hidden
+														unless they help this draft.
+													</div>
 												</div>
-												<ChevronDown className={cn("size-4 transition-transform", advancedOpen && "rotate-180")} />
+												<ChevronDown
+													className={cn(
+														"size-4 transition-transform",
+														advancedOpen && "rotate-180",
+													)}
+												/>
 											</CollapsibleTrigger>
 											<CollapsibleContent>
 												<div className="mt-4 space-y-4">
 													<div className="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3">
 														<div>
-															<div className="text-sm font-medium">Require approval</div>
-															<div className="text-sm text-muted-foreground">Turn this on only when the draft needs review gates.</div>
+															<div className="text-sm font-medium">
+																Require approval
+															</div>
+															<div className="text-sm text-muted-foreground">
+																Turn this on only when the draft needs review
+																gates.
+															</div>
 														</div>
-														<Switch checked={panelDraft.requiresApproval} onCheckedChange={(checked) => setPanelDraft((current) => ({ ...current, requiresApproval: checked }))} />
+														<Switch
+															checked={panelDraft.requiresApproval}
+															onCheckedChange={(checked) =>
+																setPanelDraft((current) => ({
+																	...current,
+																	requiresApproval: checked,
+																}))
+															}
+														/>
 													</div>
 													<div className="space-y-2">
 														<Label htmlFor="quick-notes">Notes</Label>
-														<Textarea id="quick-notes" value={panelDraft.notes} onChange={(event) => setPanelDraft((current) => ({ ...current, notes: event.target.value }))} className="min-h-[7rem] rounded-2xl" placeholder="Optional context for collaborators" />
+														<Textarea
+															id="quick-notes"
+															value={panelDraft.notes}
+															onChange={(event) =>
+																setPanelDraft((current) => ({
+																	...current,
+																	notes: event.target.value,
+																}))
+															}
+															className="min-h-[7rem] rounded-2xl"
+															placeholder="Optional context for collaborators"
+														/>
 													</div>
 													<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/78 p-4">
-														<div className="text-sm font-medium">Shared assets</div>
+														<div className="text-sm font-medium">
+															Shared assets
+														</div>
 														{panelDraft.assetIds.length > 0 ? (
-															<ResourceChipList resources={resources.filter((resource) => panelDraft.assetIds.includes(resource.id))} />
+															<ResourceChipList
+																resources={resources.filter((resource) =>
+																	panelDraft.assetIds.includes(resource.id),
+																)}
+															/>
 														) : (
-															<div className="text-sm text-muted-foreground">No shared assets attached yet.</div>
+															<div className="text-sm text-muted-foreground">
+																No shared assets attached yet.
+															</div>
 														)}
-														<ResourcePicker resources={resources} value={panelDraft.assetIds} onChange={(assetIds) => setPanelDraft((current) => ({ ...current, assetIds }))} triggerLabel="Manage shared assets" allowUpload onResourcesCreated={addUploadedResources} />
+														<ResourcePicker
+															resources={resources}
+															value={panelDraft.assetIds}
+															onChange={(assetIds) =>
+																setPanelDraft((current) => ({
+																	...current,
+																	assetIds,
+																}))
+															}
+															triggerLabel="Manage shared assets"
+															allowUpload
+															onResourcesCreated={addUploadedResources}
+														/>
 													</div>
 												</div>
 											</CollapsibleContent>
@@ -2604,9 +3175,12 @@ export function DashboardCalendar() {
 									</Collapsible>
 
 									<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
-										<div className="text-sm font-medium">Use something already in backlog</div>
+										<div className="text-sm font-medium">
+											Use something already in backlog
+										</div>
 										<div className="mt-1 text-sm text-muted-foreground">
-											Instead of drafting from scratch, you can drop an existing idea into this day in one click.
+											Instead of drafting from scratch, you can drop an existing
+											idea into this day in one click.
 										</div>
 										<div className="mt-4 space-y-3">
 											{backlogItems.slice(0, 4).map((item) => (
@@ -2614,15 +3188,32 @@ export function DashboardCalendar() {
 													key={item.postId}
 													type="button"
 													className="w-full rounded-[18px] border border-[var(--brand-border-soft)] bg-background/84 px-4 py-3 text-left transition hover:bg-accent/35"
-													onClick={() => (quickAddDate ? void placeExistingBacklogItem(item, quickAddDate) : undefined)}
+													onClick={() =>
+														quickAddDate
+															? void placeExistingBacklogItem(
+																	item,
+																	quickAddDate,
+																)
+															: undefined
+													}
 													disabled={!quickAddDate || saving}
 												>
 													<div className="flex items-center justify-between gap-3">
 														<div className="min-w-0">
-															<div className="truncate text-sm font-medium">{item.title}</div>
-															<div className="mt-1 truncate text-xs text-muted-foreground">{item.platforms.map((platform) => formatPlatformLabel(platform)).join(", ")}</div>
+															<div className="truncate text-sm font-medium">
+																{item.title}
+															</div>
+															<div className="mt-1 truncate text-xs text-muted-foreground">
+																{item.platforms
+																	.map((platform) =>
+																		formatPlatformLabel(platform),
+																	)
+																	.join(", ")}
+															</div>
 														</div>
-														<Badge variant="outline" className="rounded-full">Place</Badge>
+														<Badge variant="outline" className="rounded-full">
+															Place
+														</Badge>
 													</div>
 												</button>
 											))}
@@ -2642,37 +3233,80 @@ export function DashboardCalendar() {
 						<div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-between">
 							<div className="flex flex-wrap items-center gap-2">
 								{panelState.mode === "item" && activeItem?.primaryDate ? (
-									<Button variant="outline" className="rounded-full" onClick={() => void handleReturnToBacklog()} disabled={saving}>
+									<Button
+										variant="outline"
+										className="rounded-full"
+										onClick={() => void handleReturnToBacklog()}
+										disabled={saving}
+									>
 										Return to backlog
 									</Button>
 								) : null}
-								{panelState.mode === "item" && (activeItem?.finalizableCount ?? 0) > 0 ? (
-									<Button variant="outline" className="rounded-full" onClick={() => void handleFinalizeItem()} disabled={saving}>
+								{panelState.mode === "item" &&
+								(activeItem?.finalizableCount ?? 0) > 0 ? (
+									<Button
+										variant="outline"
+										className="rounded-full"
+										onClick={() => void handleFinalizeItem()}
+										disabled={saving}
+									>
 										Finalize schedule
 									</Button>
 								) : null}
 							</div>
 							<div className="flex flex-wrap items-center justify-end gap-2">
-								<Button variant="outline" className="rounded-full" onClick={closePanel}>Close</Button>
+								<Button
+									variant="outline"
+									className="rounded-full"
+									onClick={closePanel}
+								>
+									Close
+								</Button>
 								{panelState.mode === "item" ? (
 									<>
-										<Button variant="outline" className="rounded-full" onClick={() => void handleSaveItem()} disabled={saving}>
-											{saving ? <LoaderCircle className="size-4 animate-spin" /> : null}
+										<Button
+											variant="outline"
+											className="rounded-full"
+											onClick={() => void handleSaveItem()}
+											disabled={saving}
+										>
+											{saving ? (
+												<LoaderCircle className="size-4 animate-spin" />
+											) : null}
 											Save
 										</Button>
-										<Button className="rounded-full border-0 bg-gradient-brand text-white" onClick={() => void handlePlaceItem()} disabled={saving}>
-											{saving ? <LoaderCircle className="size-4 animate-spin" /> : null}
+										<Button
+											className="rounded-full border-0 bg-gradient-brand text-white"
+											onClick={() => void handlePlaceItem()}
+											disabled={saving}
+										>
+											{saving ? (
+												<LoaderCircle className="size-4 animate-spin" />
+											) : null}
 											Place on calendar
 										</Button>
 									</>
 								) : (
 									<>
-										<Button variant="outline" className="rounded-full" onClick={() => void createDraft(false)} disabled={saving}>
-											{saving ? <LoaderCircle className="size-4 animate-spin" /> : null}
+										<Button
+											variant="outline"
+											className="rounded-full"
+											onClick={() => void createDraft(false)}
+											disabled={saving}
+										>
+											{saving ? (
+												<LoaderCircle className="size-4 animate-spin" />
+											) : null}
 											Save to backlog
 										</Button>
-										<Button className="rounded-full border-0 bg-gradient-brand text-white" onClick={() => void createDraft(true)} disabled={saving}>
-											{saving ? <LoaderCircle className="size-4 animate-spin" /> : null}
+										<Button
+											className="rounded-full border-0 bg-gradient-brand text-white"
+											onClick={() => void createDraft(true)}
+											disabled={saving}
+										>
+											{saving ? (
+												<LoaderCircle className="size-4 animate-spin" />
+											) : null}
 											Place on calendar
 										</Button>
 									</>

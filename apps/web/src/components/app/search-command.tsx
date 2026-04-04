@@ -1,5 +1,6 @@
 import {
 	CalendarRange,
+	FilePlus2,
 	FileSearch,
 	FileStack,
 	FolderKanban,
@@ -88,20 +89,30 @@ export function SearchCommand({
 
 	const entries: CommandEntry[] = [
 		{
-			id: "nav-overview",
+			id: "nav-today",
 			icon: Home,
-			label: "Overview",
-			subtitle: "Open the campaign operations dashboard.",
-			keywords: ["dashboard", "overview", "home", "summary"],
+			label: "Today",
+			subtitle:
+				"Start with today's priorities, scheduled posts, and next actions.",
+			keywords: ["dashboard", "today", "home", "summary", "focus"],
 			section: "navigate",
 			onSelect: () => navigateTo("/dashboard"),
+		},
+		{
+			id: "nav-create",
+			icon: FilePlus2,
+			label: "Create",
+			subtitle: "Open the guided composer for your next post.",
+			keywords: ["create", "composer", "new post", "draft", "publish"],
+			section: "navigate",
+			onSelect: () => navigateTo("/dashboard/posts/new"),
 		},
 		{
 			id: "nav-campaigns",
 			icon: Megaphone,
 			label: "Campaigns",
-			subtitle: "Browse briefs, launch windows, and linked posts.",
-			keywords: ["campaigns", "launches", "briefs", "planning"],
+			subtitle: "Browse optional campaign planning context.",
+			keywords: ["campaigns", "briefs", "planning", "context"],
 			section: "navigate",
 			onSelect: () => navigateTo("/dashboard/campaigns"),
 		},
@@ -118,26 +129,32 @@ export function SearchCommand({
 			id: "nav-calendar",
 			icon: CalendarRange,
 			label: "Calendar",
-			subtitle: "Inspect launch dates and scheduling collisions.",
-			keywords: ["calendar", "schedule", "dates", "timeline"],
+			subtitle: "Place drafts, review the month, and manage backlog.",
+			keywords: ["calendar", "schedule", "dates", "timeline", "backlog"],
 			section: "navigate",
 			onSelect: () => navigateTo("/dashboard/calendar"),
 		},
 		{
-			id: "nav-analytics",
+			id: "nav-insights",
 			icon: LineChart,
-			label: "Analytics",
-			subtitle: "Review performance signals and delivery trends.",
-			keywords: ["analytics", "metrics", "performance", "reporting"],
+			label: "Insights",
+			subtitle: "Review what is working and what to do next.",
+			keywords: [
+				"insights",
+				"analytics",
+				"metrics",
+				"performance",
+				"reporting",
+			],
 			section: "navigate",
 			onSelect: () => navigateTo("/dashboard/analytics"),
 		},
 		{
 			id: "nav-library",
 			icon: FolderKanban,
-			label: "Library",
-			subtitle: "Find assets, references, and approved materials.",
-			keywords: ["library", "assets", "files", "references"],
+			label: "Media",
+			subtitle: "Find assets, references, and reusable creative.",
+			keywords: ["media", "library", "assets", "files", "references"],
 			section: "navigate",
 			onSelect: () => navigateTo("/dashboard/library"),
 		},
@@ -162,9 +179,9 @@ export function SearchCommand({
 		{
 			id: "search-campaigns",
 			icon: Search,
-			label: "Find campaigns",
-			subtitle: "Jump into posts and campaign-related work.",
-			keywords: ["search campaigns", "campaign", "launch", "posts"],
+			label: "Find posts and campaigns",
+			subtitle: "Jump into the planning work that already exists.",
+			keywords: ["search campaigns", "campaign", "launch", "posts", "content"],
 			section: "search",
 			onSelect: () => navigateTo("/dashboard/campaigns"),
 			shortcut: "Campaigns",
@@ -172,12 +189,12 @@ export function SearchCommand({
 		{
 			id: "search-assets",
 			icon: FileSearch,
-			label: "Find files and assets",
-			subtitle: "Open the asset library to inspect references and creative.",
-			keywords: ["search files", "assets", "creative", "library"],
+			label: "Find media and assets",
+			subtitle: "Open the media library to inspect creative and references.",
+			keywords: ["search files", "assets", "creative", "library", "media"],
 			section: "search",
 			onSelect: () => navigateTo("/dashboard/library"),
-			shortcut: "Library",
+			shortcut: "Media",
 		},
 		{
 			id: "search-teammates",
@@ -225,7 +242,7 @@ export function SearchCommand({
 					<Search className="size-4 shrink-0 text-muted-foreground" />
 					<div className="min-w-0">
 						<div className="truncate text-sm text-muted-foreground">
-							Search campaigns, files, or teammates
+							Search pages, posts, media, or teammates
 						</div>
 					</div>
 				</div>
@@ -327,15 +344,17 @@ function CommandPaletteItem({ entry }: { entry: CommandEntry }) {
 
 function getPath(entryId: string) {
 	switch (entryId) {
-		case "nav-overview":
+		case "nav-today":
 			return "/dashboard";
+		case "nav-create":
+			return "/dashboard/posts/new";
 		case "nav-campaigns":
 			return "/dashboard/campaigns";
 		case "nav-posts":
 			return "/dashboard/posts";
 		case "nav-calendar":
 			return "/dashboard/calendar";
-		case "nav-analytics":
+		case "nav-insights":
 			return "/dashboard/analytics";
 		case "nav-library":
 			return "/dashboard/library";

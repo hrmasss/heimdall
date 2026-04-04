@@ -34,7 +34,11 @@ function resolveDevApiTarget(env: Record<string, string>) {
 export default defineConfig(({ mode, isSsrBuild }) => {
 	// Load env from root directory
 	const env = loadEnv(mode, path.resolve(__dirname, "../.."), "");
-	const apiProxyTarget = resolveDevApiTarget(env);
+	const runtimeEnv = {
+		...process.env,
+		...env,
+	} as Record<string, string>;
+	const apiProxyTarget = resolveDevApiTarget(runtimeEnv);
 
 	return {
 		plugins: [react(), tailwindcss()],

@@ -90,6 +90,9 @@ jobs:
       - name: Typecheck frontend
         run: pnpm --dir apps/web typecheck
 
+      - name: Lint dashboard surfaces
+        run: pnpm --dir apps/web lint:dashboard
+
       - name: Build frontend
         env:
           VITE_API_URL: https://api.heimdall.social

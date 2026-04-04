@@ -1,7 +1,15 @@
+import { MoreHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { SurfaceCard } from "@/components/app/brand";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export function DashboardPageHeader({
@@ -9,12 +17,55 @@ export function DashboardPageHeader({
 	title,
 	description,
 	actions,
+	primaryAction,
+	secondaryActions,
+	overflowActions,
 }: {
 	eyebrow?: string;
 	title: string;
 	description: string;
 	actions?: ReactNode;
+	primaryAction?: ReactNode;
+	secondaryActions?: ReactNode;
+	overflowActions?: { label: string; action: ReactNode }[];
 }) {
+	const resolvedActions =
+		primaryAction || secondaryActions || overflowActions?.length ? (
+			<div className="flex flex-wrap items-center gap-1.5">
+				{secondaryActions}
+				{overflowActions?.length ? (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="outline"
+								size="icon-sm"
+								className="rounded-full"
+								aria-label="More actions"
+							>
+								<MoreHorizontal className="size-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							align="end"
+							className="min-w-44 rounded-2xl p-1.5"
+						>
+							{overflowActions.map((item) => (
+								<DropdownMenuItem
+									key={item.label}
+									className="rounded-xl px-3 py-2.5"
+								>
+									{item.action}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				) : null}
+				{primaryAction}
+			</div>
+		) : (
+			actions
+		);
+
 	return (
 		<div className="dashboard-page-header flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 			<div className="space-y-2.5">
@@ -32,8 +83,10 @@ export function DashboardPageHeader({
 					</p>
 				</div>
 			</div>
-			{actions ? (
-				<div className="flex flex-wrap items-center gap-1.5">{actions}</div>
+			{resolvedActions ? (
+				<div className="flex flex-wrap items-center gap-1.5">
+					{resolvedActions}
+				</div>
 			) : null}
 		</div>
 	);

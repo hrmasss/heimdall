@@ -1,15 +1,13 @@
 import {
-	AlertTriangle,
 	ArrowRight,
-	CalendarClock,
+	CalendarRange,
 	CheckCircle2,
 	Clock3,
-	Eye,
-	FileStack,
-	LineChart,
+	Flag,
+	FolderKanban,
+	Link2,
 	Plus,
-	Users2,
-	WandSparkles,
+	TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -25,79 +23,90 @@ import { formatPlatformLabel } from "@/lib/platforms";
 
 const metrics = [
 	{
-		title: "Planned launches",
-		value: "18",
-		detail: "Across 7 active campaigns",
-		delta: "+3 this week",
-		icon: FileStack,
+		title: "Scheduled today",
+		value: "6",
+		detail: "Posts already lined up",
+		delta: "2 need a final check",
+		icon: CalendarRange,
 	},
 	{
-		title: "Audience reach",
-		value: "4.8M",
-		detail: "Blended projection for this cycle",
-		delta: "+12.4% vs last cycle",
-		icon: Eye,
+		title: "Ideas in backlog",
+		value: "14",
+		detail: "Drafts waiting for a slot",
+		delta: "4 added this week",
+		icon: FolderKanban,
 		tone: "success" as const,
 	},
 	{
-		title: "Review throughput",
-		value: "7.1h",
-		detail: "Median time to approval",
-		delta: "-38 min improvement",
+		title: "Average daily time",
+		value: "38 min",
+		detail: "For the core owner workflow",
+		delta: "Down from 52 min",
 		icon: Clock3,
 	},
 	{
-		title: "Team utilization",
-		value: "86%",
-		detail: "Healthy distribution across pods",
-		delta: "2 editors overloaded",
-		icon: Users2,
-		tone: "warning" as const,
+		title: "Momentum",
+		value: "+18%",
+		detail: "Best-performing content vs last week",
+		delta: "LinkedIn is carrying most of the lift",
+		icon: TrendingUp,
 	},
 ];
 
-const launchBoard = [
+const attentionItems = [
 	{
-		title: "Spring narrative refresh",
-		status: "Ready",
-		owner: "Rina",
-		date: "Mar 10",
+		title: "Finalize the caption for the product tip carousel",
+		detail: "Instagram and LinkedIn can still go out today.",
+		label: "Needs attention",
 	},
 	{
-		title: "Founder memo thread",
-		status: "Review",
-		owner: "Imran",
-		date: "Mar 11",
+		title: "Choose a slot for the founder update",
+		detail: "It is still in backlog and fits best on Wednesday morning.",
+		label: "Schedule",
 	},
 	{
-		title: "Retail teaser reel",
-		status: "Blocked",
-		owner: "Pia",
-		date: "Mar 12",
+		title: "Reconnect one inactive destination",
+		detail: "Publishing is healthy overall, but one selected target dropped.",
+		label: "Setup",
 	},
 ];
 
-const automationStats = [
-	{ label: "Auto-assign owner", value: "93%" },
-	{ label: "Asset verification", value: "71%" },
-	{ label: "Approval reminders", value: "96%" },
+const todaySchedule = [
+	{
+		time: "09:30",
+		title: "Customer story carousel",
+		platforms: "Instagram, Facebook",
+		state: "Ready",
+	},
+	{
+		time: "13:00",
+		title: "Founder thought piece",
+		platforms: "LinkedIn",
+		state: "Needs review",
+	},
+	{
+		time: "17:15",
+		title: "Weekend teaser reel",
+		platforms: "Instagram, TikTok",
+		state: "Queued",
+	},
 ];
 
-const riskItems = [
+const lookAheadItems = [
 	{
-		label: "Retail teaser reel missing caption approval",
-		icon: AlertTriangle,
-		badgeClass: "pill pill-error",
+		title: "Best posting window tomorrow",
+		body: "LinkedIn between 9:00 and 11:00 is trending stronger than the rest of the week.",
+		icon: Flag,
 	},
 	{
-		label: "Founder memo thread waiting on legal review",
-		icon: Clock3,
-		badgeClass: "pill pill-warning",
+		title: "Strongest reusable asset",
+		body: "The recent customer quote card is worth adapting into one more post this week.",
+		icon: Link2,
 	},
 	{
-		label: "Auto-retry fixed yesterday’s asset sync issue",
+		title: "Next low-effort win",
+		body: "Turn two backlog ideas into scheduled posts and your next 5 days are covered.",
 		icon: CheckCircle2,
-		badgeClass: "pill pill-success",
 	},
 ];
 
@@ -112,10 +121,21 @@ export function DashboardOverview() {
 	return (
 		<div className="dashboard-page-stack space-y-6">
 			<DashboardPageHeader
-				eyebrow="Control room"
-				title="Overview"
-				description="A high-level view of campaign health, pending approvals, and the work most likely to slip this week."
-				actions={
+				eyebrow="Daily flow"
+				title="Today"
+				description="See what needs attention, finish the next post, and keep the week moving without getting buried in ops noise."
+				primaryAction={
+					<Button
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						asChild
+					>
+						<Link to="/dashboard/posts/new">
+							<Plus className="size-4" />
+							Create post
+						</Link>
+					</Button>
+				}
+				secondaryActions={
 					<>
 						<Button variant="outline" className="rounded-full" asChild>
 							<Link to="/dashboard/settings/platforms">
@@ -124,18 +144,9 @@ export function DashboardOverview() {
 							</Link>
 						</Button>
 						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/analytics">
-								<LineChart className="size-4" />
-								View analytics
-							</Link>
-						</Button>
-						<Button
-							className="rounded-full bg-gradient-brand text-white border-0"
-							asChild
-						>
-							<Link to="/dashboard/posts/new">
-								<Plus className="size-4" />
-								New post
+							<Link to="/dashboard/calendar">
+								<CalendarRange className="size-4" />
+								Open calendar
 							</Link>
 						</Button>
 					</>
@@ -145,7 +156,7 @@ export function DashboardOverview() {
 			<SurfaceCard
 				className={
 					setupNeeded
-						? "dashboard-card border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(195,123,79,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.76))]"
+						? "dashboard-card border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(31,122,114,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.78))]"
 						: "dashboard-card border border-[var(--brand-border-soft)] bg-background/72"
 				}
 			>
@@ -153,21 +164,21 @@ export function DashboardOverview() {
 					<div className="space-y-2">
 						<div className="text-lg font-medium">
 							{!socialHydrated
-								? "Checking workspace publishing health."
+								? "Checking your publishing setup."
 								: setupNeeded
-								? "Connect platforms before your team starts scheduling and publishing."
-								: "Platform connections are ready for day-to-day publishing."}
+									? "Connect platforms before you start scheduling live posts."
+									: "Publishing setup is ready for your daily workflow."}
 						</div>
 						<div className="max-w-3xl text-sm text-muted-foreground">
 							{!socialHydrated
 								? "Loading connected providers and selected publishing destinations for this workspace."
 								: setupNeeded
-								? "Planning and approvals already work without this, but connecting platforms unlocks posting on behalf of the workspace, scheduling into real channels, validation, and smoother operational follow-through."
-								: loadingConnections
-									? "Refreshing workspace publishing health."
-									: summary.connectedProviders.length > 0
-										? `Connected providers: ${summary.connectedProviders.map((provider) => formatPlatformLabel(provider)).join(", ")}.`
-										: "Connected providers are ready to manage from settings."}
+									? "You can still plan content right away, but connecting real destinations unlocks live scheduling, validation, and one-click publishing."
+									: loadingConnections
+										? "Refreshing publishing health."
+										: summary.connectedProviders.length > 0
+											? `Connected providers: ${summary.connectedProviders.map((provider) => formatPlatformLabel(provider)).join(", ")}.`
+											: "Connected providers are ready to manage from settings."}
 						</div>
 					</div>
 					<div className="flex flex-wrap gap-2">
@@ -177,7 +188,8 @@ export function DashboardOverview() {
 								: `${summary.healthyConnectionCount} healthy connection${summary.healthyConnectionCount === 1 ? "" : "s"}`}
 						</span>
 						<span className="pill pill-muted">
-							{socialHydrated ? summary.selectedTargetCount : "—"} selected target
+							{socialHydrated ? summary.selectedTargetCount : "—"} selected
+							target
 							{socialHydrated && summary.selectedTargetCount === 1 ? "" : "s"}
 						</span>
 					</div>
@@ -192,64 +204,65 @@ export function DashboardOverview() {
 
 			<div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
 				<DashboardPanel
-					title="Launch board"
-					description="Today’s critical launches and the approvals that still need intervention."
+					title="What to clear first"
+					description="A compact list of the few things most likely to unblock your week."
 					action={
 						<Button variant="ghost" className="rounded-full" asChild>
-							<Link to="/dashboard/posts">
-								Open posts
+							<Link to="/dashboard/posts/new">
+								Resume create flow
 								<ArrowRight className="size-4" />
 							</Link>
 						</Button>
 					}
 				>
-					<div className="dashboard-grid-gap grid gap-4 lg:grid-cols-3">
-						{launchBoard.map((item) => (
-							<SurfaceCard key={item.title} tone="muted" className="dashboard-card">
-								<div className="flex items-start justify-between gap-4">
-									<div>
-										<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-											{item.date}
-										</div>
-										<div className="mt-2 text-lg font-medium">{item.title}</div>
-									</div>
-									<div
-										className={
-											item.status === "Ready"
-												? "pill pill-success"
-												: item.status === "Review"
-													? "pill pill-warning"
-													: "pill pill-error"
-										}
-									>
-										{item.status}
+					<div className="space-y-3">
+						{attentionItems.map((item) => (
+							<div
+								key={item.title}
+								className="dashboard-card-sm flex items-start justify-between gap-4 border border-[var(--brand-border-soft)] bg-background/70"
+							>
+								<div className="min-w-0">
+									<div className="text-sm font-medium">{item.title}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{item.detail}
 									</div>
 								</div>
-								<div className="mt-6 text-sm text-muted-foreground">
-									Owner: {item.owner}
-								</div>
-							</SurfaceCard>
+								<span className="pill pill-info shrink-0">{item.label}</span>
+							</div>
 						))}
 					</div>
 				</DashboardPanel>
 
 				<DashboardPanel
-					title="Risks to clear"
-					description="Signals worth attention in the next 24 hours."
+					title="Today's schedule"
+					description="The posting plan stays visible without forcing a jump into another workflow."
 				>
 					<div className="space-y-3">
-						{riskItems.map((item) => (
+						{todaySchedule.map((item) => (
 							<div
-								key={item.label}
+								key={`${item.time}-${item.title}`}
 								className="dashboard-card-sm flex items-start gap-3 border border-[var(--brand-border-soft)] bg-background/70"
 							>
-								<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-									<item.icon className="size-4" />
+								<div className="flex h-10 min-w-14 items-center justify-center rounded-2xl bg-primary/10 px-3 text-sm font-semibold text-primary">
+									{item.time}
 								</div>
 								<div className="min-w-0 flex-1">
-									<div className="text-sm font-medium">{item.label}</div>
+									<div className="text-sm font-medium">{item.title}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{item.platforms}
+									</div>
 									<div className="mt-2">
-										<span className={item.badgeClass}>Needs review</span>
+										<span
+											className={
+												item.state === "Ready"
+													? "pill pill-success"
+													: item.state === "Queued"
+														? "pill pill-info"
+														: "pill pill-warning"
+											}
+										>
+											{item.state}
+										</span>
 									</div>
 								</div>
 							</div>
@@ -260,109 +273,62 @@ export function DashboardOverview() {
 
 			<div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
 				<DashboardPanel
-					title="Delivery curve"
-					description="A lightweight performance snapshot for this week."
+					title="Look ahead"
+					description="Small signals to help you decide what deserves the next 15 minutes."
 				>
-					<div className="dashboard-card border border-[var(--brand-border-soft)] bg-background/70">
-						<div className="flex h-60 items-end gap-3">
-							{[34, 42, 30, 68, 74, 58, 82].map((height, index) => (
-								<div
-									key={height}
-									className="flex flex-1 flex-col items-center gap-3"
-								>
-									<div
-										className="w-full rounded-t-[16px] bg-gradient-brand"
-										style={{ height: `${height * 2}px` }}
-									/>
-									<div className="text-xs text-muted-foreground">
-										{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]}
+					<div className="space-y-3">
+						{lookAheadItems.map((item) => (
+							<div
+								key={item.title}
+								className="dashboard-card-sm flex items-start gap-3 border border-[var(--brand-border-soft)] bg-background/70"
+							>
+								<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+									<item.icon className="size-4" />
+								</div>
+								<div>
+									<div className="text-sm font-medium">{item.title}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{item.body}
 									</div>
 								</div>
-							))}
-						</div>
+							</div>
+						))}
 					</div>
 				</DashboardPanel>
 
 				<DashboardPanel
-					title="Automation health"
-					description="Core routines now share the same visual language as the rest of the dashboard."
-					action={
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/automations">
-								<WandSparkles className="size-4" />
-								Manage rules
-							</Link>
-						</Button>
-					}
+					title="Keep the week covered"
+					description="A simple rhythm for owners who want results without living in the app."
 				>
-					<div className="dashboard-grid-gap grid gap-4 sm:grid-cols-3">
-						{automationStats.map((item) => (
+					<div className="grid gap-4 sm:grid-cols-3">
+						{[
+							{
+								label: "Check today",
+								copy: "Clear one blocker, confirm the next live posts, and move on.",
+							},
+							{
+								label: "Create once",
+								copy: "Use the shared composer, attach media, then customize only when needed.",
+							},
+							{
+								label: "Review results",
+								copy: "Use insights for next moves instead of getting lost in reporting.",
+							},
+						].map((item) => (
 							<SurfaceCard
 								key={item.label}
 								tone="muted"
-								className="dashboard-card text-center"
+								className="dashboard-card"
 							>
-								<div className="text-3xl font-semibold tracking-tight">
-									{item.value}
-								</div>
+								<div className="text-sm font-medium">{item.label}</div>
 								<div className="mt-2 text-sm text-muted-foreground">
-									{item.label}
+									{item.copy}
 								</div>
 							</SurfaceCard>
 						))}
 					</div>
-					<div className="dashboard-card-sm mt-4 border border-[var(--brand-border-soft)] bg-background/70 text-sm text-muted-foreground">
-						Daily summaries, reviewer nudges, and file checks all run in the
-						same command pattern. That consistency reduces cognitive load across
-						the workspace.
-					</div>
 				</DashboardPanel>
 			</div>
-
-			<DashboardPanel
-				title="This week’s cadence"
-				description="The product now includes real supporting pages beyond Overview, so navigation is no longer a dead end."
-			>
-				<div className="dashboard-grid-gap grid gap-4 md:grid-cols-3">
-					{[
-						{
-							icon: CalendarClock,
-							title: "Calendar",
-							description:
-								"Review sequencing across launch windows and approval checkpoints.",
-							href: "/dashboard/calendar",
-						},
-						{
-							icon: FileStack,
-							title: "Posts table",
-							description:
-								"Use the advanced table for dense operations work and responsive review.",
-							href: "/dashboard/posts",
-						},
-						{
-							icon: Users2,
-							title: "Team",
-							description:
-								"Check load, ownership, and workload distribution across the pod.",
-							href: "/dashboard/team",
-						},
-					].map((item) => (
-						<Link
-							key={item.title}
-							to={item.href}
-							className="dashboard-card border border-[var(--brand-border-soft)] bg-background/70 transition-transform hover:-translate-y-0.5"
-						>
-							<div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-								<item.icon className="size-5" />
-							</div>
-							<div className="mt-4 text-lg font-medium">{item.title}</div>
-							<p className="mt-2 text-sm leading-6 text-muted-foreground">
-								{item.description}
-							</p>
-						</Link>
-					))}
-				</div>
-			</DashboardPanel>
 		</div>
 	);
 }

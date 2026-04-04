@@ -3,6 +3,7 @@ import {
 	ChevronDown,
 	ChevronLeft,
 	Command,
+	FilePlus2,
 	FileStack,
 	FolderKanban,
 	Home,
@@ -44,20 +45,24 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useWorkspaceSetupReadiness } from "@/hooks/use-workspace-setup-readiness";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
+import { useWorkspaceSetupReadiness } from "@/hooks/use-workspace-setup-readiness";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
-const navigation = [
-	{ href: "/dashboard", label: "Overview", icon: Home },
-	{ href: "/dashboard/campaigns", label: "Campaigns", icon: Megaphone },
-	{ href: "/dashboard/posts", label: "Posts", icon: FileStack },
+const primaryNavigation = [
+	{ href: "/dashboard", label: "Today", icon: Home },
+	{ href: "/dashboard/posts/new", label: "Create", icon: FilePlus2 },
 	{ href: "/dashboard/calendar", label: "Calendar", icon: CalendarRange },
-	{ href: "/dashboard/analytics", label: "Analytics", icon: LineChart },
+	{ href: "/dashboard/analytics", label: "Insights", icon: LineChart },
+	{ href: "/dashboard/library", label: "Media", icon: FolderKanban },
 	{ href: "/dashboard/automations", label: "Automations", icon: WandSparkles },
+];
+
+const secondaryNavigation = [
+	{ href: "/dashboard/posts", label: "Posts", icon: FileStack },
+	{ href: "/dashboard/campaigns", label: "Campaigns", icon: Megaphone },
 	{ href: "/dashboard/studio", label: "Studio", icon: Sparkles },
-	{ href: "/dashboard/library", label: "Assets", icon: FolderKanban },
 	{ href: "/dashboard/team", label: "Team", icon: Users2 },
 	{ href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
@@ -145,11 +150,11 @@ function WorkspaceSwitcher({ compact }: { compact?: boolean }) {
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-				className={cn(
-					"flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-card-radius)] border border-[var(--brand-border-soft)] bg-background/75 p-[var(--density-dashboard-sidebar-card-padding)] text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
-					sidebarTransitionClass,
-					compact &&
-						"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
+					className={cn(
+						"flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-card-radius)] border border-[var(--brand-border-soft)] bg-background/75 p-[var(--density-dashboard-sidebar-card-padding)] text-left transition-[width,gap,padding,background-color] hover:bg-accent/60",
+						sidebarTransitionClass,
+						compact &&
+							"lg:mx-auto lg:size-[var(--density-dashboard-sidebar-compact-size)] lg:justify-center lg:gap-0",
 					)}
 					aria-label={
 						compact
@@ -246,7 +251,8 @@ function Sidebar({
 				className={cn(
 					"dashboard-sidebar fixed inset-y-0 left-0 z-40 overflow-x-hidden w-[var(--density-dashboard-sidebar-width)] bg-[color-mix(in_srgb,var(--sidebar)_70%,transparent)] px-[var(--density-dashboard-sidebar-shell-p)] py-[var(--density-dashboard-sidebar-shell-p)] backdrop-blur-[30px] transition-[width,transform,padding] lg:static lg:z-0 lg:h-full lg:shrink-0 lg:bg-transparent lg:px-[var(--density-dashboard-sidebar-shell-p)] lg:py-[var(--density-dashboard-sidebar-shell-p)] lg:backdrop-blur-none",
 					sidebarTransitionClass,
-					collapsed && "lg:w-[var(--density-dashboard-sidebar-collapsed-width)]",
+					collapsed &&
+						"lg:w-[var(--density-dashboard-sidebar-collapsed-width)]",
 					mobileOpen ? "translate-x-0" : "-translate-x-full",
 					"lg:translate-x-0",
 				)}
@@ -283,43 +289,21 @@ function Sidebar({
 							collapsed ? "pr-0" : "pr-1",
 						)}
 					>
-						{navigation.map((item) => {
-							const active =
-								item.href === "/dashboard"
-									? location.pathname === item.href
-									: location.pathname.startsWith(item.href);
-
-							return (
-								<SidebarTooltip
-									key={item.href}
-									disabled={!collapsed}
-									label={item.label}
-								>
-									<Link
-										to={item.href}
-										onClick={onClose}
-										aria-label={collapsed ? item.label : undefined}
-										className={cn(
-										"group flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-nav-radius)] px-[var(--density-dashboard-sidebar-nav-px)] py-[var(--density-dashboard-sidebar-nav-py)] text-sm transition-[width,gap,padding,background-color,color]",
-											sidebarTransitionClass,
-											active
-												? "bg-primary text-primary-foreground shadow-[0_14px_30px_-18px_var(--brand-glow-strong)]"
-												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-											collapsed &&
-												"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
-										)}
-									>
-										<item.icon className="size-5 shrink-0" />
-										<SidebarCopy
-											collapsed={collapsed}
-											className="whitespace-nowrap"
-										>
-											<span>{item.label}</span>
-										</SidebarCopy>
-									</Link>
-								</SidebarTooltip>
-							);
-						})}
+						<SidebarSection
+							collapsed={collapsed}
+							label="Core"
+							items={primaryNavigation}
+							locationPath={location.pathname}
+							onClose={onClose}
+						/>
+						<div className="my-3 border-t border-[var(--brand-border-soft)]" />
+						<SidebarSection
+							collapsed={collapsed}
+							label="Workspace"
+							items={secondaryNavigation}
+							locationPath={location.pathname}
+							onClose={onClose}
+						/>
 					</nav>
 
 					<div className="mt-4">
@@ -415,6 +399,64 @@ function Sidebar({
 				</div>
 			</aside>
 		</>
+	);
+}
+
+function SidebarSection({
+	collapsed,
+	label,
+	items,
+	locationPath,
+	onClose,
+}: {
+	collapsed: boolean;
+	label: string;
+	items: { href: string; label: string; icon: typeof Home }[];
+	locationPath: string;
+	onClose: () => void;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<SidebarCopy collapsed={collapsed} className="px-2 pb-1">
+				<div className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+					{label}
+				</div>
+			</SidebarCopy>
+			{items.map((item) => {
+				const active =
+					item.href === "/dashboard"
+						? locationPath === item.href
+						: locationPath.startsWith(item.href);
+
+				return (
+					<SidebarTooltip
+						key={item.href}
+						disabled={!collapsed}
+						label={item.label}
+					>
+						<Link
+							to={item.href}
+							onClick={onClose}
+							aria-label={collapsed ? item.label : undefined}
+							className={cn(
+								"group flex w-full items-center gap-3 overflow-hidden rounded-[var(--density-dashboard-sidebar-nav-radius)] px-[var(--density-dashboard-sidebar-nav-px)] py-[var(--density-dashboard-sidebar-nav-py)] text-sm transition-[width,gap,padding,background-color,color,border-color]",
+								sidebarTransitionClass,
+								active
+									? "border border-[color-mix(in_srgb,var(--brand-primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--brand-primary)_10%,var(--card)_90%)] text-foreground shadow-[0_10px_24px_-20px_var(--brand-glow-strong)]"
+									: "border border-transparent text-muted-foreground hover:bg-accent/55 hover:text-foreground",
+								collapsed &&
+									"lg:mx-auto lg:w-14 lg:justify-center lg:gap-0 lg:px-0",
+							)}
+						>
+							<item.icon className="size-5 shrink-0" />
+							<SidebarCopy collapsed={collapsed} className="whitespace-nowrap">
+								<span>{item.label}</span>
+							</SidebarCopy>
+						</Link>
+					</SidebarTooltip>
+				);
+			})}
+		</div>
 	);
 }
 
@@ -524,7 +566,7 @@ function TopBar({
 				</div>
 
 				<div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-					<div className="hidden w-[min(34vw,380px)] md:block">
+					<div className="hidden w-[min(30vw,320px)] md:block">
 						<SearchCommand
 							onOpenAssistant={onOpenAssistant}
 							className="w-full"
@@ -534,11 +576,14 @@ function TopBar({
 					<AlertInbox />
 					<Button
 						type="button"
+						variant="outline"
 						className="assistant-launch rounded-full px-3"
 						onClick={onOpenAssistant}
 					>
 						<WandSparkles className="assistant-launch__icon size-4" />
-						<span className="assistant-launch__title">Mira</span>
+						<span className="assistant-launch__title hidden sm:inline">
+							Ask Mira
+						</span>
 					</Button>
 				</div>
 			</div>
@@ -556,11 +601,8 @@ export function DashboardLayout() {
 	const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
 	const location = useLocation();
 	const { hydrated, readiness } = useWorkspaceSetupReadiness();
-	const {
-		customerSession,
-		activeWorkspaceId,
-		activeWorkspaceMembership,
-	} = useAuth();
+	const { customerSession, activeWorkspaceId, activeWorkspaceMembership } =
+		useAuth();
 	const compactSetupBanner =
 		location.pathname.startsWith("/dashboard/library") ||
 		location.pathname.startsWith("/dashboard/studio");
@@ -648,7 +690,8 @@ export function DashboardLayout() {
 													) : (
 														<>
 															Setup progress: {readiness.completedStepCount}/
-															{readiness.requiredStepCount} recommended steps complete.
+															{readiness.requiredStepCount} recommended steps
+															complete.
 															<span className="ml-1">{readiness.summary}</span>
 														</>
 													)}
@@ -667,7 +710,10 @@ export function DashboardLayout() {
 														size="sm"
 														className="rounded-full text-sky-900 hover:bg-background/60 dark:text-sky-100 dark:hover:bg-background/40"
 														onClick={() => {
-															if (!activeWorkspaceId || typeof window === "undefined") {
+															if (
+																!activeWorkspaceId ||
+																typeof window === "undefined"
+															) {
 																return;
 															}
 															window.localStorage.setItem(

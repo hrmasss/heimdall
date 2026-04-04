@@ -1,10 +1,10 @@
 import {
+	type ReactNode,
 	createContext,
 	useContext,
 	useEffect,
 	useMemo,
 	useState,
-	type ReactNode,
 } from "react";
 
 export type DisplayDensity = "comfortable" | "compact";
@@ -23,11 +23,11 @@ const DisplayDensityContext = createContext<
 
 function resolveInitialDensity(): DisplayDensity {
 	if (typeof window === "undefined") {
-		return "comfortable";
+		return "compact";
 	}
 
 	const stored = window.localStorage.getItem(STORAGE_KEY);
-	return stored === "compact" ? "compact" : "comfortable";
+	return stored === "comfortable" ? "comfortable" : "compact";
 }
 
 function applyDensity(density: DisplayDensity) {
@@ -96,4 +96,3 @@ export function useDisplayDensity() {
 
 	return context;
 }
-
