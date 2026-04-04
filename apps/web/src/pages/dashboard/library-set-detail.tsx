@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { AssetWorkspaceShell } from "@/components/app/asset-workspace";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import {
 	ResourceSetCover,
@@ -145,61 +146,11 @@ export function DashboardLibrarySetDetailPage() {
 				</SurfaceCard>
 			) : null}
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_360px]">
-				<div className="space-y-6">
-					<SurfaceCard className="overflow-hidden p-0">
-						<div className="aspect-[16/9] overflow-hidden bg-muted">
-							{resourceSet ? <ResourceSetCover set={resourceSet} /> : null}
-						</div>
-						<div className="space-y-4 p-5">
-							<div className="flex flex-wrap items-center gap-2">
-								{resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : null}
-								<Badge variant="outline" className="rounded-full">
-									{resourceSet?.itemCount ?? 0} items
-								</Badge>
-								{resourceSet ? (
-									<Badge variant="outline" className="rounded-full capitalize">
-										{resourceSet.sourceType.replaceAll("_", " ")}
-									</Badge>
-								) : null}
-							</div>
-							<div className="text-sm text-muted-foreground">
-								{resourceSet?.description || "No description yet."}
-							</div>
-							{resourceSet ? (
-								<ResourceSetMembersPreview
-									resources={resourceSet.items.map((item) => item.resource)}
-									max={6}
-								/>
-							) : null}
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5 md:p-6">
-						<div className="space-y-1">
-							<h2 className="text-lg font-semibold tracking-tight">Ordered members</h2>
-							<p className="text-sm text-muted-foreground">
-								The sequence here is the same order reused by pickers and post flows.
-							</p>
-						</div>
-						<div className="mt-5">
-							{loading || !resourceSet ? (
-								<div className="text-sm text-muted-foreground">
-									Loading members...
-								</div>
-							) : (
-								<ResourceSetItemList
-									items={resourceSet.items}
-									onOpenResource={(resourceId) =>
-										navigate(`/dashboard/library/${resourceId}`)
-									}
-								/>
-							)}
-						</div>
-					</SurfaceCard>
-				</div>
-
-				<div className="space-y-6 xl:sticky xl:top-[var(--density-dashboard-sticky-top)] xl:self-start">
+			<AssetWorkspaceShell
+				railTitle="Collection context"
+				railDescription="Overview stats stay nearby while ordered members remain the main focus."
+				railTriggerLabel="Open collection context"
+				rail={
 					<SurfaceCard className="p-5">
 						<div className="space-y-4">
 							<div className="flex items-center gap-2">
@@ -235,8 +186,95 @@ export function DashboardLibrarySetDetailPage() {
 							)}
 						</div>
 					</SurfaceCard>
+				}
+			>
+				<div className="space-y-6">
+					<SurfaceCard className="overflow-hidden p-0">
+						<div className="aspect-[16/9] overflow-hidden bg-muted">
+							{resourceSet ? <ResourceSetCover set={resourceSet} /> : null}
+						</div>
+						<div className="space-y-4 p-5">
+							<div className="flex flex-wrap items-center gap-2">
+								{resourceSet ? <ResourceSetIntentBadge set={resourceSet} /> : null}
+								<Badge variant="outline" className="rounded-full">
+									{resourceSet?.itemCount ?? 0} items
+								</Badge>
+								{resourceSet ? (
+									<Badge variant="outline" className="rounded-full capitalize">
+										{resourceSet.sourceType.replaceAll("_", " ")}
+									</Badge>
+								) : null}
+							</div>
+							<div className="text-sm text-muted-foreground">
+								{resourceSet?.description || "No description yet."}
+							</div>
+							{resourceSet ? (
+								<ResourceSetMembersPreview
+									resources={resourceSet.items.map((item) => item.resource)}
+									max={6}
+								/>
+							) : null}
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard className="asset-summary-band p-5 md:p-6">
+						<div className="grid gap-3 sm:grid-cols-3">
+							<StatChip
+								label="Members"
+								value={String(resourceSet?.itemCount ?? 0)}
+								detail="Ordered reusable assets"
+							/>
+							<StatChip
+								label="Intent"
+								value={
+									resourceSet
+										? resourceSet.intentType === "social_surface"
+											? `${resourceSet.intentPlatform} · ${resourceSet.intentSurface}`
+											: "Generic"
+										: "Loading..."
+								}
+								detail="How this collection is meant to be reused"
+							/>
+							<StatChip
+								label="Updated"
+								value={
+									resourceSet
+										? new Date(resourceSet.updatedAt).toLocaleDateString()
+										: "Loading..."
+								}
+								detail={
+									resourceSet
+										? `Created ${formatResourceDate(resourceSet.createdAt)}`
+										: " "
+								}
+							/>
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard className="p-5 md:p-6">
+						<div className="space-y-1">
+							<h2 className="text-lg font-semibold tracking-tight">Ordered members</h2>
+							<p className="text-sm text-muted-foreground">
+								The sequence here is the same order reused by pickers and post flows.
+							</p>
+						</div>
+						<div className="mt-5">
+							{loading || !resourceSet ? (
+								<div className="text-sm text-muted-foreground">
+									Loading members...
+								</div>
+							) : (
+								<ResourceSetItemList
+									items={resourceSet.items}
+									onOpenResource={(resourceId) =>
+										navigate(`/dashboard/library/${resourceId}`)
+									}
+								/>
+							)}
+						</div>
+					</SurfaceCard>
 				</div>
-			</div>
+			</AssetWorkspaceShell>
 		</div>
 	);
 }

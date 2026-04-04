@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { AssetWorkspaceShell } from "@/components/app/asset-workspace";
 import { DashboardPageHeader } from "@/components/app/dashboard";
 import {
 	ResourceCompatibilityBadge,
@@ -231,7 +232,70 @@ export function DashboardLibraryDetailPage() {
 				</SurfaceCard>
 			) : null}
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_360px]">
+			<AssetWorkspaceShell
+				railTitle="Asset context"
+				railDescription="Derivatives and related collections stay nearby without overtaking the main asset view."
+				railTriggerLabel="Open asset context"
+				rail={
+					<>
+						<SurfaceCard className="p-5">
+							<div className="space-y-4">
+								<div className="text-lg font-semibold">Derivatives</div>
+								<div className="text-sm text-muted-foreground">
+									Child variants stay linked here so alternate crops and outputs remain easy to reuse.
+								</div>
+								{resource?.variants.length ? (
+									<div className="space-y-3">
+										{resource.variants.map((variant) => (
+											<Link
+												key={variant.id}
+												to={`/dashboard/library/${variant.id}`}
+												className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
+											>
+												<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+													<ResourceThumb resource={variant} variant="compact" />
+												</div>
+												<div className="min-w-0 flex-1">
+													<div className="truncate font-medium">{variant.displayName}</div>
+													<div className="mt-1 text-sm text-muted-foreground">
+														{formatResourceMeta(variant)}
+													</div>
+												</div>
+											</Link>
+										))}
+									</div>
+								) : (
+									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+										No derivatives yet. Use Studio to create the first reusable variant.
+									</div>
+								)}
+							</div>
+						</SurfaceCard>
+
+						<SurfaceCard className="p-5">
+							<div className="space-y-4">
+								<div className="text-lg font-semibold">Collections</div>
+								<div className="text-sm text-muted-foreground">
+									Ordered bundles that already include this asset.
+								</div>
+								{resource?.sets?.length ? (
+									<div className="space-y-3">
+										{resource.sets.map((set) => (
+											<Link key={set.id} to={`/dashboard/library/sets/${set.id}`}>
+												<ResourceSetSummaryStrip set={set} />
+											</Link>
+										))}
+									</div>
+								) : (
+									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+										This asset is not part of a collection yet.
+									</div>
+								)}
+							</div>
+						</SurfaceCard>
+					</>
+				}
+			>
 				<div className="space-y-6">
 					<SurfaceCard className="overflow-hidden p-0">
 						<div className="p-5">{resource ? <ResourceViewer resource={resource} /> : null}</div>
@@ -299,6 +363,78 @@ export function DashboardLibraryDetailPage() {
 										</DropdownMenu>
 									</div>
 								) : null}
+							</div>
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard className="asset-summary-band p-5 md:p-6">
+						<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+							<div className="space-y-1">
+								<h2 className="text-lg font-semibold tracking-tight">Reuse summary</h2>
+								<p className="text-sm text-muted-foreground">
+									See how this asset is already working before you create another variant.
+								</p>
+							</div>
+							{resource ? (
+								<div className="grid gap-3 sm:grid-cols-3">
+									<StatChip label="Used in posts" value={String(resource.usageCount)} />
+									<StatChip label="In collections" value={String(resource.setCount)} />
+									<StatChip label="Variants" value={String(resource.childCount)} />
+								</div>
+							) : (
+								<div className="text-sm text-muted-foreground">Loading reuse…</div>
+							)}
+						</div>
+					</SurfaceCard>
+
+					<SurfaceCard className="p-5">
+						<div className="space-y-4">
+							<div>
+								<div className="text-lg font-semibold">Transform</div>
+								<div className="mt-1 text-sm text-muted-foreground">
+									Launch the next prep task without starting from a blank Studio state.
+								</div>
+							</div>
+							<div className="grid gap-3 lg:grid-cols-2">
+								{resource
+									? transformTools.map((tool) =>
+											tool.status === "live" ? (
+												<Link
+													key={tool.value}
+													to={buildStudioHref({
+														resourceId: resource.id,
+														mode: getStudioModeForResource(resource),
+														tool: tool.value,
+														source: "detail",
+													})}
+													className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 transition-colors hover:bg-accent/20"
+												>
+													<div className="flex items-center justify-between gap-3">
+														<div className="font-medium">{tool.label}</div>
+														<Sparkles className="size-4 text-primary" />
+													</div>
+													<div className="mt-2 text-sm text-muted-foreground">
+														{tool.description}
+													</div>
+												</Link>
+											) : (
+												<div
+													key={tool.value}
+													className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4"
+												>
+													<div className="flex items-center justify-between gap-3">
+														<div className="font-medium">{tool.label}</div>
+														<Badge variant="outline" className="rounded-full">
+															Soon
+														</Badge>
+													</div>
+													<div className="mt-2 text-sm text-muted-foreground">
+														{tool.description}
+													</div>
+												</div>
+											),
+										)
+									: null}
 							</div>
 						</div>
 					</SurfaceCard>
@@ -407,137 +543,7 @@ export function DashboardLibraryDetailPage() {
 						) : null}
 					</SurfaceCard>
 				</div>
-
-				<div className="space-y-6 xl:sticky xl:top-[var(--density-dashboard-sticky-top)] xl:self-start">
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div>
-								<div className="text-lg font-semibold">Reuse</div>
-								<div className="mt-1 text-sm text-muted-foreground">
-									How this asset is already working inside the workspace.
-								</div>
-							</div>
-							{resource ? (
-								<div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-									<StatChip label="Used in posts" value={String(resource.usageCount)} />
-									<StatChip label="In collections" value={String(resource.setCount)} />
-									<StatChip label="Variants" value={String(resource.childCount)} />
-								</div>
-							) : (
-								<div className="text-sm text-muted-foreground">Loading reuse…</div>
-							)}
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div>
-								<div className="text-lg font-semibold">Transform</div>
-								<div className="mt-1 text-sm text-muted-foreground">
-									Launch the next prep task without starting from a blank studio.
-								</div>
-							</div>
-							<div className="space-y-3">
-								{resource
-									? transformTools.map((tool) =>
-											tool.status === "live" ? (
-												<Link
-													key={tool.value}
-													to={buildStudioHref({
-														resourceId: resource.id,
-														mode: getStudioModeForResource(resource),
-														tool: tool.value,
-														source: "detail",
-													})}
-													className="block rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4 transition-colors hover:bg-accent/20"
-												>
-													<div className="flex items-center justify-between gap-3">
-														<div className="font-medium">{tool.label}</div>
-														<Sparkles className="size-4 text-primary" />
-													</div>
-													<div className="mt-2 text-sm text-muted-foreground">
-														{tool.description}
-													</div>
-												</Link>
-											) : (
-												<div
-													key={tool.value}
-													className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/55 p-4"
-												>
-													<div className="flex items-center justify-between gap-3">
-														<div className="font-medium">{tool.label}</div>
-														<Badge variant="outline" className="rounded-full">
-															Soon
-														</Badge>
-													</div>
-													<div className="mt-2 text-sm text-muted-foreground">
-														{tool.description}
-													</div>
-												</div>
-											),
-										)
-									: null}
-							</div>
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div className="text-lg font-semibold">Derivatives</div>
-							<div className="text-sm text-muted-foreground">
-								Child variants stay linked here so alternate crops and outputs remain easy to reuse.
-							</div>
-							{resource?.variants.length ? (
-								<div className="space-y-3">
-									{resource.variants.map((variant) => (
-										<Link
-											key={variant.id}
-											to={`/dashboard/library/${variant.id}`}
-											className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3 transition-colors hover:bg-accent/20"
-										>
-											<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-												<ResourceThumb resource={variant} variant="compact" />
-											</div>
-											<div className="min-w-0 flex-1">
-												<div className="truncate font-medium">{variant.displayName}</div>
-												<div className="mt-1 text-sm text-muted-foreground">
-													{formatResourceMeta(variant)}
-												</div>
-											</div>
-										</Link>
-									))}
-								</div>
-							) : (
-								<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-									No derivatives yet. Use Studio to create the first reusable variant.
-								</div>
-							)}
-						</div>
-					</SurfaceCard>
-
-					<SurfaceCard className="p-5">
-						<div className="space-y-4">
-							<div className="text-lg font-semibold">Collections</div>
-							<div className="text-sm text-muted-foreground">
-								Ordered bundles that already include this asset.
-							</div>
-							{resource?.sets?.length ? (
-								<div className="space-y-3">
-									{resource.sets.map((set) => (
-										<Link key={set.id} to={`/dashboard/library/sets/${set.id}`}>
-											<ResourceSetSummaryStrip set={set} />
-										</Link>
-									))}
-								</div>
-							) : (
-								<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-									This asset is not part of a collection yet.
-								</div>
-							)}
-						</div>
-					</SurfaceCard>
-				</div>
-			</div>
+			</AssetWorkspaceShell>
 		</div>
 	);
 }

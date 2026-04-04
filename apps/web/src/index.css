@@ -926,6 +926,74 @@ body {
 		);
 }
 
+.customer-dashboard-shell .asset-command-surface {
+	border: 1px solid var(--brand-border-soft);
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-highlight) 14%, transparent),
+			transparent 42%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 95%, transparent) 0%,
+			color-mix(in srgb, var(--card) 86%, var(--background) 14%) 100%
+		);
+	box-shadow: 0 20px 52px -40px color-mix(in srgb, var(--brand-ink) 36%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+}
+
+.customer-dashboard-shell .asset-summary-band {
+	border: 1px solid var(--brand-border-soft);
+	background: color-mix(in srgb, var(--card) 90%, transparent);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.customer-dashboard-shell .asset-inline-stat {
+	border: 1px solid var(--brand-border-soft);
+	background: color-mix(in srgb, var(--background) 72%, transparent);
+}
+
+.customer-dashboard-shell .asset-rail-sheet {
+	border-left: 1px solid var(--brand-border-soft);
+	background:
+		radial-gradient(
+			circle at top right,
+			color-mix(in srgb, var(--brand-highlight) 16%, transparent),
+			transparent 34%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 97%, transparent) 0%,
+			color-mix(in srgb, var(--card) 88%, var(--background) 12%) 100%
+		);
+}
+
+.customer-dashboard-shell .studio-context-strip {
+	border: 1px solid var(--brand-border-soft);
+	background:
+		radial-gradient(
+			circle at top left,
+			color-mix(in srgb, var(--brand-primary) 12%, transparent),
+			transparent 40%
+		),
+		linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--card) 95%, transparent) 0%,
+			color-mix(in srgb, var(--card) 86%, var(--background) 14%) 100%
+		);
+}
+
+.customer-dashboard-shell .studio-context-chip {
+	border: 1px solid var(--brand-border-soft);
+	background: color-mix(in srgb, var(--background) 70%, transparent);
+}
+
+.customer-dashboard-shell .studio-inspector-section {
+	border: 1px solid var(--brand-border-soft);
+	background: color-mix(in srgb, var(--card) 90%, transparent);
+}
+
 .customer-dashboard-shell .calendar-day-muted {
 	background: color-mix(in srgb, var(--muted) 38%, transparent);
 }

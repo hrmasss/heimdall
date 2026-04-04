@@ -15,7 +15,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { SurfaceCard, StatChip } from "@/components/app/brand";
+import { SurfaceCard } from "@/components/app/brand";
+import {
+	AssetCommandBar,
+	AssetWorkspaceShell,
+} from "@/components/app/asset-workspace";
 import { DashboardPageHeader, DashboardPanel } from "@/components/app/dashboard";
 import {
 	LocalFileThumb,
@@ -208,16 +212,12 @@ function AssetCard({
 						</div>
 						<QuietHealthBadge resource={resource} />
 					</div>
-					<div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-						<Badge variant="outline" className="rounded-full capitalize">
-							{resource.mediaKind}
-						</Badge>
-						<Badge variant="outline" className="rounded-full">
-							{formatResourceMeta(resource)}
-						</Badge>
-						<Badge variant="outline" className="rounded-full">
-							{resource.usageCount} reuses
-						</Badge>
+					<div
+						className="truncate text-sm text-muted-foreground"
+						title={`${resource.mediaKind} • ${formatResourceMeta(resource)} • ${resource.usageCount} reuses`}
+					>
+						<span className="capitalize">{resource.mediaKind}</span> •{" "}
+						{formatResourceMeta(resource)} • {resource.usageCount} reuses
 					</div>
 				</div>
 			</button>
@@ -695,7 +695,7 @@ export function DashboardLibrary() {
 	const uploadReadyCount = queue.filter((item) => item.status === "pending").length;
 
 	const rail = (
-		<div className="space-y-5 xl:sticky xl:top-[var(--density-dashboard-sticky-top)]">
+		<div className="space-y-5">
 			<DashboardPanel
 				title="Transform with Studio"
 				description="Open the editor already scoped to the job you want done."
@@ -848,119 +848,76 @@ export function DashboardLibrary() {
 				}}
 			/>
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-				<div className="space-y-6">
-					<SurfaceCard className="overflow-hidden">
-						<div className="relative space-y-6">
-							<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--brand-primary)_12%,transparent),transparent_42%),radial-gradient(circle_at_85%_20%,color-mix(in_srgb,var(--brand-secondary)_12%,transparent),transparent_36%)]" />
-							<div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
-								<div className="space-y-4">
-									<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--brand-accent)]">
-										Shared media, calmer by default
-									</div>
-									<div className="space-y-2">
-										<h2 className="text-2xl font-semibold tracking-tight">
-											Find it, reuse it, prep it.
-										</h2>
-										<p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-											The library stays focused on reusable single assets first.
-											Collections, compatibility detail, and future transforms stay
-											close by without crowding the main path.
-										</p>
-									</div>
-									<div className="flex flex-wrap gap-2">
-										<Button
-											className="rounded-full border-0 bg-gradient-brand text-white"
-											onClick={() => fileInputRef.current?.click()}
-										>
-											<Upload className="size-4" />
-											Upload asset
-										</Button>
-										<Button
-											variant="outline"
-											className="rounded-full"
-											onClick={() => setView("collections")}
-										>
-											<FolderKanban className="size-4" />
-											Collections
-										</Button>
-									</div>
-								</div>
-								<div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-									<StatChip
-										label="Assets"
-										value={String(resources.length)}
-										detail="Reusable single media entries"
-									/>
-									<StatChip
-										label="Ready"
-										value={String(readyAssets)}
-										detail="Assets ready for most publishing flows"
-									/>
-									<StatChip
-										label="Collections"
-										value={String(resourceSets.length)}
-										detail="Ordered groups for carousels and bundles"
-									/>
-								</div>
-							</div>
-						</div>
-					</SurfaceCard>
-
-					<DashboardPanel
-						title="Command strip"
-						description="Upload, search, and move between reusable assets and collections without turning the page into a control panel."
-					>
+			<AssetWorkspaceShell
+				commandBar={
+					<AssetCommandBar>
 						<div className="flex flex-col gap-4">
-							<div className="flex flex-wrap items-center gap-2">
-								<Button
-									variant={view === "assets" ? "secondary" : "outline"}
-									size="sm"
-									className="rounded-full"
-									onClick={() => setView("assets")}
-								>
-									<ImagePlus className="size-4" />
-									Assets
-								</Button>
-								<Button
-									variant={view === "collections" ? "secondary" : "outline"}
-									size="sm"
-									className="rounded-full"
-									onClick={() => setView("collections")}
-								>
-									<FolderKanban className="size-4" />
-									Collections
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									className="rounded-full"
-									onClick={() => setUploadTrayOpen((current) => !current)}
-								>
-									<Upload className="size-4" />
-									{queue.length > 0
-										? `Upload tray (${queue.length})`
-										: "Upload tray"}
-									<ChevronDown
-										className={cn(
-											"size-4 transition-transform",
-											uploadTrayOpen && "rotate-180",
-										)}
-									/>
-								</Button>
-								{view === "collections" ? (
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<div className="flex flex-wrap items-center gap-2">
+									<Button
+										variant={view === "assets" ? "secondary" : "outline"}
+										size="sm"
+										className="rounded-full"
+										onClick={() => setView("assets")}
+									>
+										<ImagePlus className="size-4" />
+										Assets
+									</Button>
+									<Button
+										variant={view === "collections" ? "secondary" : "outline"}
+										size="sm"
+										className="rounded-full"
+										onClick={() => setView("collections")}
+									>
+										<FolderKanban className="size-4" />
+										Collections
+									</Button>
 									<Button
 										variant="outline"
 										size="sm"
 										className="rounded-full"
-										onClick={() => navigate("/dashboard/library/sets/new")}
+										onClick={() => setUploadTrayOpen((current) => !current)}
 									>
-										Create collection
+										<Upload className="size-4" />
+										{queue.length > 0
+											? `Upload tray (${queue.length})`
+											: "Upload tray"}
+										<ChevronDown
+											className={cn(
+												"size-4 transition-transform",
+												uploadTrayOpen && "rotate-180",
+											)}
+										/>
 									</Button>
-								) : null}
+									{view === "collections" ? (
+										<Button
+											variant="outline"
+											size="sm"
+											className="rounded-full"
+											onClick={() => navigate("/dashboard/library/sets/new")}
+										>
+											Create collection
+										</Button>
+									) : null}
+								</div>
+
+								<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+									<div className="asset-inline-stat rounded-full px-3 py-1.5">
+										<span className="font-medium text-foreground">{resources.length}</span>{" "}
+										assets
+									</div>
+									<div className="asset-inline-stat rounded-full px-3 py-1.5">
+										<span className="font-medium text-foreground">{readyAssets}</span>{" "}
+										ready
+									</div>
+									<div className="asset-inline-stat rounded-full px-3 py-1.5">
+										<span className="font-medium text-foreground">{resourceSets.length}</span>{" "}
+										collections
+									</div>
+								</div>
 							</div>
 
-							<div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+							<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
 								<div className="relative">
 									<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 									<Input
@@ -995,7 +952,13 @@ export function DashboardLibrary() {
 								) : null}
 							</div>
 						</div>
-					</DashboardPanel>
+					</AssetCommandBar>
+				}
+				rail={rail}
+				railTitle="Library context"
+				railDescription="Studio shortcuts, recent collections, and recent activity stay nearby without crowding the main feed."
+				railTriggerLabel="Open library context"
+			>
 
 					{uploadTrayOpen || queue.length > 0 ? (
 						<DashboardPanel
@@ -1154,8 +1117,8 @@ export function DashboardLibrary() {
 									))
 								)}
 							</div>
-						</DashboardPanel>
-					) : null}
+							</DashboardPanel>
+						) : null}
 
 					{error ? (
 						<SurfaceCard className="border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
@@ -1232,10 +1195,7 @@ export function DashboardLibrary() {
 							</div>
 						)}
 					</DashboardPanel>
-				</div>
-
-				<div className="space-y-6">{rail}</div>
-			</div>
+			</AssetWorkspaceShell>
 		</div>
 	);
 }

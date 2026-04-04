@@ -12,6 +12,10 @@ import { toast } from "sonner";
 
 import { SurfaceCard } from "@/components/app/brand";
 import {
+	AssetCommandBar,
+	AssetWorkspaceShell,
+} from "@/components/app/asset-workspace";
+import {
 	DashboardPageHeader,
 	DashboardPanel,
 } from "@/components/app/dashboard";
@@ -22,6 +26,11 @@ import {
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -116,6 +125,7 @@ export function DashboardStudio() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	const [advancedOpen, setAdvancedOpen] = useState(false);
 
 	const [imagePrompt, setImagePrompt] = useState("");
 	const [imageAspectRatio, setImageAspectRatio] = useState("1:1");
@@ -421,6 +431,298 @@ export function DashboardStudio() {
 		setSearchParams(nextParams, { replace: true });
 	}
 
+	const inspector = (
+		<DashboardPanel
+			title="Tool settings"
+			description="Keep the essentials close, and open deeper controls only when the current task needs them."
+			className="h-fit"
+		>
+			<div className="space-y-5">
+				<SurfaceCard className="studio-inspector-section space-y-4 p-5">
+					<div className="space-y-2">
+						<div className="text-sm font-medium">Task family</div>
+						<div className="text-xs text-muted-foreground">
+							Choose the kind of output you are preparing.
+						</div>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						{(Object.keys(studioModeMeta) as StudioMode[]).map((modeValue) => {
+							const Icon = toolIcon(modeValue);
+							return (
+								<Button
+									key={modeValue}
+									variant={modeValue === mode ? "default" : "outline"}
+									size="sm"
+									className="h-10 rounded-full px-3 text-sm"
+									onClick={() =>
+										updateStudioSearchParams({
+											mode: modeValue,
+											tool: getDefaultStudioTool(modeValue),
+										})
+									}
+								>
+									<Icon className="size-4" />
+									{studioModeMeta[modeValue].label}
+								</Button>
+							);
+						})}
+					</div>
+					<div className="grid gap-2">
+						{studioToolsByMode[mode].map((tool) => (
+							<Button
+								key={tool.value}
+								variant={tool.value === activeTool.value ? "secondary" : "outline"}
+								className="h-auto justify-start rounded-[20px] px-4 py-3 text-left whitespace-normal"
+								disabled={tool.status === "soon"}
+								onClick={() => updateStudioSearchParams({ tool: tool.value })}
+							>
+								<div className="min-w-0 flex-1">
+									<div className="font-medium">{tool.label}</div>
+									<div className="mt-1 text-xs text-muted-foreground">
+										{tool.description}
+									</div>
+								</div>
+								{tool.status === "soon" ? (
+									<Badge variant="outline" className="rounded-full">
+										Soon
+									</Badge>
+								) : (
+									<WandSparkles className="size-4 shrink-0 text-primary" />
+								)}
+							</Button>
+						))}
+					</div>
+				</SurfaceCard>
+
+				<SurfaceCard className="studio-inspector-section space-y-4 p-5">
+					<div>
+						<div className="text-sm font-medium">Essentials</div>
+						<div className="mt-1 text-xs text-muted-foreground">
+							Source, direction, and the few settings most users need first.
+						</div>
+					</div>
+
+					{selectedResource ? (
+						<div className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3">
+							<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
+								<ResourceThumb resource={selectedResource} variant="compact" />
+							</div>
+							<div className="min-w-0 flex-1">
+								<div className="truncate font-medium">{selectedResource.displayName}</div>
+								<div className="mt-1 text-sm text-muted-foreground">
+									{formatResourceMeta(selectedResource)}
+								</div>
+							</div>
+						</div>
+					) : (
+						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
+							Open Studio from the library, or pick a source asset here.
+						</div>
+					)}
+
+					{mode === "image" ? (
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<Label>Prompt</Label>
+								<Textarea
+									value={imagePrompt}
+									onChange={(event) => setImagePrompt(event.target.value)}
+									className="min-h-28 rounded-[24px]"
+									placeholder={toolPromptPlaceholder(mode, activeTool.value)}
+								/>
+							</div>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<div className="space-y-2">
+									<Label>Aspect ratio</Label>
+									<Select value={imageAspectRatio} onValueChange={setImageAspectRatio}>
+										<SelectTrigger className="h-11 rounded-2xl">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{Object.keys(imageAspectRatios).map((ratio) => (
+												<SelectItem key={ratio} value={ratio}>
+													{ratio}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-2">
+									<Label>References</Label>
+									<ResourcePicker
+										resources={imageResources}
+										value={imageReferenceIds}
+										onChange={setImageReferenceIds}
+										triggerLabel="Choose references"
+										emptyMessage="Upload image assets in the library first."
+										allowUpload
+										onResourcesCreated={addUploadedResources}
+									/>
+								</div>
+							</div>
+						</div>
+					) : null}
+
+					{mode === "pdf" ? (
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<Label>Title</Label>
+								<Input
+									value={pdfTitle}
+									onChange={(event) => setPdfTitle(event.target.value)}
+									className="h-11 rounded-2xl"
+									placeholder="The 5 systems behind consistent content operations"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Subtitle</Label>
+								<Input
+									value={pdfSubtitle}
+									onChange={(event) => setPdfSubtitle(event.target.value)}
+									className="h-11 rounded-2xl"
+									placeholder="Optional supporting subtitle"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Pages</Label>
+								<Textarea
+									value={pdfPages}
+									onChange={(event) => setPdfPages(event.target.value)}
+									className="min-h-40 rounded-[24px]"
+									placeholder={toolPromptPlaceholder(mode, activeTool.value)}
+								/>
+							</div>
+						</div>
+					) : null}
+
+					{mode === "reel" ? (
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<Label>Source video</Label>
+								<ResourcePicker
+									resources={videoResources}
+									value={reelVideoIds}
+									onChange={(next) => setReelVideoIds(next.slice(0, 1))}
+									triggerLabel="Choose video"
+									emptyMessage="Upload a video asset in the library first."
+									allowUpload
+									onResourcesCreated={addUploadedResources}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Caption / direction</Label>
+								<Textarea
+									value={reelCaption}
+									onChange={(event) => setReelCaption(event.target.value)}
+									className="min-h-28 rounded-[24px]"
+									placeholder={toolPromptPlaceholder(mode, activeTool.value)}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label>Style</Label>
+								<Input
+									value={reelStyle}
+									onChange={(event) => setReelStyle(event.target.value)}
+									className="h-11 rounded-2xl"
+								/>
+							</div>
+						</div>
+					) : null}
+
+					<Button
+						className="w-full rounded-full border-0 bg-gradient-brand text-white"
+						onClick={() => void runStudioMode()}
+						disabled={submitting}
+					>
+						<Play className="size-4" />
+						{submitting ? "Running..." : `Run ${activeTool.label}`}
+					</Button>
+				</SurfaceCard>
+
+				<SurfaceCard className="studio-inspector-section p-5">
+					<Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+						<div className="flex items-start justify-between gap-3">
+							<div>
+								<div className="text-sm font-medium">Advanced</div>
+								<div className="mt-1 text-xs text-muted-foreground">
+									Model controls, prompt policy, and deeper run context stay nearby.
+								</div>
+							</div>
+							<CollapsibleTrigger asChild>
+								<Button variant="outline" size="sm" className="rounded-full">
+									{advancedOpen ? "Hide" : "Show"}
+								</Button>
+							</CollapsibleTrigger>
+						</div>
+						<CollapsibleContent className="mt-4 space-y-4">
+							{mode === "image" ? (
+								<div className="grid gap-3 sm:grid-cols-2">
+									<div className="space-y-2">
+										<Label>Model</Label>
+										<Input
+											value={imageModel}
+											onChange={(event) => setImageModel(event.target.value)}
+											className="h-11 rounded-2xl"
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label>Seed</Label>
+										<Input
+											value={imageSeed}
+											onChange={(event) => setImageSeed(event.target.value)}
+											className="h-11 rounded-2xl"
+											placeholder="Optional deterministic seed"
+										/>
+									</div>
+								</div>
+							) : null}
+
+							{mode === "reel" ? (
+								<div className="space-y-2">
+									<Label>Effects</Label>
+									<Input
+										value={reelEffects}
+										onChange={(event) => setReelEffects(event.target.value)}
+										className="h-11 rounded-2xl"
+										placeholder="zoom, cut, captions"
+									/>
+								</div>
+							) : null}
+
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
+								<div className="mb-2 flex items-center justify-between gap-3">
+									<div className="font-medium text-foreground">Prompt policy</div>
+									<Button variant="outline" size="sm" className="rounded-full" asChild>
+										<Link to="/dashboard/settings/intelligence">
+											<Settings2 className="size-4" />
+											Edit
+										</Link>
+									</Button>
+								</div>
+								{aiSettings
+									? systemPromptPreview(
+											aiSettings.systemPrompts,
+											mode === "image"
+												? "studioImage"
+												: mode === "pdf"
+													? "studioPdf"
+													: "studioReel",
+									  )
+									: "Loading prompt policy..."}
+							</div>
+
+							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
+								{selectedRun
+									? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
+									: "No runs for this task family yet."}
+							</div>
+						</CollapsibleContent>
+					</Collapsible>
+				</SurfaceCard>
+			</div>
+		</DashboardPanel>
+	);
+
 	return (
 		<div className="space-y-6">
 			<DashboardPageHeader
@@ -447,56 +749,48 @@ export function DashboardStudio() {
 					{error}
 				</SurfaceCard>
 			) : null}
-
-			<SurfaceCard className="overflow-hidden">
-				<div className="grid gap-4 border-b border-[var(--brand-border-soft)] p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-					<div className="space-y-3">
-						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/60 px-3 py-1 text-xs uppercase tracking-[0.18em] text-[var(--brand-accent)]">
-							<ModeIcon className="size-3.5" />
-							{currentModeMeta.label}
-						</div>
-						<div>
-							<div className="text-lg font-semibold">{activeTool.label}</div>
-							<div className="mt-1 text-sm text-muted-foreground">
-								{activeTool.description}
+			<AssetWorkspaceShell
+				commandBar={
+					<AssetCommandBar className="studio-context-strip">
+						<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+							<div className="min-w-0 space-y-2">
+								<div className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background/60 px-3 py-1 text-xs uppercase tracking-[0.18em] text-[var(--brand-accent)]">
+									<ModeIcon className="size-3.5" />
+									{currentModeMeta.label}
+								</div>
+								<div>
+									<div className="text-lg font-semibold">{activeTool.label}</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										{activeTool.description}
+									</div>
+								</div>
+							</div>
+							<div className="flex flex-wrap gap-2">
+								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
+									<span className="text-muted-foreground">Source:</span>{" "}
+									<span className="font-medium text-foreground">
+										{selectedResource ? selectedResource.displayName : "Choose a source"}
+									</span>
+								</div>
+								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
+									<span className="text-muted-foreground">Output:</span>{" "}
+									<span className="font-medium text-foreground">
+										{currentModeMeta.outputLabel}
+									</span>
+								</div>
+								<div className="studio-context-chip rounded-full px-3 py-2 text-xs">
+									<span className="text-muted-foreground">Runs:</span>{" "}
+									<span className="font-medium text-foreground">{filteredRuns.length}</span>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div className="grid gap-3 sm:grid-cols-3">
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-								Source
-							</div>
-							<div className="mt-2 text-sm font-medium">
-								{selectedResource ? selectedResource.displayName : "No source asset yet"}
-							</div>
-							<div className="mt-1 text-xs text-muted-foreground capitalize">
-								{source}
-							</div>
-						</div>
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-								Output
-							</div>
-							<div className="mt-2 text-sm font-medium">{currentModeMeta.outputLabel}</div>
-							<div className="mt-1 text-xs text-muted-foreground">
-								Generated into the shared library
-							</div>
-						</div>
-						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-4">
-							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-								Recent runs
-							</div>
-							<div className="mt-2 text-sm font-medium">{filteredRuns.length}</div>
-							<div className="mt-1 text-xs text-muted-foreground">
-								For this task family
-							</div>
-						</div>
-					</div>
-				</div>
-			</SurfaceCard>
-
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+					</AssetCommandBar>
+				}
+				rail={inspector}
+				railTitle="Studio settings"
+				railDescription="Task family, essentials, and advanced controls stay nearby without squeezing the canvas."
+				railTriggerLabel="Open Studio settings"
+			>
 				<div className="space-y-6">
 					<DashboardPanel
 						title={`${currentModeMeta.label} canvas`}
@@ -583,314 +877,51 @@ export function DashboardStudio() {
 								) : null}
 							</div>
 						</SurfaceCard>
-
-						<div className="grid gap-4 md:grid-cols-3">
-							{filteredRuns.slice(0, 6).map((run) => (
-								<button
-									key={run.id}
-									type="button"
-									onClick={() => setSelectedRunId(run.id)}
-									className={`rounded-[24px] border p-4 text-left transition-colors ${
-										run.id === selectedRun?.id
-											? "border-primary bg-primary/8"
-											: "border-[var(--brand-border-soft)] bg-background/70"
-									}`}
-								>
-									<div className="font-medium">{summarizeRunArtifacts(run)}</div>
-									<div className="mt-2 text-xs text-muted-foreground">
-										{formatAutomationWhen(run.updatedAt)}
-									</div>
-									<div className="mt-3">
-										<Badge variant="outline" className="rounded-full capitalize">
-											{run.status}
-										</Badge>
-									</div>
-								</button>
-							))}
-						</div>
 					</DashboardPanel>
-				</div>
-
-				<div className="xl:sticky xl:top-[var(--density-dashboard-sticky-top)] xl:self-start">
 					<DashboardPanel
-						title="Tool settings"
-						description="Only the controls relevant to the current task stay in front of you."
-						className="h-fit xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto"
+						title="Recent runs"
+						description="History stays close for reuse and inspection, but no longer takes over the page."
 					>
-						<div className="space-y-5">
-							<SurfaceCard className="space-y-4 p-5">
-								<div className="space-y-2">
-									<div className="text-sm font-medium">Task family</div>
-									<div className="text-xs text-muted-foreground">
-										Choose the kind of output you are preparing.
-									</div>
-								</div>
-								<div className="grid grid-cols-3 gap-2">
-									{(Object.keys(studioModeMeta) as StudioMode[]).map((modeValue) => {
-										const Icon = toolIcon(modeValue);
-										return (
-											<Button
-												key={modeValue}
-												variant={modeValue === mode ? "default" : "outline"}
-												size="sm"
-												className="h-10 rounded-full px-3 text-sm"
-												onClick={() =>
-													updateStudioSearchParams({
-														mode: modeValue,
-														tool: getDefaultStudioTool(modeValue),
-													})
-												}
+						{filteredRuns.length > 0 ? (
+							<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+								{filteredRuns.slice(0, 6).map((run) => (
+									<button
+										key={run.id}
+										type="button"
+										onClick={() => setSelectedRunId(run.id)}
+										className={`rounded-[24px] border p-4 text-left transition-colors ${
+											run.id === selectedRun?.id
+												? "border-primary bg-primary/8"
+												: "border-[var(--brand-border-soft)] bg-background/70"
+										}`}
+									>
+										<div className="font-medium">{summarizeRunArtifacts(run)}</div>
+										<div className="mt-2 text-xs text-muted-foreground">
+											{formatAutomationWhen(run.updatedAt)}
+										</div>
+										<div className="mt-3 flex items-center justify-between gap-3">
+											<Badge variant="outline" className="rounded-full capitalize">
+												{run.status}
+											</Badge>
+											<Link
+												to={`/dashboard/automations/runs/${run.id}`}
+												className="text-xs font-medium text-primary"
+												onClick={(event) => event.stopPropagation()}
 											>
-												<Icon className="size-4" />
-												{studioModeMeta[modeValue].label}
-											</Button>
-										);
-									})}
-								</div>
-								<div className="grid gap-2">
-									{studioToolsByMode[mode].map((tool) => (
-										<Button
-											key={tool.value}
-											variant={tool.value === activeTool.value ? "secondary" : "outline"}
-											className="h-auto justify-between rounded-[20px] px-4 py-3"
-											disabled={tool.status === "soon"}
-											onClick={() => updateStudioSearchParams({ tool: tool.value })}
-										>
-											<div className="text-left">
-												<div className="font-medium">{tool.label}</div>
-												<div className="text-xs text-muted-foreground">
-													{tool.description}
-												</div>
-											</div>
-											{tool.status === "soon" ? (
-												<Badge variant="outline" className="rounded-full">
-													Soon
-												</Badge>
-											) : (
-												<WandSparkles className="size-4 text-primary" />
-											)}
-										</Button>
-									))}
-								</div>
-							</SurfaceCard>
-
-							<SurfaceCard className="space-y-4 p-5">
-								<div className="text-sm font-medium">Source asset</div>
-								{selectedResource ? (
-									<div className="flex items-center gap-3 rounded-[24px] border border-[var(--brand-border-soft)] bg-background/60 p-3">
-										<div className="size-16 overflow-hidden rounded-[18px] bg-muted">
-											<ResourceThumb resource={selectedResource} variant="compact" />
+												View detail
+											</Link>
 										</div>
-										<div className="min-w-0 flex-1">
-											<div className="truncate font-medium">
-												{selectedResource.displayName}
-											</div>
-											<div className="mt-1 text-sm text-muted-foreground">
-												{formatResourceMeta(selectedResource)}
-											</div>
-										</div>
-									</div>
-								) : (
-									<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-6 text-sm text-muted-foreground">
-										Open Studio from the library, or pick a source asset here.
-									</div>
-								)}
-
-								{mode === "image" ? (
-									<div className="space-y-4">
-										<div className="space-y-2">
-											<Label>Prompt</Label>
-											<Textarea
-												value={imagePrompt}
-												onChange={(event) => setImagePrompt(event.target.value)}
-												className="min-h-28 rounded-[24px]"
-												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
-											/>
-										</div>
-										<div className="grid gap-3 sm:grid-cols-2">
-											<div className="space-y-2">
-												<Label>Aspect ratio</Label>
-												<Select value={imageAspectRatio} onValueChange={setImageAspectRatio}>
-													<SelectTrigger className="h-11 rounded-2xl">
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														{Object.keys(imageAspectRatios).map((ratio) => (
-															<SelectItem key={ratio} value={ratio}>
-																{ratio}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-											</div>
-											<div className="space-y-2">
-												<Label>Model</Label>
-												<Input
-													value={imageModel}
-													onChange={(event) => setImageModel(event.target.value)}
-													className="h-11 rounded-2xl"
-												/>
-											</div>
-										</div>
-										<div className="space-y-2">
-											<Label>Seed</Label>
-											<Input
-												value={imageSeed}
-												onChange={(event) => setImageSeed(event.target.value)}
-												className="h-11 rounded-2xl"
-												placeholder="Optional deterministic seed"
-											/>
-										</div>
-										<div className="space-y-2">
-											<Label>References</Label>
-											<ResourcePicker
-												resources={imageResources}
-												value={imageReferenceIds}
-												onChange={setImageReferenceIds}
-												triggerLabel="Choose image references"
-												emptyMessage="Upload image assets in the library first."
-												allowUpload
-												onResourcesCreated={addUploadedResources}
-											/>
-										</div>
-									</div>
-								) : null}
-
-								{mode === "pdf" ? (
-									<div className="space-y-4">
-										<div className="space-y-2">
-											<Label>Title</Label>
-											<Input
-												value={pdfTitle}
-												onChange={(event) => setPdfTitle(event.target.value)}
-												className="h-11 rounded-2xl"
-												placeholder="The 5 systems behind consistent content operations"
-											/>
-										</div>
-										<div className="space-y-2">
-											<Label>Subtitle</Label>
-											<Input
-												value={pdfSubtitle}
-												onChange={(event) => setPdfSubtitle(event.target.value)}
-												className="h-11 rounded-2xl"
-												placeholder="Optional supporting subtitle"
-											/>
-										</div>
-										<div className="space-y-2">
-											<Label>Pages</Label>
-											<Textarea
-												value={pdfPages}
-												onChange={(event) => setPdfPages(event.target.value)}
-												className="min-h-40 rounded-[24px]"
-												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
-											/>
-										</div>
-									</div>
-								) : null}
-
-								{mode === "reel" ? (
-									<div className="space-y-4">
-										<div className="space-y-2">
-											<Label>Source video</Label>
-											<ResourcePicker
-												resources={videoResources}
-												value={reelVideoIds}
-												onChange={(next) => setReelVideoIds(next.slice(0, 1))}
-												triggerLabel="Choose video"
-												emptyMessage="Upload a video asset in the library first."
-												allowUpload
-												onResourcesCreated={addUploadedResources}
-											/>
-										</div>
-										<div className="space-y-2">
-											<Label>Caption / direction</Label>
-											<Textarea
-												value={reelCaption}
-												onChange={(event) => setReelCaption(event.target.value)}
-												className="min-h-28 rounded-[24px]"
-												placeholder={toolPromptPlaceholder(mode, activeTool.value)}
-											/>
-										</div>
-										<div className="grid gap-3 sm:grid-cols-2">
-											<div className="space-y-2">
-												<Label>Style</Label>
-												<Input
-													value={reelStyle}
-													onChange={(event) => setReelStyle(event.target.value)}
-													className="h-11 rounded-2xl"
-												/>
-											</div>
-											<div className="space-y-2">
-												<Label>Effects</Label>
-												<Input
-													value={reelEffects}
-													onChange={(event) => setReelEffects(event.target.value)}
-													className="h-11 rounded-2xl"
-													placeholder="zoom, cut, captions"
-												/>
-											</div>
-										</div>
-									</div>
-								) : null}
-
-								<Button
-									className="w-full rounded-full border-0 bg-gradient-brand text-white"
-									onClick={() => void runStudioMode()}
-									disabled={submitting}
-								>
-									<Play className="size-4" />
-									{submitting ? "Running..." : `Run ${activeTool.label}`}
-								</Button>
-							</SurfaceCard>
-
-							<SurfaceCard className="space-y-4 p-5">
-								<div className="text-sm font-medium">Recent activity</div>
-								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm text-muted-foreground">
-									{selectedRun
-										? `${summarizeRunArtifacts(selectedRun)} • ${formatAutomationWhen(selectedRun.updatedAt)}`
-										: "No runs for this task family yet."}
-								</div>
-								{selectedRun ? (
-									<Button variant="outline" className="w-full rounded-full" asChild>
-										<Link to={`/dashboard/automations/runs/${selectedRun.id}`}>
-											View run detail
-										</Link>
-									</Button>
-								) : null}
-							</SurfaceCard>
-
-							<SurfaceCard className="space-y-3 p-5">
-								<div className="flex items-center justify-between gap-3">
-									<div>
-										<div className="text-sm font-medium">Prompt policy</div>
-										<div className="text-xs text-muted-foreground">
-											Base + task override
-										</div>
-									</div>
-									<Button variant="outline" size="sm" className="rounded-full" asChild>
-										<Link to="/dashboard/settings/intelligence">
-											<Settings2 className="size-4" />
-											Edit
-										</Link>
-									</Button>
-								</div>
-								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/60 p-4 text-sm leading-6 text-muted-foreground">
-									{aiSettings
-										? systemPromptPreview(
-												aiSettings.systemPrompts,
-												mode === "image"
-													? "studioImage"
-													: mode === "pdf"
-														? "studioPdf"
-														: "studioReel",
-											)
-										: "Loading prompt policy..."}
-								</div>
-							</SurfaceCard>
-						</div>
+									</button>
+								))}
+							</div>
+						) : (
+							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-8 text-sm text-muted-foreground">
+								No runs for this task family yet.
+							</div>
+						)}
 					</DashboardPanel>
 				</div>
-			</div>
+			</AssetWorkspaceShell>
 		</div>
 	);
 }

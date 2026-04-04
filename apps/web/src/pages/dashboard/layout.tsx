@@ -561,6 +561,9 @@ export function DashboardLayout() {
 		activeWorkspaceId,
 		activeWorkspaceMembership,
 	} = useAuth();
+	const compactSetupBanner =
+		location.pathname.startsWith("/dashboard/library") ||
+		location.pathname.startsWith("/dashboard/studio");
 
 	useEffect(() => {
 		if (location.pathname) {
@@ -620,12 +623,35 @@ export function DashboardLayout() {
 									!readiness.complete &&
 									!setupBannerDismissed &&
 									location.pathname !== "/dashboard/setup" ? (
-										<div className="dashboard-notice mb-4 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-800 dark:text-sky-200">
-											<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+										<div
+											className={cn(
+												"dashboard-notice mb-4 border border-sky-500/30 bg-sky-500/10 text-sm text-sky-800 dark:text-sky-200",
+												compactSetupBanner && "px-3 py-2.5",
+											)}
+										>
+											<div
+												className={cn(
+													"flex flex-col gap-3 md:flex-row md:items-center md:justify-between",
+													compactSetupBanner &&
+														"gap-2.5 md:flex-nowrap md:items-center",
+												)}
+											>
 												<div>
-													Setup progress: {readiness.completedStepCount}/
-													{readiness.requiredStepCount} recommended steps complete.
-													<span className="ml-1">{readiness.summary}</span>
+													{compactSetupBanner ? (
+														<div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+															<span className="rounded-full border border-sky-500/25 bg-background/55 px-2.5 py-1 font-medium text-sky-900 dark:bg-background/25 dark:text-sky-100">
+																Setup {readiness.completedStepCount}/
+																{readiness.requiredStepCount}
+															</span>
+															<span>{readiness.summary}</span>
+														</div>
+													) : (
+														<>
+															Setup progress: {readiness.completedStepCount}/
+															{readiness.requiredStepCount} recommended steps complete.
+															<span className="ml-1">{readiness.summary}</span>
+														</>
+													)}
 												</div>
 												<div className="flex flex-wrap items-center gap-2">
 													<Button
