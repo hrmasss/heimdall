@@ -57,16 +57,16 @@
 	--sidebar-accent-foreground: #182421;
 	--sidebar-border: rgba(24, 36, 33, 0.08);
 	--sidebar-ring: rgba(31, 122, 114, 0.2);
-	--dashboard-shell-overlay-tint: rgba(123, 132, 146, 0.32);
-	--dashboard-shell-surface-bg: #e7eaee;
-	--dashboard-shell-surface-border: rgba(106, 117, 133, 0.28);
-	--dashboard-shell-surface-shadow: rgba(40, 52, 64, 0.24);
-	--dashboard-content-bg-top: #f1f3f6;
-	--dashboard-content-bg-bottom: #e7ebf0;
-	--dashboard-content-border: rgba(119, 132, 149, 0.34);
+	--dashboard-shell-overlay-tint: rgba(128, 124, 116, 0.24);
+	--dashboard-shell-surface-bg: #e8e7e4;
+	--dashboard-shell-surface-border: rgba(120, 115, 106, 0.28);
+	--dashboard-shell-surface-shadow: rgba(44, 40, 34, 0.22);
+	--dashboard-content-bg-top: #f3f2ef;
+	--dashboard-content-bg-bottom: #ece9e5;
+	--dashboard-content-border: rgba(124, 118, 109, 0.34);
 	--dashboard-content-emboss-highlight: rgba(255, 255, 255, 0.72);
-	--dashboard-content-emboss-shadow: rgba(111, 124, 142, 0.32);
-	--dashboard-content-drop-shadow: rgba(40, 52, 64, 0.22);
+	--dashboard-content-emboss-shadow: rgba(114, 108, 99, 0.3);
+	--dashboard-content-drop-shadow: rgba(44, 40, 34, 0.2);
 	--density-page-container-px: 1rem;
 	--density-section-spacing: 4.5rem;
 	--density-section-spacing-sm: 3rem;
@@ -302,16 +302,16 @@
 	--sidebar-accent-foreground: #f6ede6;
 	--sidebar-border: rgba(246, 237, 230, 0.06);
 	--sidebar-ring: rgba(193, 133, 101, 0.2);
-	--dashboard-shell-overlay-tint: rgba(48, 57, 68, 0.7);
-	--dashboard-shell-surface-bg: #161d25;
-	--dashboard-shell-surface-border: rgba(138, 150, 168, 0.22);
+	--dashboard-shell-overlay-tint: rgba(58, 56, 52, 0.56);
+	--dashboard-shell-surface-bg: #1c1c1f;
+	--dashboard-shell-surface-border: rgba(154, 147, 138, 0.2);
 	--dashboard-shell-surface-shadow: rgba(0, 0, 0, 0.66);
-	--dashboard-content-bg-top: #1d2530;
-	--dashboard-content-bg-bottom: #151c25;
-	--dashboard-content-border: rgba(145, 158, 178, 0.22);
-	--dashboard-content-emboss-highlight: rgba(255, 255, 255, 0.1);
-	--dashboard-content-emboss-shadow: rgba(3, 8, 14, 0.74);
-	--dashboard-content-drop-shadow: rgba(3, 8, 14, 0.66);
+	--dashboard-content-bg-top: #242427;
+	--dashboard-content-bg-bottom: #1b1b1e;
+	--dashboard-content-border: rgba(159, 151, 141, 0.22);
+	--dashboard-content-emboss-highlight: rgba(255, 255, 255, 0.08);
+	--dashboard-content-emboss-shadow: rgba(6, 6, 8, 0.74);
+	--dashboard-content-drop-shadow: rgba(6, 6, 8, 0.64);
 }
 
 @theme inline {
@@ -548,14 +548,14 @@ body {
 	content: "";
 	background: radial-gradient(
 			circle at 0% 0%,
-			color-mix(in srgb, var(--dashboard-shell-overlay-tint) 48%, transparent),
-			transparent 24%
+			color-mix(in srgb, var(--dashboard-shell-overlay-tint) 30%, transparent),
+			transparent 28%
 		),
 		linear-gradient(
 			180deg,
-			color-mix(in srgb, var(--dashboard-shell-overlay-tint) 22%, transparent)
+			color-mix(in srgb, var(--dashboard-shell-overlay-tint) 12%, transparent)
 				0%,
-			transparent 18%
+			transparent 20%
 		);
 	pointer-events: none;
 }
@@ -568,8 +568,8 @@ body {
 		color-mix(in srgb, var(--dashboard-shell-surface-bg) 98%, transparent) 0%,
 		color-mix(
 				in srgb,
-				var(--dashboard-shell-surface-bg) 92%,
-				var(--background) 8%
+				var(--dashboard-shell-surface-bg) 96%,
+				var(--background) 4%
 			)
 			100%
 	);
