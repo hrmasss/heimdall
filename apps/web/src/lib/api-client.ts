@@ -13,9 +13,51 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 const API_PREFIX = `${API_BASE}/api/v1`;
+const MEDIA_URL_KEYS = new Set(["previewUrl", "downloadUrl", "coverPreviewUrl"]);
 
 export function buildApiUrl(path: string) {
 	return `${API_PREFIX}${path}`;
+}
+
+function resolveMediaUrl(value: string) {
+	const trimmedValue = value.trim();
+	if (
+		trimmedValue === "" ||
+		trimmedValue.startsWith("blob:") ||
+		trimmedValue.startsWith("data:") ||
+		trimmedValue.startsWith("http://") ||
+		trimmedValue.startsWith("https://")
+	) {
+		return value;
+	}
+
+	if (!trimmedValue.startsWith("/")) {
+		return value;
+	}
+
+	const base =
+		API_BASE ||
+		(typeof window !== "undefined" ? window.location.origin : "http://localhost");
+	return new URL(trimmedValue, base).toString();
+}
+
+function normalizeApiPayload<T>(value: T): T {
+	if (Array.isArray(value)) {
+		return value.map((item) => normalizeApiPayload(item)) as T;
+	}
+
+	if (!value || typeof value !== "object") {
+		return value;
+	}
+
+	const normalizedEntries = Object.entries(value).map(([key, entryValue]) => {
+		if (MEDIA_URL_KEYS.has(key) && typeof entryValue === "string") {
+			return [key, resolveMediaUrl(entryValue)];
+		}
+		return [key, normalizeApiPayload(entryValue)];
+	});
+
+	return Object.fromEntries(normalizedEntries) as T;
 }
 
 export class ApiError extends Error {
@@ -89,5 +131,5 @@ export async function apiRequest<T>(
 		return undefined as T;
 	}
 
-	return (await response.json()) as T;
+	return normalizeApiPayload((await response.json()) as T);
 }
