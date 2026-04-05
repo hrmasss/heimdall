@@ -181,16 +181,20 @@ function VirtualizedAssetGrid({
 	});
 
 	const virtualRows = virtualizer.getVirtualItems();
+	const totalHeight = virtualizer.getTotalSize();
+
+	// Clamp container height: min 1 row, max 70vh
+	const containerStyle: React.CSSProperties = {
+		height: Math.min(totalHeight, window.innerHeight * 0.7),
+		minHeight: Math.min(totalHeight, ASSET_CARD_HEIGHT + ROW_GAP),
+		overflow: "auto",
+	};
 
 	return (
-		<div
-			ref={parentRef}
-			className="max-h-[70vh] overflow-auto"
-			style={{ contain: "strict" }}
-		>
+		<div ref={parentRef} style={containerStyle}>
 			<div
 				style={{
-					height: `${virtualizer.getTotalSize()}px`,
+					height: `${totalHeight}px`,
 					width: "100%",
 					position: "relative",
 				}}
@@ -258,16 +262,20 @@ function VirtualizedCollectionGrid({
 	});
 
 	const virtualRows = virtualizer.getVirtualItems();
+	const totalHeight = virtualizer.getTotalSize();
+
+	// Clamp container height: min 1 row, max 70vh
+	const containerStyle: React.CSSProperties = {
+		height: Math.min(totalHeight, window.innerHeight * 0.7),
+		minHeight: Math.min(totalHeight, COLLECTION_CARD_HEIGHT + ROW_GAP),
+		overflow: "auto",
+	};
 
 	return (
-		<div
-			ref={parentRef}
-			className="max-h-[70vh] overflow-auto"
-			style={{ contain: "strict" }}
-		>
+		<div ref={parentRef} style={containerStyle}>
 			<div
 				style={{
-					height: `${virtualizer.getTotalSize()}px`,
+					height: `${totalHeight}px`,
 					width: "100%",
 					position: "relative",
 				}}
