@@ -67,6 +67,13 @@
 	--dashboard-content-emboss-highlight: rgba(255, 255, 255, 0.72);
 	--dashboard-content-emboss-shadow: rgba(114, 108, 99, 0.3);
 	--dashboard-content-drop-shadow: rgba(44, 40, 34, 0.2);
+	--dashboard-panel-bg-top: #f2f0ed;
+	--dashboard-panel-bg-bottom: #e8e4df;
+	--dashboard-panel-muted-bg: #e5e0da;
+	--dashboard-panel-border: rgba(124, 116, 106, 0.28);
+	--dashboard-panel-shadow: rgba(43, 38, 32, 0.24);
+	--dashboard-panel-highlight: rgba(255, 255, 255, 0.62);
+	--dashboard-muted-foreground: #69707a;
 	--density-page-container-px: 1rem;
 	--density-section-spacing: 4.5rem;
 	--density-section-spacing-sm: 3rem;
@@ -312,6 +319,13 @@
 	--dashboard-content-emboss-highlight: rgba(255, 255, 255, 0.08);
 	--dashboard-content-emboss-shadow: rgba(6, 6, 8, 0.74);
 	--dashboard-content-drop-shadow: rgba(6, 6, 8, 0.64);
+	--dashboard-panel-bg-top: #232327;
+	--dashboard-panel-bg-bottom: #1b1b1e;
+	--dashboard-panel-muted-bg: #26262a;
+	--dashboard-panel-border: rgba(154, 146, 137, 0.24);
+	--dashboard-panel-shadow: rgba(6, 6, 8, 0.62);
+	--dashboard-panel-highlight: rgba(255, 255, 255, 0.08);
+	--dashboard-muted-foreground: #9ba2ad;
 }
 
 @theme inline {
@@ -2187,6 +2201,36 @@ body {
 
 .customer-dashboard-shell .dashboard-content-frame {
 	border-radius: var(--density-dashboard-content-radius);
+}
+
+.customer-dashboard-shell {
+	--brand-border-soft: var(--dashboard-panel-border);
+	--muted-foreground: var(--dashboard-muted-foreground);
+}
+
+.customer-dashboard-shell .surface-panel,
+.customer-dashboard-shell .surface-panel-strong,
+.customer-dashboard-shell .dashboard-section,
+.customer-dashboard-shell .kpi-card,
+.customer-dashboard-shell .dashboard-card,
+.customer-dashboard-shell .dashboard-card-sm {
+	border-color: color-mix(in srgb, var(--dashboard-panel-border) 92%, transparent);
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--dashboard-panel-bg-top) 98%, transparent) 0%,
+		color-mix(in srgb, var(--dashboard-panel-bg-bottom) 96%, transparent) 100%
+	);
+	box-shadow: 0 22px 48px -36px
+			color-mix(in srgb, var(--dashboard-panel-shadow) 90%, transparent),
+		inset 0 1px 0
+			color-mix(in srgb, var(--dashboard-panel-highlight) 78%, transparent);
+}
+
+.customer-dashboard-shell .surface-panel-muted {
+	border-color: color-mix(in srgb, var(--dashboard-panel-border) 88%, transparent);
+	background: color-mix(in srgb, var(--dashboard-panel-muted-bg) 78%, transparent);
+	box-shadow: inset 0 1px 0
+		color-mix(in srgb, var(--dashboard-panel-highlight) 56%, transparent);
 }
 
 .customer-dashboard-shell .dashboard-page-stack:not(.grid) {
