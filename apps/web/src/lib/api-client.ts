@@ -13,7 +13,12 @@ function resolveApiBase() {
 
 const API_BASE = resolveApiBase();
 const API_PREFIX = `${API_BASE}/api/v1`;
-const MEDIA_URL_KEYS = new Set(["previewUrl", "downloadUrl", "coverPreviewUrl"]);
+const MEDIA_URL_KEYS = new Set([
+	"previewUrl",
+	"downloadUrl",
+	"coverPreviewUrl",
+	"thumbnailUrl",
+]);
 
 export function buildApiUrl(path: string) {
 	return `${API_PREFIX}${path}`;
