@@ -806,12 +806,23 @@ func (h *AppHandler) serveResourceBlob(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, iam.ErrValidation)
 	}
-	blob, err := h.blobServer.OpenSigned(c.Context(), c.Params("key"), c.Query("filename"), expiresUnix, c.Query("sig"))
+	// Parse optional width parameter for thumbnail generation
+	width := 0
+	if w := c.Query("w"); w != "" {
+		if parsedWidth, parseErr := strconv.Atoi(w); parseErr == nil {
+			width = parsedWidth
+		}
+	}
+	blob, err := h.blobServer.OpenSigned(c.Context(), c.Params("key"), c.Query("filename"), expiresUnix, c.Query("sig"), width)
 	if err != nil {
 		return h.writeError(c, fmt.Errorf("%w: invalid or expired resource link", iam.ErrUnauthorized))
 	}
 	c.Set("Content-Type", blob.ContentType)
 	c.Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", blob.Filename))
+	// Cache thumbnails for 1 year (they're immutable based on content)
+	if width > 0 {
+		c.Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 	return c.SendStream(blob.Reader, int(blob.Size))
 }
 

@@ -1193,6 +1193,12 @@ export function ResourceThumb({
 }) {
 	const { url, broken, handleError } = useResourcePreviewUrl(resource);
 
+	// Use thumbnail URL for compact/minimal variants if available (optimized for grid views)
+	const useThumbnail = variant !== "default" && resource.thumbnailUrl;
+	const imageSrc = useThumbnail
+		? resource.thumbnailUrl
+		: url || resource.previewUrl;
+
 	if (resource.mediaKind === "image") {
 		if (broken) {
 			return (
@@ -1205,7 +1211,7 @@ export function ResourceThumb({
 		}
 		return (
 			<img
-				src={url || resource.previewUrl}
+				src={imageSrc}
 				alt={resource.displayName}
 				loading="lazy"
 				decoding="async"

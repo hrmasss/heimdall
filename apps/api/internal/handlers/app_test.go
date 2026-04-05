@@ -55,7 +55,7 @@ type stubSignedBlobServer struct {
 	err  error
 }
 
-func (s stubSignedBlobServer) OpenSigned(context.Context, string, string, int64, string) (*resources.SignedBlob, error) {
+func (s stubSignedBlobServer) OpenSigned(context.Context, string, string, int64, string, int) (*resources.SignedBlob, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

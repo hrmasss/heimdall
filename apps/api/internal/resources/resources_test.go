@@ -51,7 +51,7 @@ func TestLocalStorageSignedURLRoundTrip(t *testing.T) {
 	}
 	encodedKey := strings.TrimPrefix(parsed.Path, localBlobRoutePrefix+"/")
 
-	blob, err := storage.OpenSigned(ctx, encodedKey, parsed.Query().Get("filename"), expiresUnix, parsed.Query().Get("sig"))
+	blob, err := storage.OpenSigned(ctx, encodedKey, parsed.Query().Get("filename"), expiresUnix, parsed.Query().Get("sig"), 0)
 	if err != nil {
 		t.Fatalf("OpenSigned() error = %v", err)
 	}

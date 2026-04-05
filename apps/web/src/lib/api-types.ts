@@ -134,6 +134,7 @@ export type ResourceRecord = {
 	storageBackend: string;
 	downloadUrl: string;
 	previewUrl: string;
+	thumbnailUrl?: string;
 	usageCount: number;
 	childCount: number;
 	setCount: number;

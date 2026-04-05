@@ -10,6 +10,14 @@ type SignedURLOptions struct {
 	Filename    string
 	ContentType string
 	ExpiresIn   time.Duration
+	Width       int // Optional thumbnail width (0 = original)
+}
+
+// AllowedThumbnailWidths defines valid thumbnail sizes to prevent abuse
+var AllowedThumbnailWidths = map[int]bool{
+	200: true,
+	400: true,
+	800: true,
 }
 
 type BlobStat struct {
@@ -32,5 +40,5 @@ type SignedBlob struct {
 }
 
 type SignedBlobServer interface {
-	OpenSigned(ctx context.Context, encodedKey, filename string, expiresUnix int64, sig string) (*SignedBlob, error)
+	OpenSigned(ctx context.Context, encodedKey, filename string, expiresUnix int64, sig string, width int) (*SignedBlob, error)
 }

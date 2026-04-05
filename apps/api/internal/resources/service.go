@@ -106,6 +106,7 @@ type ResourceListItem struct {
 	StorageBackend   string                  `json:"storageBackend"`
 	DownloadURL      string                  `json:"downloadUrl"`
 	PreviewURL       string                  `json:"previewUrl"`
+	ThumbnailURL     string                  `json:"thumbnailUrl,omitempty"`
 	UsageCount       int                     `json:"usageCount"`
 	ChildCount       int                     `json:"childCount"`
 	SetCount         int                     `json:"setCount"`
@@ -687,6 +688,20 @@ func (s *Service) mapResourceRecord(ctx context.Context, record database.Resourc
 	if err != nil {
 		return ResourceListItem{}, err
 	}
+
+	// Generate thumbnail URL for images (400px width for grid views)
+	var thumbnailURL string
+	if record.MediaKind == "image" {
+		if thumbURL, thumbErr := s.storage.SignedURL(ctx, record.StorageKey, SignedURLOptions{
+			Filename:    record.OriginalName,
+			ContentType: record.MIMEType,
+			ExpiresIn:   s.cfg.SignedURLTTL,
+			Width:       400,
+		}); thumbErr == nil {
+			thumbnailURL = thumbURL
+		}
+	}
+
 	var transform map[string]any
 	if strings.TrimSpace(record.TransformRecipe) != "" && record.TransformRecipe != "{}" {
 		_ = json.Unmarshal([]byte(record.TransformRecipe), &transform)
@@ -713,6 +728,7 @@ func (s *Service) mapResourceRecord(ctx context.Context, record database.Resourc
 		StorageBackend:  record.StorageBackend,
 		DownloadURL:     downloadURL,
 		PreviewURL:      downloadURL,
+		ThumbnailURL:    thumbnailURL,
 		UsageCount:      usageCount,
 		ChildCount:      childCount,
 		SetCount:        setCount,
