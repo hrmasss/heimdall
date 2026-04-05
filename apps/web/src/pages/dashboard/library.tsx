@@ -158,7 +158,7 @@ function useResponsiveColumns() {
 }
 
 // Estimated card heights for virtualization
-const ASSET_CARD_HEIGHT = 340; // Approximate height of AssetCard
+const ASSET_CARD_HEIGHT = 300; // Approximate height of compact AssetCard
 const COLLECTION_CARD_HEIGHT = 380; // Approximate height of CollectionCard
 const ROW_GAP = 16; // gap-4 = 1rem = 16px
 
@@ -217,11 +217,12 @@ function VirtualizedAssetGrid({
 								left: 0,
 								width: "100%",
 								transform: `translateY(${virtualRow.start}px)`,
+								paddingBottom: `${ROW_GAP}px`,
 							}}
 						>
 							<div
 								className={cn(
-									"grid gap-4",
+									"grid gap-x-4",
 									columns === 1 && "grid-cols-1",
 									columns === 2 && "grid-cols-2",
 									columns === 3 && "grid-cols-3",
@@ -298,11 +299,12 @@ function VirtualizedCollectionGrid({
 								left: 0,
 								width: "100%",
 								transform: `translateY(${virtualRow.start}px)`,
+								paddingBottom: `${ROW_GAP}px`,
 							}}
 						>
 							<div
 								className={cn(
-									"grid gap-4",
+									"grid gap-x-4",
 									columns === 1 && "grid-cols-1",
 									columns === 2 && "grid-cols-2",
 									columns === 3 && "grid-cols-3",
@@ -346,16 +348,16 @@ function AssetCard({
 				onClick={() => navigate(`/dashboard/library/${resource.id}`)}
 				className="block w-full text-left"
 			>
-				<div className="aspect-[4/3] overflow-hidden bg-muted">
+				<div className="aspect-[16/10] overflow-hidden bg-muted">
 					<ResourceThumb resource={resource} variant="minimal" />
 				</div>
-				<div className="space-y-3 p-4">
+				<div className="space-y-2 p-3">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<div className="truncate text-base font-semibold" title={resource.displayName}>
+							<div className="truncate text-sm font-semibold" title={resource.displayName}>
 								{resource.displayName}
 							</div>
-							<div className="mt-1 truncate text-sm text-muted-foreground">
+							<div className="mt-0.5 truncate text-xs text-muted-foreground">
 								{formatResourceMeta(resource)}
 							</div>
 						</div>
@@ -369,7 +371,7 @@ function AssetCard({
 					</div>
 				</div>
 			</button>
-			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-4 py-3">
+			<div className="flex items-center justify-between border-t border-[var(--brand-border-soft)] px-3 py-2">
 				<div className="flex flex-wrap gap-2">
 					<Button variant="outline" size="sm" className="rounded-full" asChild>
 						<Link to={`/dashboard/posts/new?resourceId=${resource.id}`}>
