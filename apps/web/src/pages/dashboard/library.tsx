@@ -1,3 +1,4 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	ChevronDown,
 	FilePlus2,
@@ -132,6 +133,187 @@ function QuietHealthBadge({ resource }: { resource: ResourceRecord }) {
 		return null;
 	}
 	return <ResourceCompatibilityBadge resource={resource} />;
+}
+
+function useResponsiveColumns() {
+	const [columns, setColumns] = useState(1);
+
+	useEffect(() => {
+		function updateColumns() {
+			// Matches Tailwind breakpoints: md:2 cols, 2xl:3 cols
+			if (window.innerWidth >= 1536) {
+				setColumns(3);
+			} else if (window.innerWidth >= 768) {
+				setColumns(2);
+			} else {
+				setColumns(1);
+			}
+		}
+		updateColumns();
+		window.addEventListener("resize", updateColumns);
+		return () => window.removeEventListener("resize", updateColumns);
+	}, []);
+
+	return columns;
+}
+
+// Estimated card heights for virtualization
+const ASSET_CARD_HEIGHT = 340; // Approximate height of AssetCard
+const COLLECTION_CARD_HEIGHT = 380; // Approximate height of CollectionCard
+const ROW_GAP = 16; // gap-4 = 1rem = 16px
+
+function VirtualizedAssetGrid({
+	resources,
+	onDelete,
+}: {
+	resources: ResourceRecord[];
+	onDelete: (resourceId: string) => Promise<void>;
+}) {
+	const parentRef = useRef<HTMLDivElement>(null);
+	const columns = useResponsiveColumns();
+	const rowCount = Math.ceil(resources.length / columns);
+
+	const virtualizer = useVirtualizer({
+		count: rowCount,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => ASSET_CARD_HEIGHT + ROW_GAP,
+		overscan: 3,
+	});
+
+	const virtualRows = virtualizer.getVirtualItems();
+
+	return (
+		<div
+			ref={parentRef}
+			className="max-h-[70vh] overflow-auto"
+			style={{ contain: "strict" }}
+		>
+			<div
+				style={{
+					height: `${virtualizer.getTotalSize()}px`,
+					width: "100%",
+					position: "relative",
+				}}
+			>
+				{virtualRows.map((virtualRow) => {
+					const rowStartIndex = virtualRow.index * columns;
+					const rowItems = resources.slice(
+						rowStartIndex,
+						rowStartIndex + columns,
+					);
+
+					return (
+						<div
+							key={virtualRow.key}
+							data-index={virtualRow.index}
+							ref={virtualizer.measureElement}
+							style={{
+								position: "absolute",
+								top: 0,
+								left: 0,
+								width: "100%",
+								transform: `translateY(${virtualRow.start}px)`,
+							}}
+						>
+							<div
+								className={cn(
+									"grid gap-4",
+									columns === 1 && "grid-cols-1",
+									columns === 2 && "grid-cols-2",
+									columns === 3 && "grid-cols-3",
+								)}
+							>
+								{rowItems.map((resource) => (
+									<AssetCard
+										key={resource.id}
+										resource={resource}
+										onDelete={onDelete}
+									/>
+								))}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function VirtualizedCollectionGrid({
+	collections,
+	onDelete,
+}: {
+	collections: ResourceSetSummary[];
+	onDelete: (resourceSetId: string) => Promise<void>;
+}) {
+	const parentRef = useRef<HTMLDivElement>(null);
+	const columns = useResponsiveColumns();
+	const rowCount = Math.ceil(collections.length / columns);
+
+	const virtualizer = useVirtualizer({
+		count: rowCount,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => COLLECTION_CARD_HEIGHT + ROW_GAP,
+		overscan: 3,
+	});
+
+	const virtualRows = virtualizer.getVirtualItems();
+
+	return (
+		<div
+			ref={parentRef}
+			className="max-h-[70vh] overflow-auto"
+			style={{ contain: "strict" }}
+		>
+			<div
+				style={{
+					height: `${virtualizer.getTotalSize()}px`,
+					width: "100%",
+					position: "relative",
+				}}
+			>
+				{virtualRows.map((virtualRow) => {
+					const rowStartIndex = virtualRow.index * columns;
+					const rowItems = collections.slice(
+						rowStartIndex,
+						rowStartIndex + columns,
+					);
+
+					return (
+						<div
+							key={virtualRow.key}
+							data-index={virtualRow.index}
+							ref={virtualizer.measureElement}
+							style={{
+								position: "absolute",
+								top: 0,
+								left: 0,
+								width: "100%",
+								transform: `translateY(${virtualRow.start}px)`,
+							}}
+						>
+							<div
+								className={cn(
+									"grid gap-4",
+									columns === 1 && "grid-cols-1",
+									columns === 2 && "grid-cols-2",
+									columns === 3 && "grid-cols-3",
+								)}
+							>
+								{rowItems.map((resourceSet) => (
+									<CollectionCard
+										key={resourceSet.id}
+										resourceSet={resourceSet}
+										onDelete={onDelete}
+									/>
+								))}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
 }
 
 function AssetCard({
@@ -1024,15 +1206,10 @@ export function DashboardLibrary() {
 						</div>
 					) : view === "assets" ? (
 						filteredResources.length > 0 ? (
-							<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-								{filteredResources.map((resource) => (
-									<AssetCard
-										key={resource.id}
-										resource={resource}
-										onDelete={removeResource}
-									/>
-								))}
-							</div>
+							<VirtualizedAssetGrid
+								resources={filteredResources}
+								onDelete={removeResource}
+							/>
 						) : (
 							<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
 								<div className="text-lg font-semibold">No assets match yet</div>
@@ -1048,15 +1225,10 @@ export function DashboardLibrary() {
 							</div>
 						)
 					) : filteredCollections.length > 0 ? (
-						<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-							{filteredCollections.map((resourceSet) => (
-								<CollectionCard
-									key={resourceSet.id}
-									resourceSet={resourceSet}
-									onDelete={removeResourceSet}
-								/>
-							))}
-						</div>
+						<VirtualizedCollectionGrid
+							collections={filteredCollections}
+							onDelete={removeResourceSet}
+						/>
 					) : (
 						<div className="rounded-[24px] border border-dashed border-[var(--brand-border-soft)] px-4 py-12 text-center">
 							<div className="text-lg font-semibold">No collections yet</div>
