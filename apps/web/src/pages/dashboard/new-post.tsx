@@ -2999,7 +2999,7 @@ export function DashboardNewPost() {
 					}
 				}}
 			>
-				<DrawerContent className="composer-drawer-shell mx-auto flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden data-[vaul-drawer-direction=bottom]:left-1/2 data-[vaul-drawer-direction=bottom]:right-auto data-[vaul-drawer-direction=bottom]:bottom-[5.25rem] data-[vaul-drawer-direction=bottom]:inset-x-auto data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:w-[min(calc(100vw-1.25rem),72rem)] data-[vaul-drawer-direction=bottom]:max-h-[calc(85vh-5.25rem)] data-[vaul-drawer-direction=bottom]:translate-x-[-50%] data-[vaul-drawer-direction=bottom]:rounded-[28px] data-[vaul-drawer-direction=bottom]:rounded-b-none data-[vaul-drawer-direction=bottom]:border data-[vaul-drawer-direction=bottom]:border-[var(--brand-border-soft)] data-[vaul-drawer-direction=bottom]:bg-background/98 data-[vaul-drawer-direction=bottom]:shadow-[0_28px_72px_-34px_rgba(15,23,42,0.48)]">
+				<DrawerContent className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden">
 					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/96 backdrop-blur">
 						<DrawerHeader className="px-4 sm:px-6">
 							<div className="flex flex-wrap items-start justify-between gap-3">

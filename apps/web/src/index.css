@@ -2306,23 +2306,25 @@ body {
 	background: color-mix(in srgb, var(--dashboard-panel-bg-top) 97%, transparent);
 }
 
-.customer-dashboard-shell .composer-drawer-shell {
+.composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
+	left: 50% !important;
+	right: auto !important;
+	bottom: 5.25rem !important;
+	inset-inline: auto !important;
+	width: min(calc(100vw - 1.25rem), 72rem) !important;
+	max-height: calc(85vh - 5.25rem) !important;
+	border: 1px solid var(--brand-border-soft);
+	border-radius: 28px 28px 0 0;
 	background: linear-gradient(
 		180deg,
 		color-mix(in srgb, var(--dashboard-panel-bg-top) 99%, transparent) 0%,
 		color-mix(in srgb, var(--dashboard-panel-bg-bottom) 97%, transparent) 100%
 	);
+	box-shadow: 0 28px 72px -34px rgba(15, 23, 42, 0.48);
+	transform: translateX(-50%) !important;
 }
 
-.composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
-	left: 50%;
-	right: auto;
-	width: min(calc(100vw - 1.25rem), 72rem);
-	max-height: calc(85vh - 5.25rem);
-	transform: translateX(-50%);
-}
-
-.customer-dashboard-shell .composer-drawer-shell [data-slot="drawer-handle"] {
+.composer-drawer-shell [data-slot="drawer-handle"] {
 	display: none;
 }
 
