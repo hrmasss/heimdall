@@ -55,6 +55,7 @@ export function ResourcePicker({
 	emptyMessage = "Upload resources in the library first.",
 	allowUpload = false,
 	onResourcesCreated,
+	onOpenChange,
 }: {
 	resources: ResourceRecord[];
 	resourceSets?: ResourceSetSummary[];
@@ -65,6 +66,7 @@ export function ResourcePicker({
 	emptyMessage?: string;
 	allowUpload?: boolean;
 	onResourcesCreated?: (resources: ResourceRecord[]) => void;
+	onOpenChange?: (open: boolean) => void;
 }) {
 	const { customerRequest } = useAuth();
 	const [open, setOpen] = useState(false);
@@ -280,6 +282,7 @@ export function ResourcePicker({
 			open={open}
 			onOpenChange={(nextOpen) => {
 				setOpen(nextOpen);
+				onOpenChange?.(nextOpen);
 				if (nextOpen) {
 					setDraftValue(value);
 					setPickerView("library");

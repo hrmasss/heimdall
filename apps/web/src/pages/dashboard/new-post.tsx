@@ -22,12 +22,12 @@ import { toast } from "sonner";
 import {
 	AdminFormField,
 	AdminFormGrid,
-	AdminFormPage,
 	adminInputClassName,
 	adminSelectTriggerClassName,
 	adminTextareaClassName,
 } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
+import { DashboardOperationalHeader } from "@/components/app/dashboard";
 import { ResourceChipList } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
@@ -59,9 +59,9 @@ import { Textarea } from "@/components/ui/textarea";
 import type {
 	AIGeneratedPostDraft,
 	AIProviderCatalog,
-	ApiListResponse,
 	CampaignSummary,
 	PostDetail,
+	PostComposeBootstrapResponse,
 	PostVariant,
 	PublicationPlan,
 	ReadinessIssue,
@@ -71,11 +71,9 @@ import type {
 	ResourceSetDetail,
 	ResourceSetSummary,
 	ReviewRecord,
-	SocialConnectionsResponse,
 	SocialTargetRecord,
 	VariantReadiness,
 	WorkspaceAISettings,
-	WorkspaceContextResponse,
 } from "@/lib/api-types";
 import { useAuth } from "@/lib/auth-context";
 import { formatPlatformLabel, platformIcon } from "@/lib/platforms";
@@ -119,6 +117,8 @@ type VariantSnapshot = {
 	readiness: VariantReadiness;
 };
 
+type ComposerStep = "content" | "destinations" | "schedule";
+
 type PlannedTimeDraft = {
 	hour: string;
 	minute: string;
@@ -151,6 +151,19 @@ const mediumTextareaClassName = `${adminTextareaClassName} dashboard-textarea-me
 const compactTextareaClassName = `${adminTextareaClassName} dashboard-textarea-medium`;
 const DEFAULT_HOUR = 9;
 const DEFAULT_MINUTE = 0;
+
+function mergeResources(
+	current: ResourceRecord[],
+	incoming: ResourceRecord[],
+): ResourceRecord[] {
+	const next = new Map(current.map((resource) => [resource.id, resource]));
+	for (const resource of incoming) {
+		next.set(resource.id, resource);
+	}
+	return Array.from(next.values()).sort((left, right) =>
+		right.createdAt.localeCompare(left.createdAt),
+	);
+}
 
 function createDraftContent(kind: ContentKind = "text"): DraftContent {
 	return {
@@ -266,6 +279,29 @@ function preferredVariantModes(
 			? "inherit"
 			: "replace") as DraftVariant["assetMode"],
 	};
+}
+
+function deriveDraftTitle(content: DraftContent) {
+	if (content.kind === "article") {
+		return content.articleTitle.trim().slice(0, 80);
+	}
+	if (content.kind === "thread") {
+		return content.threadItems
+			.map((item) => item.trim())
+			.find(Boolean)
+			?.slice(0, 80) ?? "";
+	}
+	return content.textBody.trim().slice(0, 80);
+}
+
+function hasMeaningfulSharedDraft(content: DraftContent) {
+	if (content.kind === "article") {
+		return Boolean(content.articleTitle.trim() || content.articleBody.trim());
+	}
+	if (content.kind === "thread") {
+		return content.threadItems.some((item) => item.trim());
+	}
+	return Boolean(content.textBody.trim());
 }
 
 function extractDraftContent(
@@ -1013,9 +1049,12 @@ export function DashboardNewPost() {
 	const [error, setError] = useState<string | null>(null);
 	const [dataWarning, setDataWarning] = useState<string | null>(null);
 	const [postId, setPostId] = useState<string | null>(id ?? null);
-	const [, setBaseline] = useState("");
+	const [baseline, setBaseline] = useState("");
+	const [activeStep, setActiveStep] = useState<ComposerStep>("content");
 	const [activeTab, setActiveTab] = useState("shared");
 	const [socialTargets, setSocialTargets] = useState<SocialTargetRecord[]>([]);
+	const [resourceLibraryLoaded, setResourceLibraryLoaded] = useState(false);
+	const [resourceLibraryLoading, setResourceLibraryLoading] = useState(false);
 	const [_plannedTimeDrafts, setPlannedTimeDrafts] = useState<
 		Record<string, PlannedTimeDraft>
 	>({});
@@ -1030,6 +1069,7 @@ export function DashboardNewPost() {
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [selectedDestinationPlatform, setSelectedDestinationPlatform] =
 		useState<string | null>(null);
+	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
@@ -1043,11 +1083,9 @@ export function DashboardNewPost() {
 	const [prefillAssetsKey, setPrefillAssetsKey] = useState<string | null>(null);
 	const [variants, setVariants] = useState<DraftVariant[]>([]);
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
+	const [excludedPlatforms, setExcludedPlatforms] = useState<string[]>([]);
 	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
 	const [_aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(
-		null,
-	);
-	const [_aiContext, setAIContext] = useState<WorkspaceContextResponse | null>(
 		null,
 	);
 	const [aiPrompt, setAIPrompt] = useState("");
@@ -1061,12 +1099,7 @@ export function DashboardNewPost() {
 	);
 
 	function addUploadedResources(created: ResourceRecord[]) {
-		setResources((current) => [
-			...created,
-			...current.filter(
-				(resource) => !created.some((item) => item.id === resource.id),
-			),
-		]);
+		setResources((current) => mergeResources(current, created));
 	}
 
 	const platformOptions = useMemo(
@@ -1089,6 +1122,33 @@ export function DashboardNewPost() {
 			aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
 		[aiProvider, aiProviders],
 	);
+	const loadResourceLibrary = useCallback(async () => {
+		if (resourceLibraryLoaded || resourceLibraryLoading) {
+			return;
+		}
+		setResourceLibraryLoading(true);
+		try {
+			const [resourceResponse, setResponse] = await Promise.all([
+				customerRequest<{ items: ResourceRecord[] }>("/resources"),
+				customerRequest<{ items: ResourceSetSummary[] }>("/resource-sets"),
+			]);
+			setResources((current) => mergeResources(current, resourceResponse.items));
+			setResourceSets(setResponse.items);
+			setResourceLibraryLoaded(true);
+		} catch (loadError) {
+			setError(
+				loadError instanceof Error
+					? loadError.message
+					: "Unable to load the resource library.",
+			);
+		} finally {
+			setResourceLibraryLoading(false);
+		}
+	}, [
+		customerRequest,
+		resourceLibraryLoaded,
+		resourceLibraryLoading,
+	]);
 	const resourcesById = useMemo(() => resourceMap(resources), [resources]);
 	const rootAssets = useMemo(
 		() =>
@@ -1227,6 +1287,70 @@ export function DashboardNewPost() {
 	);
 	const selectedVariant = selectedDestination?.variant ?? null;
 	const selectedSnapshot = selectedDestination?.snapshot ?? null;
+	const draftTitle = title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
+	const hasMeaningfulDraft = useMemo(
+		() =>
+			hasMeaningfulSharedDraft(sharedDraft) ||
+			rootAssetIds.length > 0 ||
+			variants.some(
+				(variant) =>
+					variant.contentMode === "custom" ||
+					variant.assetMode === "replace" ||
+					variant.notes.trim() !== "",
+			),
+		[sharedDraft, rootAssetIds.length, variants],
+	);
+	const currentDraftFingerprint = useMemo(
+		() =>
+			JSON.stringify({
+				title,
+				notes,
+				campaignId,
+				requiresApproval,
+				sharedDraft,
+				rootAssetIds,
+				variants,
+				deletedVariantIds,
+				excludedPlatforms,
+			}),
+		[
+			campaignId,
+			deletedVariantIds,
+			excludedPlatforms,
+			notes,
+			requiresApproval,
+			rootAssetIds,
+			sharedDraft,
+			title,
+			variants,
+		],
+	);
+	const isDirty = baseline !== "" && currentDraftFingerprint !== baseline;
+	const saveStateLabel = saving
+		? "Saving..."
+		: error
+			? "Needs attention"
+			: isDirty
+				? "Unsaved changes"
+				: lastSavedAt
+					? `Saved ${new Date(lastSavedAt).toLocaleTimeString([], {
+							hour: "numeric",
+							minute: "2-digit",
+						})}`
+					: "New draft";
+	const nextRequiredStep =
+		!hasMeaningfulSharedDraft(sharedDraft) && rootAssetIds.length === 0
+			? "Add shared content"
+			: readyDestinations.length + attentionDestinations.length === 0
+				? "Check destinations"
+				: !bulkScheduleDate
+					? canPublish
+						? "Pick a publish time"
+						: "Confirm review flow"
+					: "Ready to send";
+	const connectedDestinationCount = destinationViews.filter(
+		(destination) => destination.target,
+	).length;
 
 	const loadEditor = useCallback(
 		async (nextId?: string | null, requestedTab?: string | null) => {
@@ -1236,51 +1360,39 @@ export function DashboardNewPost() {
 			setLoading(true);
 			setError(null);
 			try {
-				const [
-					campaignResponse,
-					resourceResponse,
-					setResponse,
-					capabilityResponse,
-					socialResponse,
-					aiCatalogResponse,
-					aiSettingsResponse,
-					aiContextResponse,
-					postResponse,
-				] = await Promise.all([
-					customerRequest<ApiListResponse<CampaignSummary>>("/campaigns"),
-					customerRequest<ApiListResponse<ResourceRecord>>("/resources"),
-					customerRequest<ApiListResponse<ResourceSetSummary>>(
-						"/resource-sets",
-					),
-					customerRequest<ResourceCapabilityMatrix>("/resources/capabilities"),
-					customerRequest<SocialConnectionsResponse>("/social/connections"),
-					customerRequest<AIProviderCatalog>(
-						`/workspaces/${activeWorkspaceId}/ai/catalog`,
-					).catch(() => null),
-					customerRequest<WorkspaceAISettings>(
-						`/workspaces/${activeWorkspaceId}/ai/settings`,
-					).catch(() => null),
-					customerRequest<WorkspaceContextResponse>(
-						`/workspaces/${activeWorkspaceId}/ai/context`,
-					).catch(() => null),
-					nextId
-						? customerRequest<PostDetail>(`/posts/${nextId}`)
-						: Promise.resolve(null),
-				]);
-				const normalizedCapabilities =
-					normalizeCapabilities(capabilityResponse);
-				setCampaigns(campaignResponse.items);
-				setResources(resourceResponse.items);
-				setResourceSets(setResponse.items);
+				const bootstrap =
+					await customerRequest<PostComposeBootstrapResponse>(
+						nextId
+							? `/posts/compose/bootstrap?postId=${encodeURIComponent(nextId)}`
+							: "/posts/compose/bootstrap",
+					);
+				const normalizedCapabilities = normalizeCapabilities(
+					bootstrap.capabilities,
+				);
+				const socialResponse = bootstrap.social;
+				const postResponse = bootstrap.post ?? null;
+				const aiCatalogResponse = bootstrap.ai.catalog ?? null;
+				const aiSettingsResponse = bootstrap.ai.settings ?? null;
+				const connectedPlatforms = Array.from(
+					healthySelectedTargetsByPlatform(socialResponse.targets).keys(),
+				);
+				setCampaigns(bootstrap.campaigns);
+				setResources(bootstrap.resourceLibrary.seedResources);
+				setResourceSets(bootstrap.resourceLibrary.seedResourceSets);
+				setResourceLibraryLoaded(false);
 				setCapabilities(normalizedCapabilities);
 				setSocialTargets(socialResponse.targets);
 				setAICatalog(aiCatalogResponse);
 				setAISettings(aiSettingsResponse);
-				setAIContext(aiContextResponse);
 				setAIMode(aiSettingsResponse?.defaultMode ?? "native");
 				const defaultAISelection =
 					aiSettingsResponse?.capabilityDefaults.post_generation ??
-					(aiCatalogResponse?.providers[0]
+					(bootstrap.ai.defaultProvider && bootstrap.ai.defaultModel
+						? {
+								provider: bootstrap.ai.defaultProvider,
+								model: bootstrap.ai.defaultModel,
+							}
+						: aiCatalogResponse?.providers[0]
 						? {
 								provider: aiCatalogResponse.providers[0].provider,
 								model:
@@ -1298,43 +1410,17 @@ export function DashboardNewPost() {
 						requestedTab !== "shared" &&
 						uniquePlatforms(normalizedCapabilities).includes(requestedTab)
 							? requestedTab
-							: "";
-					const requestedSurface = requestedPlatform
-						? (surfaceOptions(normalizedCapabilities, requestedPlatform)[0]
-								?.surface ?? "feed_post")
-						: "";
-					const requestedRule =
-						requestedPlatform && requestedSurface
-							? findRule(
-									normalizedCapabilities,
-									requestedPlatform,
-									requestedSurface,
-								)
-							: undefined;
+							: null;
 					const emptySharedDraft = createDraftContent();
-					const defaultModes = preferredVariantModes(emptySharedDraft, []);
-					const seededVariants = requestedPlatform
-						? [
-								{
-									id: undefined,
-									platform: requestedPlatform,
-									surface: requestedSurface,
-									inheritSource: "shared",
-									contentMode: defaultModes.contentMode,
-									content: coerceDraftContentForRule(
-										createDraftContent(emptySharedDraft.kind),
-										requestedRule,
-									),
-									assetMode: defaultModes.assetMode,
-									assetIds: [],
-									removedInheritedResourceIds: [],
-									approvalState: "draft" as const,
-									reviewHistory: [],
-									latestPublication: undefined,
-									notes: "",
-								},
-							]
-						: [];
+					const seedPlatforms =
+						requestedPlatform !== null
+							? [requestedPlatform]
+							: connectedPlatforms.length > 0
+								? connectedPlatforms
+								: [];
+					const seededVariants = seedPlatforms.map((platform) =>
+						createAutoVariant(platform, normalizedCapabilities, emptySharedDraft, []),
+					);
 					const emptyState = {
 						title: "",
 						notes: "",
@@ -1346,6 +1432,7 @@ export function DashboardNewPost() {
 						rootAssetIds: [],
 						variants: seededVariants,
 						deletedVariantIds: [],
+						excludedPlatforms: [],
 					};
 					setPostId(null);
 					setTitle(emptyState.title);
@@ -1357,12 +1444,27 @@ export function DashboardNewPost() {
 					setSharedDraft(emptyState.sharedDraft);
 					setSharedTagInput(formatTagsForEditor(emptyState.sharedDraft.tags));
 					setRootAssetIds(emptyState.rootAssetIds);
-					setVariants([]);
+					setVariants(emptyState.variants);
 					setDeletedVariantIds([]);
+					setExcludedPlatforms([]);
 					setPlannedTimeDrafts({});
 					setBulkActionSummary(null);
-					setActiveTab(requestedPlatform || "shared");
-					setBaseline(JSON.stringify(emptyState));
+					setActiveTab(requestedPlatform ?? emptyState.variants[0]?.platform ?? "shared");
+					setActiveStep("content");
+					setLastSavedAt(null);
+					setBaseline(
+						JSON.stringify({
+							title: emptyState.title,
+							notes: emptyState.notes,
+							campaignId: emptyState.campaignId,
+							requiresApproval: emptyState.requiresApproval,
+							sharedDraft: emptyState.sharedDraft,
+							rootAssetIds: emptyState.rootAssetIds,
+							variants: emptyState.variants,
+							deletedVariantIds: emptyState.deletedVariantIds,
+							excludedPlatforms: emptyState.excludedPlatforms,
+						}),
+					);
 					setDataWarning(null);
 					return;
 				}
@@ -1404,6 +1506,7 @@ export function DashboardNewPost() {
 					rootAssetIds: post.assets.map((asset) => asset.id),
 					variants: mappedVariants,
 					deletedVariantIds: [],
+					excludedPlatforms: [],
 				};
 				setPostId(post.id);
 				setTitle(nextState.title);
@@ -1417,6 +1520,7 @@ export function DashboardNewPost() {
 				setRootAssetIds(nextState.rootAssetIds);
 				setVariants(nextState.variants);
 				setDeletedVariantIds([]);
+				setExcludedPlatforms([]);
 				setPlannedTimeDrafts({});
 				setBulkActionSummary(null);
 				const defaultTab =
@@ -1432,7 +1536,21 @@ export function DashboardNewPost() {
 						? requestedTab
 						: defaultTab;
 				setActiveTab(nextActiveTab);
-				setBaseline(JSON.stringify(nextState));
+				setActiveStep("content");
+				setLastSavedAt(post.updatedAt);
+				setBaseline(
+					JSON.stringify({
+						title: nextState.title,
+						notes: nextState.notes,
+						campaignId: nextState.campaignId,
+						requiresApproval: nextState.requiresApproval,
+						sharedDraft: nextState.sharedDraft,
+						rootAssetIds: nextState.rootAssetIds,
+						variants: nextState.variants,
+						deletedVariantIds: nextState.deletedVariantIds,
+						excludedPlatforms: nextState.excludedPlatforms,
+					}),
+				);
 				setDataWarning(
 					normalized.coerced
 						? "Some stored post data was normalized so the editor could load safely."
@@ -1480,39 +1598,6 @@ export function DashboardNewPost() {
 	}, [id, loadEditor]);
 
 	useEffect(() => {
-		if (loading || !capabilities) {
-			return;
-		}
-		const connectedPlatforms = Array.from(selectedTargetsByPlatform.keys());
-		if (connectedPlatforms.length === 0) {
-			return;
-		}
-		setVariants((current) => {
-			const existingPlatforms = new Set(
-				current.map((variant) => variant.platform),
-			);
-			const missing = connectedPlatforms.filter(
-				(platform) => !existingPlatforms.has(platform),
-			);
-			if (missing.length === 0) {
-				return current;
-			}
-			return [
-				...current,
-				...missing.map((platform) =>
-					createAutoVariant(platform, capabilities, sharedDraft, rootAssets),
-				),
-			];
-		});
-	}, [
-		capabilities,
-		loading,
-		selectedTargetsByPlatform,
-		sharedDraft,
-		rootAssets,
-	]);
-
-	useEffect(() => {
 		if (loading) {
 			return;
 		}
@@ -1531,14 +1616,23 @@ export function DashboardNewPost() {
 		async function applyPrefill() {
 			try {
 				const idsToAdd: string[] = [];
+				const resourcesToMerge: ResourceRecord[] = [];
 				if (resourceId) {
 					idsToAdd.push(resourceId);
+					const resource = await customerRequest<ResourceRecord>(
+						`/resources/${resourceId}`,
+					);
+					resourcesToMerge.push(resource);
 				}
 				if (resourceSetId) {
 					const resourceSet = await customerRequest<ResourceSetDetail>(
 						`/resource-sets/${resourceSetId}`,
 					);
 					idsToAdd.push(...resourceSet.items.map((item) => item.resourceId));
+					resourcesToMerge.push(...resourceSet.items.map((item) => item.resource));
+				}
+				if (!cancelled && resourcesToMerge.length > 0) {
+					setResources((current) => mergeResources(current, resourcesToMerge));
 				}
 				if (!cancelled && idsToAdd.length > 0) {
 					setRootAssetIds((current) => {
@@ -1610,6 +1704,67 @@ export function DashboardNewPost() {
 		return response.items.map((item) => item.resourceId);
 	}
 
+	function toggleDestination(platform: string, included: boolean) {
+		if (!capabilities) {
+			return;
+		}
+		if (included) {
+			setExcludedPlatforms((current) => current.filter((item) => item !== platform));
+			setVariants((current) => {
+				if (current.some((variant) => variant.platform === platform)) {
+					return current;
+				}
+				return [
+					...current,
+					createAutoVariant(platform, capabilities, sharedDraft, rootAssets),
+				];
+			});
+			setActiveTab(platform);
+			return;
+		}
+		const existing = variants.find((variant) => variant.platform === platform);
+		if (!existing) {
+			return;
+		}
+		setExcludedPlatforms((current) =>
+			current.includes(platform) ? current : [...current, platform],
+		);
+		if (existing.id) {
+			setDeletedVariantIds((current) =>
+				current.includes(existing.id!) ? current : [...current, existing.id!],
+			);
+		}
+		setVariants((current) =>
+			current.filter((variant) => variant.platform !== platform),
+		);
+		if (activeTab === platform) {
+			setActiveTab("shared");
+		}
+	}
+
+	function applySchedulePreset(preset: "later_today" | "tomorrow_morning" | "next_best_slot") {
+		const next = new Date();
+		if (preset === "tomorrow_morning") {
+			next.setDate(next.getDate() + 1);
+			next.setHours(9, 0, 0, 0);
+		} else if (preset === "next_best_slot") {
+			next.setDate(next.getDate() + (next.getHours() >= 10 ? 1 : 0));
+			next.setHours(10, 0, 0, 0);
+		} else {
+			next.setHours(Math.min(next.getHours() + 2, 18), 0, 0, 0);
+		}
+		const hours24 = next.getHours();
+		const meridiem = hours24 >= 12 ? "PM" : "AM";
+		const hour12 = hours24 % 12 || 12;
+		setBulkScheduleDate(next);
+		setBulkScheduleTime({
+			hour: padNumber(hour12),
+			minute: padNumber(next.getMinutes()),
+			meridiem,
+		});
+		setActiveStep("schedule");
+	}
+
 	function updateVariant(platform: string, patch: Partial<DraftVariant>) {
 		setVariants((current) =>
 			current.map((variant) =>
@@ -1677,9 +1832,13 @@ export function DashboardNewPost() {
 		}
 	}
 
-	async function persistDraft(requestedPlatform = activeTab || "shared") {
-		if (!title.trim()) {
-			setError("Post title is required.");
+	async function persistDraft(
+		requestedPlatform = activeTab || "shared",
+		options?: { rehydrate?: boolean },
+	) {
+		const shouldRehydrate = options?.rehydrate ?? false;
+		const resolvedTitle = title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
+		if (!hasMeaningfulDraft) {
 			return null;
 		}
 		setSaving(true);
@@ -1687,7 +1846,7 @@ export function DashboardNewPost() {
 		try {
 			const primaryVariant = variants[0];
 			const body = {
-				title,
+				title: resolvedTitle,
 				contentKind: sharedDraft.kind,
 				contentPayload: buildContentPayload(sharedDraft),
 				originPlatform: primaryVariant?.platform ?? "",
@@ -1805,7 +1964,50 @@ export function DashboardNewPost() {
 				navigate(nextHref, { replace: true });
 			}
 			setPostId(post.id);
-			await loadEditor(post.id, requestedPlatform);
+			setTitle(resolvedTitle);
+			setDeletedVariantIds([]);
+			setVariants((current) =>
+				current.map((variant) => {
+					const savedVariant = savedVariantsByPlatform.get(variant.platform);
+					if (!savedVariant) {
+						return variant;
+					}
+					return {
+						...variant,
+						id: savedVariant.id,
+						approvalState: savedVariant.approvalState,
+						reviewHistory: savedVariant.reviewHistory,
+						latestPublication: savedVariant.latestPublication,
+					};
+				}),
+			);
+			const nextState = JSON.stringify({
+				title: resolvedTitle,
+				notes,
+				campaignId,
+				requiresApproval,
+				sharedDraft,
+				rootAssetIds,
+				variants: variants.map((variant) => {
+					const savedVariant = savedVariantsByPlatform.get(variant.platform);
+					return savedVariant
+						? {
+								...variant,
+								id: savedVariant.id,
+								approvalState: savedVariant.approvalState,
+								reviewHistory: savedVariant.reviewHistory,
+								latestPublication: savedVariant.latestPublication,
+							}
+						: variant;
+				}),
+				deletedVariantIds: [],
+				excludedPlatforms,
+			});
+			setBaseline(nextState);
+			setLastSavedAt(new Date().toISOString());
+			if (shouldRehydrate) {
+				await loadEditor(post.id, requestedPlatform);
+			}
 			return { postId: post.id, savedVariantsByPlatform };
 		} catch (saveError) {
 			setError(
@@ -1825,6 +2027,31 @@ export function DashboardNewPost() {
 			toast.success("Draft saved.");
 		}
 	}
+
+	useEffect(() => {
+		if (
+			loading ||
+			saving ||
+			!postId ||
+			!hasMeaningfulDraft ||
+			!isDirty ||
+			selectedDestinationPlatform
+		) {
+			return;
+		}
+		const timeout = window.setTimeout(() => {
+			void persistDraft(activeTab || "shared");
+		}, 1200);
+		return () => window.clearTimeout(timeout);
+	}, [
+		activeTab,
+		hasMeaningfulDraft,
+		isDirty,
+		loading,
+		postId,
+		saving,
+		selectedDestinationPlatform,
+	]);
 
 	async function runBulkAction(action: BulkActionSummary["action"]) {
 		setBulkActionSummary(null);
@@ -2023,192 +2250,98 @@ export function DashboardNewPost() {
 
 	return (
 		<>
-			<AdminFormPage
-				eyebrow="Compose"
-				title={isEditMode ? "Refine your next post" : "Create your next post"}
-				description="Start with one shared version, attach media, then schedule or customize only where it helps."
-				actions={
-					<Button variant="outline" className="rounded-full" asChild>
-						<Link
-							to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}
-						>
-							<ArrowLeft className="size-4" />
-							Back
-						</Link>
-					</Button>
-				}
-				aside={
-					<div className="dashboard-page-stack space-y-6 xl:sticky xl:self-start dashboard-sticky-rail">
-						<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-gradient-to-br from-white via-white to-orange-50/70 p-5">
-							<div>
-								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-									Post pulse
-								</div>
-								<div className="mt-2 text-2xl font-semibold">
-									{title.trim() || "Untitled post"}
-								</div>
-								<div className="mt-2 text-sm text-muted-foreground">
-									{primaryActionDescription}
-								</div>
-							</div>
-							<div className="grid grid-cols-2 gap-3">
-								<div className="rounded-[20px] border border-emerald-200/70 bg-emerald-50/80 p-4">
-									<div className="text-xs uppercase tracking-[0.2em] text-emerald-700">
-										Ready
-									</div>
-									<div className="mt-2 text-3xl font-semibold text-emerald-900">
-										{readyDestinations.length}
-									</div>
-								</div>
-								<div className="rounded-[20px] border border-amber-200/70 bg-amber-50/80 p-4">
-									<div className="text-xs uppercase tracking-[0.2em] text-amber-700">
-										Attention
-									</div>
-									<div className="mt-2 text-3xl font-semibold text-amber-900">
-										{attentionDestinations.length}
-									</div>
-								</div>
-								<div className="rounded-[20px] border border-rose-200/70 bg-rose-50/80 p-4">
-									<div className="text-xs uppercase tracking-[0.2em] text-rose-700">
-										Blocked
-									</div>
-									<div className="mt-2 text-3xl font-semibold text-rose-900">
-										{blockedDestinations.length}
-									</div>
-								</div>
-								<div className="rounded-[20px] border border-slate-200/70 bg-slate-50/80 p-4">
-									<div className="text-xs uppercase tracking-[0.2em] text-slate-600">
-										Not connected
-									</div>
-									<div className="mt-2 text-3xl font-semibold text-slate-900">
-										{notConnectedDestinations.length}
-									</div>
-								</div>
-							</div>
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
-								<div className="text-sm font-medium">Preview</div>
-								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
-									{renderContentPreview(
-										sharedDraft.kind,
-										buildContentPayload(sharedDraft),
-									)}
-								</pre>
-								<div className="mt-4">
-									<TagBadgeRow tags={sharedDraft.tags} />
-								</div>
-							</div>
-							{bulkActionSummary ? (
-								<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4 text-sm text-muted-foreground">
-									<div className="font-medium text-foreground">
-										Recent bulk action
-									</div>
-									<div className="mt-2">
-										{bulkActionSummary.succeeded.length} succeeded,{" "}
-										{bulkActionSummary.skipped.length} skipped,{" "}
-										{bulkActionSummary.failed.length} failed.
-									</div>
-								</div>
-							) : null}
-						</SurfaceCard>
-					</div>
-				}
-			>
-				<div className="dashboard-page-stack space-y-6 pb-32">
-					{error ? (
-						<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
-							{error}
-						</SurfaceCard>
-					) : null}
-					{dataWarning ? (
-						<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-amber-500/20 bg-amber-500/10 text-sm text-amber-700">
-							<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-							<div>{dataWarning}</div>
-						</SurfaceCard>
-					) : null}
+			<div className="dashboard-page-stack space-y-5 pb-28">
+				<DashboardOperationalHeader
+					title={isEditMode ? "Refine your next post" : "Create your next post"}
+					description="Write the shared version first, validate destinations without scrolling through everything, then schedule or publish in one short pass."
+					meta={
+						<span className="rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-2.5 py-1 text-xs font-medium">
+							{saveStateLabel}
+						</span>
+					}
+					primaryAction={
+						<Button variant="outline" className="rounded-full" asChild>
+							<Link
+								to={postId ? `/dashboard/posts/${postId}` : "/dashboard/posts"}
+							>
+								<ArrowLeft className="size-4" />
+								Back
+							</Link>
+						</Button>
+					}
+				/>
 
-					<SurfaceCard className="space-y-6 border-[var(--brand-border-soft)] bg-gradient-to-br from-white via-white to-orange-50/60 p-6">
-						<div className="flex flex-wrap items-center justify-between gap-3">
-							<div>
-								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-									Guided flow
-								</div>
-								<div className="mt-2 text-2xl font-semibold">
-									Compose, attach, schedule
-								</div>
-								<div className="mt-1 text-sm text-muted-foreground">
-									The default path stays simple, and advanced overrides stay
-									secondary.
-								</div>
-							</div>
-							<Badge variant="outline" className="rounded-full px-3 py-1">
-								{bulkEligibleCount} destination
-								{bulkEligibleCount === 1 ? "" : "s"} ready
-							</Badge>
-						</div>
+				{error ? (
+					<SurfaceCard className="dashboard-card-sm border border-destructive/20 bg-destructive/10 text-sm text-destructive">
+						{error}
+					</SurfaceCard>
+				) : null}
+				{dataWarning ? (
+					<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-amber-500/20 bg-amber-500/10 text-sm text-amber-700">
+						<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+						<div>{dataWarning}</div>
+					</SurfaceCard>
+				) : null}
 
-						<AdminFormGrid>
-							<AdminFormField>
-								<Label>Post title</Label>
-								<Input
-									value={title}
-									onChange={(event) => setTitle(event.target.value)}
-									className={adminInputClassName}
-									placeholder="Q2 product launch story"
-								/>
-							</AdminFormField>
-							<AdminFormField>
-								<Label>Campaign</Label>
-								<Select
-									value={campaignId || "none"}
-									onValueChange={(value) =>
-										setCampaignId(value === "none" ? "" : value)
-									}
-								>
-									<SelectTrigger className={adminSelectTriggerClassName}>
-										<SelectValue placeholder="No campaign" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="none">No campaign</SelectItem>
-										{campaigns.map((campaign) => (
-											<SelectItem key={campaign.id} value={campaign.id}>
-												{campaign.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</AdminFormField>
-						</AdminFormGrid>
+				<div className="grid gap-5 xl:grid-cols-[minmax(0,1.28fr)_340px]">
+					<div className="dashboard-page-stack space-y-6">
+						<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-background/80 p-5">
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<div>
+									<div className="text-base font-semibold tracking-tight">
+										Focused composer
+									</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										Keep one step active at a time so the page feels smaller and
+										faster to operate.
+									</div>
+								</div>
+								<Badge variant="outline" className="rounded-full px-3 py-1">
+									Next: {nextRequiredStep}
+								</Badge>
+							</div>
 
-						<div className="grid gap-3 md:grid-cols-3">
-							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
-								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-									1. Compose
-								</div>
-								<div className="mt-2 text-sm font-medium">
-									Write the shared source version once.
-								</div>
+							<div className="grid gap-3 md:grid-cols-3">
+								{[
+									{
+										id: "content" as const,
+										label: "Content",
+										copy: "Shared copy and media",
+									},
+									{
+										id: "destinations" as const,
+										label: "Destinations",
+										copy: "Readiness and overrides",
+									},
+									{
+										id: "schedule" as const,
+										label: "Schedule",
+										copy: "Timing and metadata",
+									},
+								].map((step, index) => (
+									<button
+										key={step.id}
+										type="button"
+										onClick={() => setActiveStep(step.id)}
+										className={cn(
+											"rounded-[20px] border px-4 py-3 text-left transition",
+											activeStep === step.id
+												? "border-[var(--brand-border-strong)] bg-primary/10"
+												: "border-[var(--brand-border-soft)] bg-background/72 hover:bg-background/85",
+										)}
+									>
+										<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+											{index + 1}. {step.label}
+										</div>
+										<div className="mt-2 text-sm font-medium">{step.copy}</div>
+									</button>
+								))}
 							</div>
-							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
-								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-									2. Media
-								</div>
-								<div className="mt-2 text-sm font-medium">
-									Attach assets that can travel across inheriting destinations.
-								</div>
-							</div>
-							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
-								<div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-									3. Schedule
-								</div>
-								<div className="mt-2 text-sm font-medium">
-									Save, schedule, or publish from one focused action bar.
-								</div>
-							</div>
-						</div>
 
-						<div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.95fr)]">
-							<div className="space-y-6">
-								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
+							<div className="grid gap-6">
+								{activeStep === "content" ? (
+									<div className="space-y-6">
+										<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
 											<div className="text-sm font-medium">Compose</div>
@@ -2330,8 +2463,18 @@ export function DashboardNewPost() {
 											triggerLabel="Attach assets"
 											allowUpload
 											onResourcesCreated={addUploadedResources}
+											onOpenChange={(open) => {
+												if (open) {
+													void loadResourceLibrary();
+												}
+											}}
 										/>
 									</div>
+									{resourceLibraryLoading ? (
+										<div className="text-sm text-muted-foreground">
+											Loading the full library.
+										</div>
+									) : null}
 									<ResourceChipList
 										resources={rootAssets}
 										onRemove={(resourceId) =>
@@ -2355,31 +2498,13 @@ export function DashboardNewPost() {
 												Advanced options
 											</div>
 											<div className="text-sm text-muted-foreground">
-												Approval, notes, and AI help stay out of the main flow.
+												AI help lives here, while approval and notes stay in the
+												schedule step.
 											</div>
 										</div>
 										<Settings2 className="size-4 text-muted-foreground" />
 									</summary>
 									<div className="mt-5 space-y-4">
-										<Textarea
-											value={notes}
-											onChange={(event) => setNotes(event.target.value)}
-											className={mediumTextareaClassName}
-											placeholder="Internal notes"
-										/>
-										<div className="flex items-start justify-between gap-4 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
-											<div>
-												<div className="text-sm font-medium">Approval gate</div>
-												<div className="text-sm text-muted-foreground">
-													Only enable this when a reviewer should stay in the
-													loop.
-												</div>
-											</div>
-											<Switch
-												checked={requiresApproval}
-												onCheckedChange={setRequiresApproval}
-											/>
-										</div>
 										<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
 											<div className="flex items-center justify-between gap-3">
 												<div className="text-sm font-medium">
@@ -2409,217 +2534,417 @@ export function DashboardNewPost() {
 										</div>
 									</div>
 								</details>
-							</div>
-
-							<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
-								<div>
-									<div className="text-sm font-medium">Review destinations</div>
-									<div className="text-sm text-muted-foreground">
-										Ready and warning-only destinations are included by default.
-									</div>
 								</div>
-								{[
-									{
-										label: "Ready",
-										items: readyDestinations,
-										tone: "border-emerald-200/75 bg-emerald-50/75 dark:border-emerald-500/30 dark:bg-emerald-500/10",
-									},
-									{
-										label: "Needs attention",
-										items: attentionDestinations,
-										tone: "border-amber-200/75 bg-amber-50/75 dark:border-amber-500/30 dark:bg-amber-500/10",
-									},
-									{
-										label: "Blocked",
-										items: blockedDestinations,
-										tone: "border-rose-200/75 bg-rose-50/75 dark:border-rose-500/30 dark:bg-rose-500/10",
-									},
-									{
-										label: "Not connected",
-										items: notConnectedDestinations,
-										tone: "border-slate-200/75 bg-slate-50/75 dark:border-slate-400/25 dark:bg-slate-500/10",
-									},
-								].map((group) => (
-									<div
-										key={group.label}
-										className={cn("rounded-[22px] border p-4", group.tone)}
-									>
-										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium">{group.label}</div>
-											<Badge variant="secondary" className="rounded-full">
-												{group.items.length}
-											</Badge>
-										</div>
-										<div className="mt-3 grid gap-3">
-											{group.items.length > 0 ? (
-												group.items.map((destination) => (
-													<button
-														key={destination.platform}
-														type="button"
-														onClick={() => {
-															setActiveTab(destination.platform);
-															setSelectedDestinationPlatform(
-																destination.platform,
-															);
-														}}
-														className="flex w-full items-start justify-between gap-3 rounded-[20px] border border-border/70 bg-card/95 px-4 py-4 text-left text-foreground shadow-[0_18px_40px_-30px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5 hover:border-[var(--brand-border-strong)] hover:bg-card dark:shadow-[0_18px_44px_-32px_rgba(0,0,0,0.52)]"
-													>
-														<div className="flex min-w-0 items-start gap-3">
-															<div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
-																{platformIcon(destination.platform)}
-															</div>
-															<div className="min-w-0">
-																<div className="font-medium">
-																	{destination.label}
-																</div>
-																<div className="mt-1 text-sm text-muted-foreground">
-																	{destination.summary}
-																</div>
-															</div>
-														</div>
-														<div className="flex items-center gap-2">
-															{renderDestinationStatusIcon(destination.status)}
-															<PanelRightOpen className="size-4 text-muted-foreground" />
-														</div>
-													</button>
-												))
-											) : (
-												<div className="rounded-[18px] border border-dashed border-[var(--brand-border-soft)] bg-background/70 px-4 py-5 text-sm text-muted-foreground">
-													No destinations here yet.
-												</div>
-											)}
+							) : null}
+
+							{activeStep === "destinations" ? (
+								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
+									<div>
+										<div className="text-sm font-medium">Destinations</div>
+										<div className="text-sm text-muted-foreground">
+											Show blockers inline, include only what should go out, and
+											open the drawer only when a destination needs special work.
 										</div>
 									</div>
-								))}
-							</SurfaceCard>
-						</div>
-					</SurfaceCard>
-
-					<div className="sticky bottom-4 z-20">
-						<div className="rounded-[28px] border border-[var(--brand-border-soft)] bg-background/95 p-4 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
-							<div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-								<div>
-									<div className="text-sm font-medium">
-										Schedule and publish
-									</div>
-									<div className="text-sm text-muted-foreground">
-										{primaryActionDescription}
-									</div>
-								</div>
-								<div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-									<div className="flex flex-wrap items-center gap-3">
-										<Popover>
-											<PopoverTrigger asChild>
-												<Button
-													type="button"
-													variant="outline"
-													className="rounded-full"
+									<div className="space-y-3">
+										{destinationViews.map((destination) => {
+											const included = Boolean(destination.variant);
+											return (
+												<div
+													key={destination.platform}
+													className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
 												>
-													<CalendarDays className="size-4" />
-													{bulkScheduleDate
-														? bulkScheduleDate.toLocaleDateString()
-														: "Pick schedule date"}
-												</Button>
-											</PopoverTrigger>
-											<PopoverContent className="w-auto p-0" align="end">
-												<Calendar
-													mode="single"
-													selected={bulkScheduleDate ?? undefined}
-													onSelect={(date) => setBulkScheduleDate(date ?? null)}
-												/>
-											</PopoverContent>
-										</Popover>
-										<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-2">
-											<Input
-												value={bulkScheduleTime.hour}
-												onChange={(event) =>
-													updateBulkScheduleTime({
-														hour: event.target.value,
-													})
-												}
-												onBlur={commitBulkScheduleTime}
-												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
-											/>
-											<span className="text-muted-foreground">:</span>
-											<Input
-												value={bulkScheduleTime.minute}
-												onChange={(event) =>
-													updateBulkScheduleTime({
-														minute: event.target.value,
-													})
-												}
-												onBlur={commitBulkScheduleTime}
-												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
-											/>
-											<Select
-												value={bulkScheduleTime.meridiem}
-												onValueChange={(value) =>
-													setBulkScheduleTime((current) => ({
-														...current,
-														meridiem: value as "AM" | "PM",
-													}))
-												}
-											>
-												<SelectTrigger className="h-8 w-[76px] rounded-full border-0 bg-muted/50 px-3 shadow-none">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="AM">AM</SelectItem>
-													<SelectItem value="PM">PM</SelectItem>
-												</SelectContent>
-											</Select>
+													<div className="flex min-w-0 items-start gap-3">
+														<div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+															{platformIcon(destination.platform)}
+														</div>
+														<div className="min-w-0">
+															<div className="flex flex-wrap items-center gap-2">
+																<div className="font-medium">{destination.label}</div>
+																{renderDestinationStatusIcon(destination.status)}
+																<span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+																	{included ? "Included" : "Excluded"}
+																</span>
+															</div>
+															<div className="mt-1 text-sm text-muted-foreground">
+																{destination.summary}
+															</div>
+															{destination.target ? (
+																<div className="mt-1 text-xs text-muted-foreground">
+																	{destination.target.displayName}
+																</div>
+															) : null}
+														</div>
+													</div>
+													<div className="flex flex-wrap items-center gap-2 md:justify-end">
+														{destination.target ? (
+															<Switch
+																checked={included}
+																onCheckedChange={(checked) =>
+																	toggleDestination(destination.platform, checked)
+																}
+															/>
+														) : (
+															<Button
+																type="button"
+																variant="ghost"
+																className="rounded-full"
+																asChild
+															>
+																<Link to="/dashboard/settings/platforms">
+																	Connect
+																</Link>
+															</Button>
+														)}
+														{destination.target && included ? (
+															<Button
+																type="button"
+																variant="outline"
+																className="rounded-full"
+																onClick={() => {
+																	setActiveTab(destination.platform);
+																	setSelectedDestinationPlatform(
+																		destination.platform,
+																	);
+																}}
+															>
+																Customize
+																<PanelRightOpen className="size-4" />
+															</Button>
+														) : null}
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								</SurfaceCard>
+							) : null}
+
+							{activeStep === "schedule" ? (
+								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
+									<div>
+										<div className="text-sm font-medium">Schedule and metadata</div>
+										<div className="text-sm text-muted-foreground">
+											Use a preset when possible, then add optional metadata only
+											if it helps the team.
 										</div>
 									</div>
-									<div className="flex flex-wrap items-center gap-2">
+									<div className="flex flex-wrap gap-2">
 										<Button
 											type="button"
 											variant="outline"
 											className="rounded-full"
-											onClick={saveDraft}
-											disabled={saving || loading}
+											onClick={() => applySchedulePreset("later_today")}
 										>
-											<Save className="size-4" />
-											Save draft
+											Later today
 										</Button>
-										{canPublish ? (
-											<Button
-												type="button"
-												variant="outline"
-												className="rounded-full"
-												onClick={() => runBulkAction("schedule")}
-												disabled={
-													saving ||
-													loading ||
-													!bulkScheduleDate ||
-													bulkEligibleCount === 0
-												}
-											>
-												<CalendarClock className="size-4" />
-												Schedule
-											</Button>
-										) : null}
 										<Button
 											type="button"
+											variant="outline"
 											className="rounded-full"
-											onClick={() =>
-												runBulkAction(canPublish ? "publish" : "submit")
-											}
-											disabled={saving || loading || bulkEligibleCount === 0}
+											onClick={() => applySchedulePreset("tomorrow_morning")}
 										>
-											{canPublish ? (
-												<Send className="size-4" />
-											) : (
-												<CheckCircle2 className="size-4" />
-											)}
-											{primaryActionLabel}
+											Tomorrow morning
+										</Button>
+										<Button
+											type="button"
+											variant="outline"
+											className="rounded-full"
+											onClick={() => applySchedulePreset("next_best_slot")}
+										>
+											Next best slot
 										</Button>
 									</div>
+									<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+										<div className="flex flex-wrap items-center justify-between gap-3">
+											<div>
+												<div className="text-sm font-medium">Custom timing</div>
+												<div className="text-sm text-muted-foreground">
+													Set an exact date and time only when the presets are not
+													enough.
+												</div>
+											</div>
+											<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+												{bulkScheduleDate
+													? `${bulkScheduleDate.toLocaleDateString()} ${bulkScheduleTime.hour}:${bulkScheduleTime.minute} ${bulkScheduleTime.meridiem}`
+													: "No exact time selected"}
+											</div>
+										</div>
+										<div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+											<Popover>
+												<PopoverTrigger asChild>
+													<Button
+														type="button"
+														variant="outline"
+														className="rounded-full"
+													>
+														<CalendarDays className="size-4" />
+														{bulkScheduleDate
+															? bulkScheduleDate.toLocaleDateString()
+															: "Pick schedule date"}
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent className="w-auto p-0" align="start">
+													<Calendar
+														mode="single"
+														selected={bulkScheduleDate ?? undefined}
+														onSelect={(date) =>
+															setBulkScheduleDate(date ?? null)
+														}
+													/>
+												</PopoverContent>
+											</Popover>
+											<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-2">
+												<Input
+													value={bulkScheduleTime.hour}
+													onChange={(event) =>
+														updateBulkScheduleTime({
+															hour: event.target.value,
+														})
+													}
+													onBlur={commitBulkScheduleTime}
+													className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+												/>
+												<span className="text-muted-foreground">:</span>
+												<Input
+													value={bulkScheduleTime.minute}
+													onChange={(event) =>
+														updateBulkScheduleTime({
+															minute: event.target.value,
+														})
+													}
+													onBlur={commitBulkScheduleTime}
+													className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+												/>
+												<Select
+													value={bulkScheduleTime.meridiem}
+													onValueChange={(value) =>
+														setBulkScheduleTime((current) => ({
+															...current,
+															meridiem: value as "AM" | "PM",
+														}))
+													}
+												>
+													<SelectTrigger className="h-8 w-[76px] rounded-full border-0 bg-muted/50 px-3 shadow-none">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="AM">AM</SelectItem>
+														<SelectItem value="PM">PM</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+										</div>
+									</div>
+									<AdminFormGrid>
+										<AdminFormField>
+											<Label>Internal title (optional)</Label>
+											<Input
+												value={title}
+												onChange={(event) => setTitle(event.target.value)}
+												className={adminInputClassName}
+												placeholder={deriveDraftTitle(sharedDraft) || "Optional internal label"}
+											/>
+										</AdminFormField>
+										<AdminFormField>
+											<Label>Campaign</Label>
+											<Select
+												value={campaignId || "none"}
+												onValueChange={(value) =>
+													setCampaignId(value === "none" ? "" : value)
+												}
+											>
+												<SelectTrigger className={adminSelectTriggerClassName}>
+													<SelectValue placeholder="No campaign" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="none">No campaign</SelectItem>
+													{campaigns.map((campaign) => (
+														<SelectItem key={campaign.id} value={campaign.id}>
+															{campaign.name}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</AdminFormField>
+									</AdminFormGrid>
+									<div className="flex items-start justify-between gap-4 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+										<div>
+											<div className="text-sm font-medium">Approval gate</div>
+											<div className="text-sm text-muted-foreground">
+												Only enable this when a reviewer should stay in the loop.
+											</div>
+										</div>
+										<Switch
+											checked={requiresApproval}
+											onCheckedChange={setRequiresApproval}
+										/>
+									</div>
+									<Textarea
+										value={notes}
+										onChange={(event) => setNotes(event.target.value)}
+										className={mediumTextareaClassName}
+										placeholder="Internal notes"
+									/>
+								</SurfaceCard>
+							) : null}
+						</div>
+					</SurfaceCard>
+
+					<div className="sticky bottom-4 z-20">
+						<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/95 px-4 py-3 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
+							<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+								<div>
+									<div className="text-sm font-medium">Ready to launch</div>
+									<div className="text-sm text-muted-foreground">
+										{bulkEligibleCount} destination
+										{bulkEligibleCount === 1 ? "" : "s"} in scope.{" "}
+										{bulkScheduleDate
+											? `Custom timing set for ${bulkScheduleDate.toLocaleDateString()}.`
+											: "Choose a preset or custom timing in Schedule."}
+									</div>
+								</div>
+								<div className="flex flex-wrap items-center gap-2">
+									{activeStep !== "schedule" ? (
+										<Button
+											type="button"
+											variant="ghost"
+											className="rounded-full"
+											onClick={() => setActiveStep("schedule")}
+										>
+											<CalendarClock className="size-4" />
+											Schedule step
+										</Button>
+									) : null}
+									<Button
+										type="button"
+										variant="outline"
+										className="rounded-full"
+										onClick={saveDraft}
+										disabled={saving || loading}
+									>
+										<Save className="size-4" />
+										Save draft
+									</Button>
+									{canPublish ? (
+										<Button
+											type="button"
+											variant="outline"
+											className="rounded-full"
+											onClick={() => runBulkAction("schedule")}
+											disabled={
+												saving ||
+												loading ||
+												!bulkScheduleDate ||
+												bulkEligibleCount === 0
+											}
+										>
+											<CalendarClock className="size-4" />
+											Schedule
+										</Button>
+									) : null}
+									<Button
+										type="button"
+										className="rounded-full"
+										onClick={() =>
+											runBulkAction(canPublish ? "publish" : "submit")
+										}
+										disabled={saving || loading || bulkEligibleCount === 0}
+									>
+										{canPublish ? (
+											<Send className="size-4" />
+										) : (
+											<CheckCircle2 className="size-4" />
+										)}
+										{primaryActionLabel}
+									</Button>
 								</div>
 							</div>
 						</div>
 					</div>
+					</div>
+
+					<div className="dashboard-page-stack space-y-5 xl:sticky xl:self-start dashboard-sticky-rail">
+						<SurfaceCard className="dashboard-card space-y-4">
+							<div>
+								<div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+									Launch summary
+								</div>
+								<div className="mt-2 text-2xl font-semibold">
+									{draftTitle}
+								</div>
+								<div className="mt-2 text-sm text-muted-foreground">
+									{primaryActionDescription}
+								</div>
+							</div>
+							<div className="grid grid-cols-2 gap-3">
+								<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/70 p-3">
+									<div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+										Ready
+									</div>
+									<div className="mt-1 text-xl font-semibold">
+										{readyDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/70 p-3">
+									<div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+										Attention
+									</div>
+									<div className="mt-1 text-xl font-semibold">
+										{attentionDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/70 p-3">
+									<div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+										Blocked
+									</div>
+									<div className="mt-1 text-xl font-semibold">
+										{blockedDestinations.length}
+									</div>
+								</div>
+								<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/70 p-3">
+									<div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+										Connected
+									</div>
+									<div className="mt-1 text-xl font-semibold">
+										{connectedDestinationCount}
+									</div>
+								</div>
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 p-4">
+								<div className="text-sm font-medium">Preview</div>
+								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
+									{renderContentPreview(
+										sharedDraft.kind,
+										buildContentPayload(sharedDraft),
+									)}
+								</pre>
+								<div className="mt-4">
+									<TagBadgeRow tags={sharedDraft.tags} />
+								</div>
+							</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 p-4">
+								<div className="text-sm font-medium">Next required step</div>
+								<div className="mt-1 text-sm text-muted-foreground">
+									{nextRequiredStep}
+								</div>
+							</div>
+							{bulkActionSummary ? (
+								<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 p-4 text-sm text-muted-foreground">
+									<div className="font-medium text-foreground">
+										Recent bulk action
+									</div>
+									<div className="mt-2">
+										{bulkActionSummary.succeeded.length} succeeded,{" "}
+										{bulkActionSummary.skipped.length} skipped,{" "}
+										{bulkActionSummary.failed.length} failed.
+									</div>
+								</div>
+							) : null}
+						</SurfaceCard>
+					</div>
 				</div>
-			</AdminFormPage>
+			</div>
 
 			<Sheet
 				open={Boolean(selectedDestinationPlatform)}
@@ -2835,6 +3160,11 @@ export function DashboardNewPost() {
 											triggerLabel="Choose override assets"
 											allowUpload
 											onResourcesCreated={addUploadedResources}
+											onOpenChange={(open) => {
+												if (open) {
+													void loadResourceLibrary();
+												}
+											}}
 										/>
 									) : null}
 									<ResourceChipList

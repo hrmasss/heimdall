@@ -384,6 +384,67 @@ export type SocialConnectionsResponse = {
 	targets: SocialTargetRecord[];
 };
 
+export type DashboardActionLink = {
+	label: string;
+	href: string;
+};
+
+export type DashboardOverviewStatusItem = {
+	label: string;
+	value: string;
+	tone?: string;
+};
+
+export type DashboardOverviewPriorityItem = {
+	id: string;
+	title: string;
+	detail: string;
+	context?: string;
+	tone?: string;
+	primaryAction: DashboardActionLink;
+	secondaryAction?: DashboardActionLink;
+};
+
+export type DashboardOverviewQueueItem = {
+	id: string;
+	postId: string;
+	title: string;
+	detail: string;
+	plannedAt?: string;
+	status: string;
+	tone?: string;
+	primaryAction: DashboardActionLink;
+	secondaryAction?: DashboardActionLink;
+};
+
+export type DashboardOverviewCard = {
+	title: string;
+	detail: string;
+	action?: DashboardActionLink;
+};
+
+export type DashboardPublishingHealth = {
+	status: string;
+	title: string;
+	detail: string;
+	healthyConnections: number;
+	selectedTargets: number;
+	healthySelectedTargets: number;
+	connectedProviders: string[];
+	coverageLabel: string;
+};
+
+export type DashboardOverviewSummary = {
+	stateSentence: string;
+	statusItems: DashboardOverviewStatusItem[];
+	priorityItems: DashboardOverviewPriorityItem[];
+	queueItems: DashboardOverviewQueueItem[];
+	publishingHealth: DashboardPublishingHealth;
+	nextMove: DashboardOverviewCard;
+	backlog: DashboardOverviewCard;
+	signals: DashboardOverviewCard[];
+};
+
 export type PublishabilityPreview = {
 	ready: boolean;
 	provider: string;
@@ -512,6 +573,30 @@ export type PostDetail = PostSummary & {
 	variants: PostVariant[];
 	legacyVariants: PostVariant[];
 	notes?: string;
+};
+
+export type PostComposeResourceLibrarySummary = {
+	resourceCount: number;
+	resourceSetCount: number;
+	seedResources: ResourceRecord[];
+	seedResourceSets: ResourceSetSummary[];
+};
+
+export type PostComposeAISummary = {
+	settings?: WorkspaceAISettings;
+	catalog?: AIProviderCatalog;
+	ready: boolean;
+	defaultProvider?: string;
+	defaultModel?: string;
+};
+
+export type PostComposeBootstrapResponse = {
+	campaigns: CampaignSummary[];
+	capabilities: ResourceCapabilityMatrix;
+	social: SocialConnectionsResponse;
+	resourceLibrary: PostComposeResourceLibrarySummary;
+	ai: PostComposeAISummary;
+	post?: PostDetail;
 };
 
 export type CalendarRange = {

@@ -1,134 +1,173 @@
-import {
-	ArrowRight,
-	CalendarRange,
-	CheckCircle2,
-	Clock3,
-	Flag,
-	FolderKanban,
-	Link2,
-	Plus,
-	TrendingUp,
-} from "lucide-react";
+import { ArrowRight, CalendarRange, CircleAlert, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { SurfaceCard } from "@/components/app/brand";
-import {
-	DashboardPageHeader,
-	DashboardPanel,
-	InsightCard,
-} from "@/components/app/dashboard";
+import { DashboardOperationalHeader } from "@/components/app/dashboard";
 import { Button } from "@/components/ui/button";
-import { useSocialConnectionSummary } from "@/hooks/use-social-connection-summary";
+import type {
+	DashboardOverviewPriorityItem,
+	DashboardOverviewQueueItem,
+	DashboardOverviewSummary,
+} from "@/lib/api-types";
+import { useAuth } from "@/lib/auth-context";
 import { formatPlatformLabel } from "@/lib/platforms";
 
-const metrics = [
-	{
-		title: "Scheduled today",
-		value: "6",
-		detail: "Posts already lined up",
-		delta: "2 need a final check",
-		icon: CalendarRange,
-	},
-	{
-		title: "Ideas in backlog",
-		value: "14",
-		detail: "Drafts waiting for a slot",
-		delta: "4 added this week",
-		icon: FolderKanban,
-		tone: "success" as const,
-	},
-	{
-		title: "Average daily time",
-		value: "38 min",
-		detail: "For the core owner workflow",
-		delta: "Down from 52 min",
-		icon: Clock3,
-	},
-	{
-		title: "Momentum",
-		value: "+18%",
-		detail: "Best-performing content vs last week",
-		delta: "LinkedIn is carrying most of the lift",
-		icon: TrendingUp,
-	},
-];
+function toneClass(tone?: string) {
+	switch (tone) {
+		case "danger":
+			return "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200";
+		case "warning":
+			return "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200";
+		case "success":
+			return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
+		case "info":
+			return "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-200";
+		default:
+			return "border-[var(--brand-border-soft)] bg-background/70 text-muted-foreground";
+	}
+}
 
-const attentionItems = [
-	{
-		title: "Finalize the caption for the product tip carousel",
-		detail: "Instagram and LinkedIn can still go out today.",
-		label: "Needs attention",
-	},
-	{
-		title: "Choose a slot for the founder update",
-		detail: "It is still in backlog and fits best on Wednesday morning.",
-		label: "Schedule",
-	},
-	{
-		title: "Reconnect one inactive destination",
-		detail: "Publishing is healthy overall, but one selected target dropped.",
-		label: "Setup",
-	},
-];
+function formatPlannedTime(value?: string) {
+	if (!value) {
+		return "Unscheduled";
+	}
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) {
+		return "Unscheduled";
+	}
+	return parsed.toLocaleTimeString([], {
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
 
-const todaySchedule = [
-	{
-		time: "09:30",
-		title: "Customer story carousel",
-		platforms: "Instagram, Facebook",
-		state: "Ready",
-	},
-	{
-		time: "13:00",
-		title: "Founder thought piece",
-		platforms: "LinkedIn",
-		state: "Needs review",
-	},
-	{
-		time: "17:15",
-		title: "Weekend teaser reel",
-		platforms: "Instagram, TikTok",
-		state: "Queued",
-	},
-];
+function PriorityRow({ item }: { item: DashboardOverviewPriorityItem }) {
+	return (
+		<div className="flex flex-col gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3.5">
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div className="min-w-0 space-y-1">
+					<div className="flex flex-wrap items-center gap-2">
+						{item.context ? (
+							<span
+								className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClass(item.tone)}`}
+							>
+								{item.context}
+							</span>
+						) : null}
+						<div className="text-sm font-medium">{item.title}</div>
+					</div>
+					<div className="text-sm text-muted-foreground">{item.detail}</div>
+				</div>
+			</div>
+			<div className="flex flex-wrap items-center gap-2">
+				<Button size="sm" className="rounded-full" asChild>
+					<Link to={item.primaryAction.href}>{item.primaryAction.label}</Link>
+				</Button>
+				{item.secondaryAction ? (
+					<Button size="sm" variant="ghost" className="rounded-full" asChild>
+						<Link to={item.secondaryAction.href}>
+							{item.secondaryAction.label}
+						</Link>
+					</Button>
+				) : null}
+			</div>
+		</div>
+	);
+}
 
-const lookAheadItems = [
-	{
-		title: "Best posting window tomorrow",
-		body: "LinkedIn between 9:00 and 11:00 is trending stronger than the rest of the week.",
-		icon: Flag,
-	},
-	{
-		title: "Strongest reusable asset",
-		body: "The recent customer quote card is worth adapting into one more post this week.",
-		icon: Link2,
-	},
-	{
-		title: "Next low-effort win",
-		body: "Turn two backlog ideas into scheduled posts and your next 5 days are covered.",
-		icon: CheckCircle2,
-	},
-];
+function QueueRow({ item }: { item: DashboardOverviewQueueItem }) {
+	return (
+		<div className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3.5 md:grid-cols-[92px_minmax(0,1fr)_auto] md:items-center">
+			<div className="flex h-11 items-center justify-center rounded-2xl bg-primary/10 px-3 text-sm font-semibold text-primary">
+				{formatPlannedTime(item.plannedAt)}
+			</div>
+			<div className="min-w-0 space-y-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<div className="text-sm font-medium">{item.title}</div>
+					<span
+						className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${toneClass(item.tone)}`}
+					>
+						{item.status.replace(/_/g, " ")}
+					</span>
+				</div>
+				<div className="text-sm text-muted-foreground">{item.detail}</div>
+			</div>
+			<div className="flex flex-wrap items-center gap-2 md:justify-end">
+				<Button size="sm" variant="outline" className="rounded-full" asChild>
+					<Link to={item.primaryAction.href}>{item.primaryAction.label}</Link>
+				</Button>
+				{item.secondaryAction ? (
+					<Button size="sm" variant="ghost" className="rounded-full" asChild>
+						<Link to={item.secondaryAction.href}>{item.secondaryAction.label}</Link>
+					</Button>
+				) : null}
+			</div>
+		</div>
+	);
+}
 
 export function DashboardOverview() {
-	const {
-		hydrated: socialHydrated,
-		loading: loadingConnections,
-		summary,
-	} = useSocialConnectionSummary();
-	const setupNeeded = socialHydrated && !summary.hasHealthySelectedTarget;
+	const { customerRequest } = useAuth();
+	const [summary, setSummary] = useState<DashboardOverviewSummary | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [showSignals, setShowSignals] = useState(false);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function loadSummary() {
+			setLoading(true);
+			setError(null);
+			try {
+				const response =
+					await customerRequest<DashboardOverviewSummary>(
+						"/dashboard/overview-summary",
+					);
+				if (!cancelled) {
+					setSummary(response);
+				}
+			} catch (loadError) {
+				if (!cancelled) {
+					setError(
+						loadError instanceof Error
+							? loadError.message
+							: "Unable to load the operational summary.",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
+		}
+
+		void loadSummary();
+		return () => {
+			cancelled = true;
+		};
+	}, [customerRequest]);
+
+	const providerLabel = useMemo(() => {
+		if (!summary?.publishingHealth.connectedProviders.length) {
+			return "No live providers connected";
+		}
+		return summary.publishingHealth.connectedProviders
+			.map((provider) => formatPlatformLabel(provider))
+			.join(", ");
+	}, [summary]);
 
 	return (
-		<div className="dashboard-page-stack space-y-6">
-			<DashboardPageHeader
-				eyebrow="Daily flow"
+		<div className="dashboard-page-stack space-y-5">
+			<DashboardOperationalHeader
 				title="Today"
-				description="See what needs attention, finish the next post, and keep the week moving without getting buried in ops noise."
+				description={
+					summary?.stateSentence ??
+					"See the next few actions, clear what matters, and move on."
+				}
 				primaryAction={
-					<Button
-						className="rounded-full border-0 bg-gradient-brand text-white"
-						asChild
-					>
+					<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
 						<Link to="/dashboard/posts/new">
 							<Plus className="size-4" />
 							Create post
@@ -136,199 +175,235 @@ export function DashboardOverview() {
 					</Button>
 				}
 				secondaryActions={
-					<>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/settings/platforms">
-								{setupNeeded ? "Connect platforms" : "Manage platforms"}
-								<ArrowRight className="size-4" />
-							</Link>
-						</Button>
-						<Button variant="outline" className="rounded-full" asChild>
-							<Link to="/dashboard/calendar">
-								<CalendarRange className="size-4" />
-								Open calendar
-							</Link>
-						</Button>
-					</>
+					<Button variant="ghost" className="rounded-full" asChild>
+						<Link to="/dashboard/calendar">
+							<CalendarRange className="size-4" />
+							Open calendar
+						</Link>
+					</Button>
 				}
 			/>
 
-			<SurfaceCard
-				className={
-					setupNeeded
-						? "dashboard-card border border-[var(--brand-border-soft)] bg-[radial-gradient(circle_at_top_left,rgba(31,122,114,0.14),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0.78))]"
-						: "dashboard-card border border-[var(--brand-border-soft)] bg-background/72"
-				}
-			>
-				<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-					<div className="space-y-2">
-						<div className="text-lg font-medium">
-							{!socialHydrated
-								? "Checking your publishing setup."
-								: setupNeeded
-									? "Connect platforms before you start scheduling live posts."
-									: "Publishing setup is ready for your daily workflow."}
+			{error ? (
+				<SurfaceCard className="dashboard-card-sm flex items-start gap-3 border border-destructive/20 bg-destructive/10 text-sm text-destructive">
+					<CircleAlert className="mt-0.5 size-4 shrink-0" />
+					<div>{error}</div>
+				</SurfaceCard>
+			) : null}
+
+			{summary ? (
+				<>
+					<SurfaceCard className="dashboard-card border border-[var(--brand-border-soft)] bg-background/72">
+						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+							{summary.statusItems.map((item) => (
+								<div
+									key={item.label}
+									className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3"
+								>
+									<div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+										{item.label}
+									</div>
+									<div className="mt-2 text-2xl font-semibold tracking-tight">
+										{item.value}
+									</div>
+								</div>
+							))}
 						</div>
-						<div className="max-w-3xl text-sm text-muted-foreground">
-							{!socialHydrated
-								? "Loading connected providers and selected publishing destinations for this workspace."
-								: setupNeeded
-									? "You can still plan content right away, but connecting real destinations unlocks live scheduling, validation, and one-click publishing."
-									: loadingConnections
-										? "Refreshing publishing health."
-										: summary.connectedProviders.length > 0
-											? `Connected providers: ${summary.connectedProviders.map((provider) => formatPlatformLabel(provider)).join(", ")}.`
-											: "Connected providers are ready to manage from settings."}
-						</div>
-					</div>
-					<div className="flex flex-wrap gap-2">
-						<span className="pill pill-info">
-							{!socialHydrated || loadingConnections
-								? "Checking connection health..."
-								: `${summary.healthyConnectionCount} healthy connection${summary.healthyConnectionCount === 1 ? "" : "s"}`}
-						</span>
-						<span className="pill pill-muted">
-							{socialHydrated ? summary.selectedTargetCount : "—"} selected
-							target
-							{socialHydrated && summary.selectedTargetCount === 1 ? "" : "s"}
-						</span>
-					</div>
-				</div>
-			</SurfaceCard>
+					</SurfaceCard>
 
-			<div className="dashboard-grid-gap grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-				{metrics.map((metric) => (
-					<InsightCard key={metric.title} {...metric} />
-				))}
-			</div>
-
-			<div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-				<DashboardPanel
-					title="What to clear first"
-					description="A compact list of the few things most likely to unblock your week."
-					action={
-						<Button variant="ghost" className="rounded-full" asChild>
-							<Link to="/dashboard/posts/new">
-								Resume create flow
-								<ArrowRight className="size-4" />
-							</Link>
-						</Button>
-					}
-				>
-					<div className="space-y-3">
-						{attentionItems.map((item) => (
-							<div
-								key={item.title}
-								className="dashboard-card-sm flex items-start justify-between gap-4 border border-[var(--brand-border-soft)] bg-background/70"
-							>
-								<div className="min-w-0">
-									<div className="text-sm font-medium">{item.title}</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{item.detail}
+					<div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_360px]">
+						<div className="space-y-5">
+							<SurfaceCard className="dashboard-card">
+								<div className="mb-4 flex items-center justify-between gap-3">
+									<div>
+										<div className="text-base font-semibold tracking-tight">
+											Needs attention now
+										</div>
+										<div className="text-sm text-muted-foreground">
+											Keep the list short so the next move is obvious.
+										</div>
 									</div>
+									<Button variant="ghost" size="sm" className="rounded-full" asChild>
+										<Link to="/dashboard/posts">
+											View all
+											<ArrowRight className="size-4" />
+										</Link>
+									</Button>
 								</div>
-								<span className="pill pill-info shrink-0">{item.label}</span>
-							</div>
-						))}
-					</div>
-				</DashboardPanel>
-
-				<DashboardPanel
-					title="Today's schedule"
-					description="The posting plan stays visible without forcing a jump into another workflow."
-				>
-					<div className="space-y-3">
-						{todaySchedule.map((item) => (
-							<div
-								key={`${item.time}-${item.title}`}
-								className="dashboard-card-sm flex items-start gap-3 border border-[var(--brand-border-soft)] bg-background/70"
-							>
-								<div className="flex h-10 min-w-14 items-center justify-center rounded-2xl bg-primary/10 px-3 text-sm font-semibold text-primary">
-									{item.time}
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="text-sm font-medium">{item.title}</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{item.platforms}
-									</div>
-									<div className="mt-2">
-										<span
-											className={
-												item.state === "Ready"
-													? "pill pill-success"
-													: item.state === "Queued"
-														? "pill pill-info"
-														: "pill pill-warning"
-											}
-										>
-											{item.state}
-										</span>
-									</div>
-								</div>
-							</div>
-						))}
-					</div>
-				</DashboardPanel>
-			</div>
-
-			<div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-				<DashboardPanel
-					title="Look ahead"
-					description="Small signals to help you decide what deserves the next 15 minutes."
-				>
-					<div className="space-y-3">
-						{lookAheadItems.map((item) => (
-							<div
-								key={item.title}
-								className="dashboard-card-sm flex items-start gap-3 border border-[var(--brand-border-soft)] bg-background/70"
-							>
-								<div className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-									<item.icon className="size-4" />
-								</div>
-								<div>
-									<div className="text-sm font-medium">{item.title}</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										{item.body}
-									</div>
-								</div>
-							</div>
-						))}
-					</div>
-				</DashboardPanel>
-
-				<DashboardPanel
-					title="Keep the week covered"
-					description="A simple rhythm for owners who want results without living in the app."
-				>
-					<div className="grid gap-4 sm:grid-cols-3">
-						{[
-							{
-								label: "Check today",
-								copy: "Clear one blocker, confirm the next live posts, and move on.",
-							},
-							{
-								label: "Create once",
-								copy: "Use the shared composer, attach media, then customize only when needed.",
-							},
-							{
-								label: "Review results",
-								copy: "Use insights for next moves instead of getting lost in reporting.",
-							},
-						].map((item) => (
-							<SurfaceCard
-								key={item.label}
-								tone="muted"
-								className="dashboard-card"
-							>
-								<div className="text-sm font-medium">{item.label}</div>
-								<div className="mt-2 text-sm text-muted-foreground">
-									{item.copy}
+								<div className="space-y-3">
+									{summary.priorityItems.map((item) => (
+										<PriorityRow key={item.id} item={item} />
+									))}
 								</div>
 							</SurfaceCard>
-						))}
+
+							<SurfaceCard className="dashboard-card">
+								<div className="mb-4 flex items-center justify-between gap-3">
+									<div>
+										<div className="text-base font-semibold tracking-tight">
+											Today&apos;s queue
+										</div>
+										<div className="text-sm text-muted-foreground">
+											Stay in the operational lane without opening another page.
+										</div>
+									</div>
+								</div>
+								<div className="space-y-3">
+									{summary.queueItems.length > 0 ? (
+										summary.queueItems.map((item) => (
+											<QueueRow key={item.id} item={item} />
+										))
+									) : (
+										<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/70 px-4 py-6 text-sm text-muted-foreground">
+											No live queue items are lined up yet. Create or schedule the
+											next post to make this page useful tomorrow.
+										</div>
+									)}
+								</div>
+							</SurfaceCard>
+						</div>
+
+						<div className="space-y-5">
+							<SurfaceCard className="dashboard-card space-y-4">
+								<div className="space-y-1">
+									<div className="text-base font-semibold tracking-tight">
+										Publishing health
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{summary.publishingHealth.coverageLabel}
+									</div>
+								</div>
+								<div
+									className={`rounded-[20px] border px-4 py-3.5 ${toneClass(
+										summary.publishingHealth.status === "ready"
+											? "success"
+											: summary.publishingHealth.status === "warning"
+												? "warning"
+												: "danger",
+									)}`}
+								>
+									<div className="text-sm font-medium">
+										{summary.publishingHealth.title}
+									</div>
+									<div className="mt-1 text-sm opacity-90">
+										{summary.publishingHealth.detail}
+									</div>
+								</div>
+								<div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3">
+										<div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+											Healthy connections
+										</div>
+										<div className="mt-2 text-xl font-semibold">
+											{summary.publishingHealth.healthyConnections}
+										</div>
+									</div>
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3">
+										<div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+											Selected targets
+										</div>
+										<div className="mt-2 text-xl font-semibold">
+											{summary.publishingHealth.selectedTargets}
+										</div>
+									</div>
+									<div className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3">
+										<div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+											Providers
+										</div>
+										<div className="mt-2 text-sm font-medium">{providerLabel}</div>
+									</div>
+								</div>
+							</SurfaceCard>
+
+							<SurfaceCard className="dashboard-card space-y-4">
+								<div className="space-y-1">
+									<div className="text-base font-semibold tracking-tight">
+										{summary.nextMove.title}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{summary.nextMove.detail}
+									</div>
+								</div>
+								{summary.nextMove.action ? (
+									<Button variant="outline" className="rounded-full" asChild>
+										<Link to={summary.nextMove.action.href}>
+											{summary.nextMove.action.label}
+										</Link>
+									</Button>
+								) : null}
+							</SurfaceCard>
+
+							<SurfaceCard className="dashboard-card space-y-4">
+								<div className="space-y-1">
+									<div className="text-base font-semibold tracking-tight">
+										{summary.backlog.title}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{summary.backlog.detail}
+									</div>
+								</div>
+								{summary.backlog.action ? (
+									<Button variant="ghost" className="rounded-full px-0" asChild>
+										<Link to={summary.backlog.action.href}>
+											{summary.backlog.action.label}
+										</Link>
+									</Button>
+								) : null}
+							</SurfaceCard>
+						</div>
 					</div>
-				</DashboardPanel>
-			</div>
+
+					<SurfaceCard className="dashboard-card">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<div className="text-base font-semibold tracking-tight">
+									Signals for later
+								</div>
+								<div className="text-sm text-muted-foreground">
+									Helpful guidance stays collapsed until you actually need it.
+								</div>
+							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="rounded-full"
+								onClick={() => setShowSignals((current) => !current)}
+							>
+								{showSignals ? "Hide" : "Show"}
+							</Button>
+						</div>
+						{showSignals ? (
+							<div className="mt-4 grid gap-3 md:grid-cols-2">
+								{summary.signals.map((signal) => (
+									<div
+										key={signal.title}
+										className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 px-4 py-3.5"
+									>
+										<div className="text-sm font-medium">{signal.title}</div>
+										<div className="mt-1 text-sm text-muted-foreground">
+											{signal.detail}
+										</div>
+										{signal.action ? (
+											<Button
+												variant="ghost"
+												size="sm"
+												className="mt-3 rounded-full px-0"
+												asChild
+											>
+												<Link to={signal.action.href}>{signal.action.label}</Link>
+											</Button>
+										) : null}
+									</div>
+								))}
+							</div>
+						) : null}
+					</SurfaceCard>
+				</>
+			) : loading ? (
+				<SurfaceCard className="dashboard-card text-sm text-muted-foreground">
+					Loading today&apos;s queue.
+				</SurfaceCard>
+			) : null}
 		</div>
 	);
 }

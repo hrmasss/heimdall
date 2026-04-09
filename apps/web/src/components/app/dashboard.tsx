@@ -92,6 +92,38 @@ export function DashboardPageHeader({
 	);
 }
 
+export function DashboardOperationalHeader({
+	title,
+	description,
+	meta,
+	primaryAction,
+	secondaryActions,
+}: {
+	title: string;
+	description: string;
+	meta?: ReactNode;
+	primaryAction?: ReactNode;
+	secondaryActions?: ReactNode;
+}) {
+	return (
+		<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+			<div className="min-w-0 space-y-1.5">
+				<div className="flex flex-wrap items-center gap-2">
+					<h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+					{meta ? <div className="text-sm text-muted-foreground">{meta}</div> : null}
+				</div>
+				<p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+			</div>
+			{primaryAction || secondaryActions ? (
+				<div className="flex flex-wrap items-center gap-2">
+					{secondaryActions}
+					{primaryAction}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
 export function InsightCard({
 	title,
 	value,
