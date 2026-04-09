@@ -2314,6 +2314,15 @@ body {
 	);
 }
 
+.customer-dashboard-shell
+	.composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
+	left: 50%;
+	right: auto;
+	width: min(calc(100vw - 1.25rem), 72rem);
+	max-height: calc(85vh - 5.25rem);
+	transform: translateX(-50%);
+}
+
 .customer-dashboard-shell .composer-drawer-shell [data-slot="drawer-handle"] {
 	display: none;
 }
