@@ -2307,9 +2307,7 @@ body {
 }
 
 .composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
-	left: 50% !important;
-	right: auto !important;
-	bottom: 5.25rem !important;
+	inset: auto auto 5.25rem 50% !important;
 	width: min(calc(100vw - 1.25rem), 72rem) !important;
 	max-height: calc(85vh - 5.25rem) !important;
 	border: 1px solid var(--brand-border-soft);
