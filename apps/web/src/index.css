@@ -2314,8 +2314,7 @@ body {
 	);
 }
 
-.customer-dashboard-shell
-	.composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
+.composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
 	left: 50%;
 	right: auto;
 	width: min(calc(100vw - 1.25rem), 72rem);
