@@ -600,7 +600,12 @@ export function DashboardLayout() {
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
 	const location = useLocation();
-	const { hydrated, readiness } = useWorkspaceSetupReadiness();
+	const isComposerRoute =
+		location.pathname === "/dashboard/posts/new" ||
+		/^\/dashboard\/posts\/[^/]+\/edit$/.test(location.pathname);
+	const { hydrated, readiness } = useWorkspaceSetupReadiness({
+		enabled: !isComposerRoute,
+	});
 	const { customerSession, activeWorkspaceId, activeWorkspaceMembership } =
 		useAuth();
 	const compactSetupBanner =

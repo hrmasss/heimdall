@@ -24,15 +24,30 @@ type WorkspaceSetupReadinessResult = {
 	reload: () => Promise<void>;
 };
 
-export function useWorkspaceSetupReadiness(): WorkspaceSetupReadinessResult {
+type UseWorkspaceSetupReadinessOptions = {
+	enabled?: boolean;
+};
+
+export function useWorkspaceSetupReadiness(
+	options?: UseWorkspaceSetupReadinessOptions,
+): WorkspaceSetupReadinessResult {
+	const enabled = options?.enabled ?? true;
 	const { activeWorkspaceId, customerRequest } = useAuth();
 	const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
 	const [context, setContext] = useState<WorkspaceContextResponse | null>(null);
 	const [social, setSocial] = useState<SocialConnectionsResponse | null>(null);
-	const [loading, setLoading] = useState(Boolean(activeWorkspaceId));
+	const [loading, setLoading] = useState(Boolean(activeWorkspaceId && enabled));
 	const [error, setError] = useState<string | null>(null);
 
 	const reload = useCallback(async () => {
+		if (!enabled) {
+			setWorkspace(null);
+			setContext(null);
+			setSocial(null);
+			setLoading(false);
+			setError(null);
+			return;
+		}
 		if (!activeWorkspaceId) {
 			setWorkspace(null);
 			setContext(null);
@@ -65,7 +80,7 @@ export function useWorkspaceSetupReadiness(): WorkspaceSetupReadinessResult {
 		} finally {
 			setLoading(false);
 		}
-	}, [activeWorkspaceId, customerRequest]);
+	}, [activeWorkspaceId, customerRequest, enabled]);
 
 	useEffect(() => {
 		void reload();
