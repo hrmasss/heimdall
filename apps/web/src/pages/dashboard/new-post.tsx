@@ -7,6 +7,7 @@ import {
 	CircleAlert,
 	CircleCheckBig,
 	CircleSlash,
+	ImageIcon,
 	LoaderCircle,
 	Plus,
 	Save,
@@ -27,7 +28,11 @@ import {
 } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
 import { DashboardOperationalHeader } from "@/components/app/dashboard";
-import { ResourceChipList } from "@/components/resources/resource-display";
+import {
+	formatResourceMeta,
+	ResourceChipList,
+	ResourceThumb,
+} from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +44,11 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -55,12 +65,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type {
 	AIGeneratedPostDraft,
 	AIProviderCatalog,
@@ -1109,7 +1113,7 @@ export function DashboardNewPost() {
 		minute: padNumber(DEFAULT_MINUTE),
 		meridiem: "AM",
 	});
-	const [bulkActionSummary, setBulkActionSummary] =
+	const [_bulkActionSummary, setBulkActionSummary] =
 		useState<BulkActionSummary | null>(null);
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [selectedDestinationPlatform, setSelectedDestinationPlatform] =
@@ -2380,6 +2384,45 @@ export function DashboardNewPost() {
 		return "border-[var(--brand-border-soft)] bg-background/75 text-muted-foreground";
 	}
 
+	function destinationStatusDotTone(status: DestinationStatus) {
+		if (status === "ready") {
+			return "bg-emerald-500";
+		}
+		if (status === "attention") {
+			return "bg-amber-500";
+		}
+		if (status === "blocked") {
+			return "bg-rose-500";
+		}
+		return "bg-slate-400";
+	}
+
+	function destinationStatusRingTone(status: DestinationStatus) {
+		if (status === "ready") {
+			return "ring-emerald-500/35";
+		}
+		if (status === "attention") {
+			return "ring-amber-500/35";
+		}
+		if (status === "blocked") {
+			return "ring-rose-500/35";
+		}
+		return "ring-[var(--brand-border-soft)]";
+	}
+
+	function destinationStatusLabel(status: DestinationStatus) {
+		if (status === "not_connected") {
+			return "Disconnected";
+		}
+		if (status === "attention") {
+			return "Warning";
+		}
+		if (status === "blocked") {
+			return "Blocked";
+		}
+		return "Ready";
+	}
+
 	function openDrawer(mode: Exclude<ComposerDrawerMode, "platform-detail">) {
 		setDrawerMode(mode);
 		setLastDrawerMode(mode);
@@ -2441,15 +2484,15 @@ export function DashboardNewPost() {
 					</SurfaceCard>
 				) : null}
 
-				<SurfaceCard className="space-y-6 border-[var(--brand-border-soft)] bg-background/80 p-5">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div>
+				<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-background/80 p-5">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div className="min-w-0">
 							<div className="text-base font-semibold tracking-tight">
-								Shared composer
+								Shared draft
 							</div>
 							<div className="mt-1 text-sm text-muted-foreground">
-								Finish the shared draft first. Platforms, overrides, and timing
-								stay in the drawer so the page remains compact.
+								Write the source version once. Platforms, overrides, and timing
+								stay in the dock drawer.
 							</div>
 						</div>
 						<Select
@@ -2472,229 +2515,270 @@ export function DashboardNewPost() {
 						</Select>
 					</div>
 
-					<div className="space-y-6">
-						<SurfaceCard className="space-y-5 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
-							<div>
-								<div className="text-sm font-medium">Compose once</div>
-								<div className="mt-1 text-sm text-muted-foreground">
-									This shared version becomes the default for every destination
-									that does not need a custom override.
-								</div>
-							</div>
-
-							{sharedDraft.kind === "article" ? (
-								<div className="space-y-4">
-									<div className="space-y-2">
-										<Label htmlFor="shared-article-title">Article title</Label>
-										<Input
-											id="shared-article-title"
-											name="sharedArticleTitle"
-											value={sharedDraft.articleTitle}
-											onChange={(event) =>
-												setSharedDraft({
-													...sharedDraft,
-													articleTitle: event.target.value,
-												})
-											}
-											className={adminInputClassName}
-											placeholder="Article headline"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="shared-article-body">Article body</Label>
-										<Textarea
-											id="shared-article-body"
-											name="sharedArticleBody"
-											value={sharedDraft.articleBody}
-											onChange={(event) =>
-												setSharedDraft({
-													...sharedDraft,
-													articleBody: event.target.value,
-												})
-											}
-											className={longTextareaClassName}
-											placeholder="Write the long-form source version once."
-										/>
-									</div>
-								</div>
-							) : sharedDraft.kind === "thread" ? (
-								<div className="space-y-3">
-									<div className="space-y-1">
-										<Label htmlFor="shared-thread-item-0">Thread</Label>
-										<div className="text-sm text-muted-foreground">
-											Keep the thread concise here, then only customize the
-											destinations that truly need a different version.
+					<div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)] xl:items-start">
+						<div className="space-y-5">
+							<div className="space-y-5 rounded-[26px] border border-[var(--brand-border-soft)] bg-background/86 p-5">
+								{sharedDraft.kind === "article" ? (
+									<div className="space-y-4">
+										<div className="space-y-2">
+											<Label htmlFor="shared-article-title">Article title</Label>
+											<Input
+												id="shared-article-title"
+												name="sharedArticleTitle"
+												value={sharedDraft.articleTitle}
+												onChange={(event) =>
+													setSharedDraft({
+														...sharedDraft,
+														articleTitle: event.target.value,
+													})
+												}
+												className={adminInputClassName}
+												placeholder="Article headline"
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor="shared-article-body">Article body</Label>
+											<Textarea
+												id="shared-article-body"
+												name="sharedArticleBody"
+												value={sharedDraft.articleBody}
+												onChange={(event) =>
+													setSharedDraft({
+														...sharedDraft,
+														articleBody: event.target.value,
+													})
+												}
+												className={longTextareaClassName}
+												placeholder="Write the long-form source version once."
+											/>
 										</div>
 									</div>
-									{sharedDraft.threadItems.map((item, index) => (
-										<Textarea
-											key={`shared-thread-${index}`}
-											id={`shared-thread-item-${index}`}
-											name={`sharedThreadItem${index + 1}`}
-											aria-label={`Thread item ${index + 1}`}
-											value={item}
-											onChange={(event) => {
-												const next = [...sharedDraft.threadItems];
-												next[index] = event.target.value;
-												setSharedDraft({
-													...sharedDraft,
-													threadItems: next,
-												});
-											}}
-											className={compactTextareaClassName}
-											placeholder={`Thread item ${index + 1}`}
-										/>
-									))}
-									<Button
-										type="button"
-										variant="outline"
-										className="rounded-full"
-										onClick={() =>
-											setSharedDraft({
-												...sharedDraft,
-												threadItems: [...sharedDraft.threadItems, ""],
-											})
-										}
-									>
-										<Plus className="size-4" />
-										Add thread item
-									</Button>
-								</div>
-							) : (
-								<div className="space-y-2">
-									<Label htmlFor="shared-text-body">Caption or body</Label>
-									<Textarea
-										id="shared-text-body"
-										name="sharedTextBody"
-										value={sharedDraft.textBody}
-										onChange={(event) =>
-											setSharedDraft({
-												...sharedDraft,
-												textBody: event.target.value,
-											})
-										}
-										className={longTextareaClassName}
-										placeholder="Write the master caption or body once."
-									/>
-								</div>
-							)}
-
-							<div className="space-y-2">
-								<Label htmlFor="shared-tags">Tags</Label>
-								<Textarea
-									id="shared-tags"
-									name="sharedTags"
-									value={sharedTagInput}
-									onChange={(event) => updateSharedTags(event.target.value)}
-									onBlur={() =>
-										setSharedTagInput(formatTagsForEditor(sharedDraft.tags))
-									}
-									className={compactTextareaClassName}
-									placeholder="#launch, #product, #behindthescenes"
-								/>
-								<TagBadgeRow tags={sharedDraft.tags} />
-							</div>
-
-							<div className="space-y-3">
-								<div>
-									<div className="text-sm font-medium">Shared assets</div>
-									<div className="mt-1 text-sm text-muted-foreground">
-										These assets carry across every destination that keeps the
-										shared version.
-									</div>
-								</div>
-								<div className="flex flex-wrap items-center justify-between gap-3">
-									<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-										The full library loads only when you open the picker
-									</div>
-									<ResourcePicker
-										resources={resources}
-										resourceSets={resourceSets}
-										resolveResourceSetIds={resolveResourceSetIds}
-										value={rootAssetIds}
-										onChange={setRootAssetIds}
-										triggerLabel="Attach assets"
-										allowUpload
-										onResourcesCreated={addUploadedResources}
-										onOpenChange={(open) => {
-											if (open) {
-												void loadResourceLibrary();
-											}
-										}}
-									/>
-								</div>
-								{resourceLibraryLoading ? (
-									<div className="text-sm text-muted-foreground">
-										Loading the full asset library.
-									</div>
-								) : null}
-								<ResourceChipList
-									resources={rootAssets}
-									onRemove={(resourceId) =>
-										setRootAssetIds((current) =>
-											current.filter((item) => item !== resourceId),
-										)
-									}
-								/>
-							</div>
-						</SurfaceCard>
-
-						<details
-							open={showAdvanced}
-							onToggle={(event) => setShowAdvanced(event.currentTarget.open)}
-							className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-5"
-						>
-							<summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-								<div>
-									<div className="text-sm font-medium">Advanced options</div>
-									<div className="text-sm text-muted-foreground">
-										AI assist stays close by, while scheduling and platform work
-										stay in the drawer.
-									</div>
-								</div>
-								<Settings2 className="size-4 text-muted-foreground" />
-							</summary>
-							<div className="mt-5 space-y-4">
-								<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
-									<div className="flex flex-wrap items-center justify-between gap-3">
-										<Label htmlFor="ai-draft-prompt" className="text-sm">
-											AI prompt
-										</Label>
+								) : sharedDraft.kind === "thread" ? (
+									<div className="space-y-3">
+										<Label htmlFor="shared-thread-item-0">Thread</Label>
+										{sharedDraft.threadItems.map((item, index) => (
+											<Textarea
+												key={`shared-thread-${index}`}
+												id={`shared-thread-item-${index}`}
+												name={`sharedThreadItem${index + 1}`}
+												aria-label={`Thread item ${index + 1}`}
+												value={item}
+												onChange={(event) => {
+													const next = [...sharedDraft.threadItems];
+													next[index] = event.target.value;
+													setSharedDraft({
+														...sharedDraft,
+														threadItems: next,
+													});
+												}}
+												className={compactTextareaClassName}
+												placeholder={`Thread item ${index + 1}`}
+											/>
+										))}
 										<Button
 											type="button"
 											variant="outline"
-											className="rounded-full"
-											onClick={generateAIDraft}
-											disabled={aiGenerating}
+											className="w-fit rounded-full"
+											onClick={() =>
+												setSharedDraft({
+													...sharedDraft,
+													threadItems: [...sharedDraft.threadItems, ""],
+												})
+											}
 										>
-											{aiGenerating ? (
-												<LoaderCircle className="size-4 animate-spin" />
-											) : (
-												<WandSparkles className="size-4" />
-											)}
-											Generate
+											<Plus className="size-4" />
+											Add thread item
 										</Button>
 									</div>
+								) : (
+									<div className="space-y-2">
+										<Label htmlFor="shared-text-body">Caption or body</Label>
+										<Textarea
+											id="shared-text-body"
+											name="sharedTextBody"
+											value={sharedDraft.textBody}
+											onChange={(event) =>
+												setSharedDraft({
+													...sharedDraft,
+													textBody: event.target.value,
+												})
+											}
+											className={longTextareaClassName}
+											placeholder="Write the master caption or body once."
+										/>
+									</div>
+								)}
+
+								<div className="space-y-2">
+									<Label htmlFor="shared-tags">Tags</Label>
 									<Textarea
-										id="ai-draft-prompt"
-										name="aiDraftPrompt"
-										value={aiPrompt}
-										onChange={(event) => setAIPrompt(event.target.value)}
+										id="shared-tags"
+										name="sharedTags"
+										value={sharedTagInput}
+										onChange={(event) => updateSharedTags(event.target.value)}
+										onBlur={() =>
+											setSharedTagInput(formatTagsForEditor(sharedDraft.tags))
+										}
 										className={compactTextareaClassName}
-										placeholder="Describe what the post should do."
+										placeholder="#launch, #product, #behindthescenes"
 									/>
+									<TagBadgeRow tags={sharedDraft.tags} />
 								</div>
 							</div>
-						</details>
+
+							<details
+								open={showAdvanced}
+								onToggle={(event) => setShowAdvanced(event.currentTarget.open)}
+								className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-5"
+							>
+								<summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+									<div className="text-sm font-medium">Advanced options</div>
+									<Settings2 className="size-4 text-muted-foreground" />
+								</summary>
+								<div className="mt-4 space-y-4">
+									<div className="space-y-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
+										<div className="flex flex-wrap items-center justify-between gap-3">
+											<Label htmlFor="ai-draft-prompt" className="text-sm">
+												AI prompt
+											</Label>
+											<Button
+												type="button"
+												variant="outline"
+												className="rounded-full"
+												onClick={generateAIDraft}
+												disabled={aiGenerating}
+											>
+												{aiGenerating ? (
+													<LoaderCircle className="size-4 animate-spin" />
+												) : (
+													<WandSparkles className="size-4" />
+												)}
+												Generate
+											</Button>
+										</div>
+										<Textarea
+											id="ai-draft-prompt"
+											name="aiDraftPrompt"
+											value={aiPrompt}
+											onChange={(event) => setAIPrompt(event.target.value)}
+											className={compactTextareaClassName}
+											placeholder="Describe what the post should do."
+										/>
+									</div>
+								</div>
+							</details>
+						</div>
+
+						<SurfaceCard className="composer-assets-rail space-y-4 border-[var(--brand-border-soft)] bg-background/88 p-4 xl:sticky xl:self-start">
+							<div className="flex items-start justify-between gap-3">
+								<div>
+									<div className="text-sm font-medium">Assets</div>
+									<div className="mt-1 text-sm text-muted-foreground">
+										Shared assets carry into every destination that stays on the
+										default version.
+									</div>
+								</div>
+								<ResourcePicker
+									resources={resources}
+									resourceSets={resourceSets}
+									resolveResourceSetIds={resolveResourceSetIds}
+									value={rootAssetIds}
+									onChange={setRootAssetIds}
+									triggerLabel="Attach assets"
+									allowUpload
+									onResourcesCreated={addUploadedResources}
+									onOpenChange={(open) => {
+										if (open) {
+											void loadResourceLibrary();
+										}
+									}}
+								/>
+							</div>
+
+							<div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+								The full library loads only when you open the picker
+							</div>
+
+							{rootAssets.length > 0 ? (
+								<div className="space-y-3">
+									<div className="overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/76">
+										<div className="aspect-[4/3] overflow-hidden">
+											<ResourceThumb resource={rootAssets[0]} className="h-full w-full" />
+										</div>
+										<div className="space-y-1 border-t border-[var(--brand-border-soft)] px-4 py-3">
+											<div className="truncate text-sm font-medium">
+												{rootAssets[0].displayName}
+											</div>
+											<div className="text-xs text-muted-foreground">
+												{formatResourceMeta(rootAssets[0])}
+											</div>
+										</div>
+									</div>
+									{rootAssets.length > 1 ? (
+										<div className="grid grid-cols-3 gap-2">
+											{rootAssets.slice(1, 4).map((asset) => (
+												<div
+													key={asset.id}
+													className="overflow-hidden rounded-[18px] border border-[var(--brand-border-soft)] bg-background/76"
+												>
+													<div className="aspect-square overflow-hidden">
+														<ResourceThumb
+															resource={asset}
+															variant="compact"
+															className="h-full w-full"
+														/>
+													</div>
+												</div>
+											))}
+										</div>
+									) : null}
+								</div>
+							) : (
+								<div className="media-preview-canvas flex min-h-[260px] items-center justify-center rounded-[24px] border border-dashed border-[var(--brand-border-soft)] bg-background/72 px-6 text-center">
+									<div className="space-y-3">
+										<div className="mx-auto flex size-12 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background/86">
+											<ImageIcon className="size-5 text-muted-foreground" />
+										</div>
+										<div>
+											<div className="text-sm font-medium">No shared assets yet</div>
+											<div className="mt-1 text-sm text-muted-foreground">
+												Add images, video, or documents once and keep them in
+												sync across the shared version.
+											</div>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{resourceLibraryLoading ? (
+								<div className="text-sm text-muted-foreground">
+									Loading the full asset library.
+								</div>
+							) : null}
+
+							<ResourceChipList
+								resources={rootAssets}
+								onRemove={(resourceId) =>
+									setRootAssetIds((current) =>
+										current.filter((item) => item !== resourceId),
+									)
+								}
+							/>
+						</SurfaceCard>
 					</div>
 				</SurfaceCard>
 
 				<div className="sticky bottom-4 z-20">
-					<div className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/95 p-3 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.35)] backdrop-blur">
-						<TooltipProvider delayDuration={120}>
-							<div
-								role="button"
-								tabIndex={0}
+					<div
+						data-state={drawerOpen ? "open" : "closed"}
+						className={cn(
+							"composer-dock-shell mx-auto w-full max-w-[72rem] rounded-[26px] border border-[var(--brand-border-soft)] bg-background/95 p-3 backdrop-blur",
+							drawerOpen && "xl:rounded-t-[18px] xl:shadow-none",
+						)}
+					>
+						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+							<button
+								type="button"
 								onClick={openSummaryDrawer}
 								onKeyDown={(event) => {
 									if (event.key === "Enter" || event.key === " ") {
@@ -2702,113 +2786,156 @@ export function DashboardNewPost() {
 										openSummaryDrawer();
 									}
 								}}
-								className="rounded-[18px] border border-[var(--brand-border-soft)] bg-background/80 px-3 py-2.5 transition hover:border-[var(--brand-border-strong)] hover:bg-background"
+								className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/84 px-3 py-2 text-left transition hover:border-[var(--brand-border-strong)] hover:bg-background xl:max-w-[18rem]"
 								aria-label="Open composer summary"
 							>
-								<div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-									<div className="min-w-0">
-										<div className="flex flex-wrap items-center gap-2">
-											<span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-												Launch summary
-											</span>
-											<Badge
-												variant="outline"
-												className="rounded-full px-2 py-0.5 text-[11px]"
-											>
-												Next: {nextRequiredStep}
-											</Badge>
-										</div>
-										<div className="mt-1 truncate text-sm font-medium">
-											{draftTitle}
-										</div>
+								<div className="min-w-0">
+									<div className="truncate text-sm font-semibold">
+										{draftTitle}
 									</div>
-									<div className="flex flex-wrap items-center gap-2">
-										{platformSummaries.length > 0 ? (
-											platformSummaries.map((platform) => (
-												<Tooltip key={platform.platform}>
-													<TooltipTrigger asChild>
-														<span
-															className={cn(
-																"inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium",
-																destinationStatusTone(platform.status),
-															)}
-															aria-label={`${platform.label}: ${platform.warningDetail}`}
-														>
-															{platformIcon(platform.platform)}
-															<span
-																className={cn(
-																	"size-1.5 rounded-full",
-																	platform.hasCustomOverride
-																		? "bg-foreground"
-																		: "bg-muted-foreground/50",
-																)}
-															/>
-															{platform.hasCustomOverride ? "C" : "S"}
-														</span>
-													</TooltipTrigger>
-													<TooltipContent
-														side="top"
-														className="max-w-[260px] space-y-1 text-xs"
-													>
-														<div className="font-medium">
-															{platform.label} · {platform.targetName}
-														</div>
-														<div>{platform.warningDetail}</div>
-														<div>Mode: {platform.overrideLabel}</div>
-														<div>Surface: {platform.surface}</div>
-														<div>Schedule: {platform.scheduleLabel}</div>
-													</TooltipContent>
-												</Tooltip>
-											))
-										) : (
-											<span className="rounded-full border border-dashed border-[var(--brand-border-soft)] px-2.5 py-1 text-[11px] text-muted-foreground">
-												No platforms included
-											</span>
-										)}
-										{scheduleSummary.label === "Mixed times" ? (
-											platformSummaries.map((platform) => (
-												<Tooltip key={`${platform.platform}-schedule`}>
-													<TooltipTrigger asChild>
-														<span className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-border-soft)] bg-background px-2 py-1 text-[11px] text-muted-foreground">
-															<CalendarClock className="size-3.5" />
-															{platformIcon(platform.platform)}
-														</span>
-													</TooltipTrigger>
-													<TooltipContent side="top" className="text-xs">
-														{platform.label}: {platform.scheduleLabel}
-													</TooltipContent>
-												</Tooltip>
-											))
-										) : (
-											<span
-												className={cn(
-													"inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px]",
-													scheduleSummary.hasSchedule
-														? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-														: "border-[var(--brand-border-soft)] bg-background text-muted-foreground",
-												)}
-											>
-												<CalendarClock className="size-3.5" />
-												{scheduleSummary.label}
-											</span>
-										)}
+									<div className="truncate text-xs text-muted-foreground">
+										Next: {nextRequiredStep}
 									</div>
 								</div>
-							</div>
-						</TooltipProvider>
+							</button>
 
-						{bulkActionSummary ? (
-							<div className="mt-2 flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
-								<span className="font-medium text-foreground">
-									Recent bulk action
-								</span>
-								<span>{bulkActionSummary.succeeded.length} succeeded</span>
-								<span>{bulkActionSummary.skipped.length} skipped</span>
-								<span>{bulkActionSummary.failed.length} failed</span>
-							</div>
-						) : null}
+							<div className="flex min-w-0 flex-wrap items-center gap-2 xl:flex-nowrap">
+								{platformSummaries.length > 0 ? (
+									platformSummaries.map((platform) => (
+										<HoverCard
+											key={platform.platform}
+											openDelay={120}
+											closeDelay={90}
+										>
+											<HoverCardTrigger asChild>
+												<button
+													type="button"
+													onClick={() => openPlatformDetail(platform.platform)}
+													className="composer-summary-marker relative inline-flex size-10 items-center justify-center rounded-full"
+													aria-label={`${platform.label}: ${platform.warningDetail}`}
+												>
+													<span
+														className={cn(
+															"rounded-full ring-2 ring-offset-2 ring-offset-background",
+															destinationStatusRingTone(platform.status),
+														)}
+													>
+														{platformIcon(platform.platform, {
+															containerClassName: "size-8 border",
+															iconClassName: "size-4",
+															backgroundAlpha: 0.12,
+															borderAlpha: 0.18,
+														})}
+													</span>
+													<span
+														className={cn(
+															"absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background shadow-sm",
+															destinationStatusDotTone(platform.status),
+														)}
+														aria-hidden="true"
+													/>
+													<span
+														className={cn(
+															"absolute -top-1 -right-1 inline-flex min-w-[16px] items-center justify-center rounded-full border border-background px-1 text-[9px] font-semibold leading-4 shadow-sm",
+															platform.hasCustomOverride
+																? "bg-foreground text-background"
+																: "bg-background text-muted-foreground",
+														)}
+														aria-hidden="true"
+													>
+														{platform.hasCustomOverride ? "C" : "S"}
+													</span>
+												</button>
+											</HoverCardTrigger>
+											<HoverCardContent
+												align="center"
+												side="top"
+												className="composer-summary-hover-card w-[18rem] rounded-[22px] border border-[var(--brand-border-soft)] p-4"
+											>
+												<div className="space-y-3">
+													<div className="space-y-1">
+														<div className="text-sm font-semibold text-foreground">
+															{platform.label}
+														</div>
+														<div className="text-xs text-muted-foreground">
+															{platform.targetName}
+														</div>
+													</div>
+													<div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
+														<div className="text-muted-foreground">Status</div>
+														<div>{destinationStatusLabel(platform.status)}</div>
+														<div className="text-muted-foreground">Mode</div>
+														<div>{platform.overrideLabel}</div>
+														<div className="text-muted-foreground">Surface</div>
+														<div>{platform.surface}</div>
+														<div className="text-muted-foreground">Schedule</div>
+														<div>{platform.scheduleLabel}</div>
+													</div>
+													<div className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/76 px-3 py-2 text-xs text-muted-foreground">
+														{platform.warningDetail}
+													</div>
+												</div>
+											</HoverCardContent>
+										</HoverCard>
+									))
+								) : (
+									<span className="rounded-full border border-dashed border-[var(--brand-border-soft)] px-2.5 py-1 text-[11px] text-muted-foreground">
+										No platforms included
+									</span>
+								)}
 
-						<div className="mt-3 flex flex-wrap items-center gap-2">
+								{scheduleSummary.label === "Mixed times" ? (
+									platformSummaries.map((platform) => (
+										<HoverCard
+											key={`${platform.platform}-schedule`}
+											openDelay={120}
+											closeDelay={90}
+										>
+											<HoverCardTrigger asChild>
+												<button
+													type="button"
+													onClick={() => openDrawer("schedule")}
+													className="relative inline-flex size-9 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background/82 text-muted-foreground transition hover:border-[var(--brand-border-strong)] hover:bg-background"
+													aria-label={`${platform.label}: ${platform.scheduleLabel}`}
+												>
+													{platformIcon(platform.platform, {
+														containerClassName:
+															"size-6 border-0 bg-transparent shadow-none",
+														iconClassName: "size-3.5",
+														backgroundAlpha: 0,
+														borderAlpha: 0,
+													})}
+													<span className="absolute -bottom-0.5 -right-0.5 inline-flex size-4 items-center justify-center rounded-full border border-background bg-background shadow-sm">
+														<CalendarClock className="size-2.5 text-muted-foreground" />
+													</span>
+												</button>
+											</HoverCardTrigger>
+											<HoverCardContent
+												side="top"
+												className="composer-summary-hover-card w-auto rounded-[18px] border border-[var(--brand-border-soft)] px-3 py-2 text-xs"
+											>
+												{platform.label}: {platform.scheduleLabel}
+											</HoverCardContent>
+										</HoverCard>
+									))
+								) : (
+									<button
+										type="button"
+										onClick={() => openDrawer("schedule")}
+										className={cn(
+											"inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
+											scheduleSummary.hasSchedule
+												? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+												: "border-[var(--brand-border-soft)] bg-background/84 text-muted-foreground hover:border-[var(--brand-border-strong)] hover:bg-background",
+										)}
+									>
+										<CalendarClock className="size-3.5" />
+										{scheduleSummary.label}
+									</button>
+								)}
+							</div>
+
+							<div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
 							<Button
 								type="button"
 								variant="outline"
@@ -2856,6 +2983,7 @@ export function DashboardNewPost() {
 								)}
 								{primaryActionLabel}
 							</Button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -2871,8 +2999,8 @@ export function DashboardNewPost() {
 					}
 				}}
 			>
-				<DrawerContent className="mx-auto flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden">
-					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/95 backdrop-blur">
+				<DrawerContent className="composer-drawer-shell mx-auto flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden data-[vaul-drawer-direction=bottom]:left-1/2 data-[vaul-drawer-direction=bottom]:right-auto data-[vaul-drawer-direction=bottom]:bottom-[5.25rem] data-[vaul-drawer-direction=bottom]:inset-x-auto data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:w-[min(calc(100vw-1.25rem),72rem)] data-[vaul-drawer-direction=bottom]:max-h-[calc(85vh-5.25rem)] data-[vaul-drawer-direction=bottom]:translate-x-[-50%] data-[vaul-drawer-direction=bottom]:rounded-[28px] data-[vaul-drawer-direction=bottom]:rounded-b-none data-[vaul-drawer-direction=bottom]:border data-[vaul-drawer-direction=bottom]:border-[var(--brand-border-soft)] data-[vaul-drawer-direction=bottom]:bg-background/98 data-[vaul-drawer-direction=bottom]:shadow-[0_28px_72px_-34px_rgba(15,23,42,0.48)]">
+					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/96 backdrop-blur">
 						<DrawerHeader className="px-4 sm:px-6">
 							<div className="flex flex-wrap items-start justify-between gap-3">
 								<div>
@@ -2888,16 +3016,16 @@ export function DashboardNewPost() {
 											{drawerMode === "platform-detail"
 												? selectedDestination?.label ?? "Destination details"
 												: drawerMode === "schedule"
-													? "Schedule and metadata"
+													? "Schedule"
 													: "Platforms"}
 										</span>
 									</DrawerTitle>
-									<DrawerDescription>
+									<DrawerDescription className="mt-1 text-sm">
 										{drawerMode === "platform-detail"
-											? "Keep the shared version by default, and only customize this destination when you need to."
+											? "Customize only when this destination needs to diverge."
 											: drawerMode === "schedule"
-												? "Choose a time first. Metadata stays available, but out of the main compose flow."
-												: "Review readiness, inclusion, overrides, and timing without leaving the shared composer."}
+												? "Set the shared timing, then expand metadata only if you need it."
+												: "Check readiness, inclusion, overrides, and timing without leaving the composer."}
 									</DrawerDescription>
 								</div>
 								{drawerMode === "platform-detail" ? (
@@ -2918,7 +3046,7 @@ export function DashboardNewPost() {
 							</div>
 						</DrawerHeader>
 					</div>
-					<div className="overflow-y-auto px-4 pb-6 pt-2 sm:px-6">
+					<div className="overflow-y-auto px-4 pb-5 pt-2 sm:px-6">
 						{drawerMode === "platforms" ? (
 							<div className="space-y-3">
 								{destinationViews.map((destination) => {
@@ -2941,7 +3069,7 @@ export function DashboardNewPost() {
 									return (
 										<div
 											key={destination.platform}
-											className="grid gap-3 rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+											className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/82 px-3.5 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
 										>
 											<button
 												type="button"
@@ -2953,8 +3081,11 @@ export function DashboardNewPost() {
 												disabled={!destination.target || !included}
 												className="flex min-w-0 items-start gap-3 text-left disabled:cursor-default"
 											>
-												<div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
-													{platformIcon(destination.platform)}
+												<div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+													{platformIcon(destination.platform, {
+														containerClassName: "size-7",
+														iconClassName: "size-4",
+													})}
 												</div>
 												<div className="min-w-0">
 													<div className="flex flex-wrap items-center gap-2">
@@ -2963,14 +3094,12 @@ export function DashboardNewPost() {
 														</div>
 														<span
 															className={cn(
-																"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+																"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
 																destinationStatusTone(destination.status),
 															)}
 														>
 															{renderDestinationStatusIcon(destination.status)}
-															{destination.status === "not_connected"
-																? "Disconnected"
-																: destination.status}
+															{destinationStatusLabel(destination.status)}
 														</span>
 														<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
 															{overrideLabel}
@@ -2979,11 +3108,11 @@ export function DashboardNewPost() {
 															{scheduleLabel}
 														</span>
 													</div>
-													<div className="mt-1 text-sm text-muted-foreground">
+													<div className="mt-0.5 text-sm text-muted-foreground">
 														{destination.target?.displayName ??
 															"No healthy target selected yet."}
 													</div>
-													<div className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+													<div className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
 														{issueLine}
 													</div>
 												</div>
@@ -3036,13 +3165,13 @@ export function DashboardNewPost() {
 								})}
 							</div>
 						) : drawerMode === "schedule" ? (
-							<div className="space-y-5">
-								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-5">
-									<div>
+							<div className="space-y-4">
+								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-4">
+									<div className="space-y-1">
 										<div className="text-sm font-medium">Schedule presets</div>
-										<div className="mt-1 text-sm text-muted-foreground">
-											Use the fastest preset first, then fine-tune date and time
-											only when needed.
+										<div className="text-sm text-muted-foreground">
+											Use the fastest preset first, then fine-tune the date and
+											time only when needed.
 										</div>
 									</div>
 									<div className="grid gap-2 sm:grid-cols-3">
@@ -3166,7 +3295,7 @@ export function DashboardNewPost() {
 									</div>
 								</SurfaceCard>
 
-								<details className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-5">
+								<details className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-4">
 									<summary className="cursor-pointer list-none text-sm font-medium">
 										Metadata
 									</summary>
@@ -3266,8 +3395,8 @@ export function DashboardNewPost() {
 								) : null}
 							</div>
 						) : drawerMode === "platform-detail" && selectedDestination ? (
-						<div className="mt-6 space-y-5">
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
+						<div className="mt-4 space-y-4">
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
 								<div className="flex items-center gap-2 font-medium">
 									{renderDestinationStatusIcon(selectedDestination.status)}
 									<span>{selectedDestination.summary}</span>
@@ -3281,7 +3410,7 @@ export function DashboardNewPost() {
 							{selectedDestination.warnings.map((warning) => (
 								<div
 									key={warning.code}
-									className="rounded-[20px] border border-amber-200/70 bg-amber-50/70 p-4 text-sm text-amber-800"
+									className="rounded-[18px] border border-amber-200/70 bg-amber-50/70 p-3 text-sm text-amber-800"
 								>
 									{warning.message}
 								</div>
@@ -3289,14 +3418,14 @@ export function DashboardNewPost() {
 							{selectedDestination.blockers.map((blocker) => (
 								<div
 									key={blocker.code}
-									className="rounded-[20px] border border-rose-200/70 bg-rose-50/70 p-4 text-sm text-rose-800"
+									className="rounded-[18px] border border-rose-200/70 bg-rose-50/70 p-3 text-sm text-rose-800"
 								>
 									{blocker.message}
 								</div>
 							))}
 
 							{selectedVariant ? (
-								<div className="space-y-5">
+									<div className="space-y-4">
 									<div className="space-y-2">
 										<Label htmlFor={`surface-${selectedVariant.platform}`}>
 											Surface
@@ -3557,8 +3686,10 @@ export function DashboardNewPost() {
 								</div>
 							) : null}
 
-							<div className="rounded-[22px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
-								<div className="text-sm font-medium">Preview</div>
+							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/72 p-4">
+								<div className="text-sm font-medium text-muted-foreground">
+									Preview
+								</div>
 								<pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
 									{selectedDestinationContent
 										? renderContentPreview(
