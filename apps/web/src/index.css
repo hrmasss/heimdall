@@ -1398,7 +1398,7 @@ body {
 }
 
 [data-slot="dialog-content"],
-[role="dialog"] {
+[role="dialog"]:not([data-slot="drawer-content"]) {
 	max-width: min(92vw, 720px);
 }
 
