@@ -2999,7 +2999,17 @@ export function DashboardNewPost() {
 					}
 				}}
 			>
-				<DrawerContent className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden">
+				<DrawerContent
+					className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden"
+					style={{
+						left: "50%",
+						right: "auto",
+						bottom: "5.25rem",
+						width: "min(calc(100vw - 1.25rem), 72rem)",
+						maxHeight: "calc(85vh - 5.25rem)",
+						transform: "translateX(-50%)",
+					}}
+				>
 					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/96 backdrop-blur">
 						<DrawerHeader className="px-4 sm:px-6">
 							<div className="flex flex-wrap items-start justify-between gap-3">
