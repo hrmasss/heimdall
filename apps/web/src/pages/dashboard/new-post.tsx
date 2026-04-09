@@ -15,7 +15,7 @@ import {
 	Settings2,
 	WandSparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -1119,6 +1119,11 @@ export function DashboardNewPost() {
 	const [selectedDestinationPlatform, setSelectedDestinationPlatform] =
 		useState<string | null>(null);
 	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+	const [drawerDockMetrics, setDrawerDockMetrics] = useState<{
+		left: number;
+		width: number;
+	} | null>(null);
+	const dockRef = useRef<HTMLDivElement | null>(null);
 
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
@@ -1134,6 +1139,43 @@ export function DashboardNewPost() {
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
 	const [excludedPlatforms, setExcludedPlatforms] = useState<string[]>([]);
 	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
+
+	useEffect(() => {
+		if (!drawerOpen) {
+			return;
+		}
+
+		const updateDrawerDockMetrics = () => {
+			const rect = dockRef.current?.getBoundingClientRect();
+			if (!rect) {
+				return;
+			}
+			setDrawerDockMetrics({
+				left: rect.left,
+				width: rect.width,
+			});
+		};
+
+		updateDrawerDockMetrics();
+
+		const resizeObserver =
+			typeof ResizeObserver !== "undefined" && dockRef.current
+				? new ResizeObserver(() => {
+						updateDrawerDockMetrics();
+					})
+				: null;
+
+		if (resizeObserver && dockRef.current) {
+			resizeObserver.observe(dockRef.current);
+		}
+
+		window.addEventListener("resize", updateDrawerDockMetrics);
+
+		return () => {
+			window.removeEventListener("resize", updateDrawerDockMetrics);
+			resizeObserver?.disconnect();
+		};
+	}, [drawerOpen]);
 	const [_aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(
 		null,
 	);
@@ -2770,6 +2812,7 @@ export function DashboardNewPost() {
 
 				<div className="sticky bottom-4 z-20">
 					<div
+						ref={dockRef}
 						data-state={drawerOpen ? "open" : "closed"}
 						className={cn(
 							"composer-dock-shell mx-auto w-full max-w-[72rem] rounded-[26px] border border-[var(--brand-border-soft)] bg-background/95 p-3 backdrop-blur",
@@ -3003,12 +3046,14 @@ export function DashboardNewPost() {
 					className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden"
 					style={{
 						insetInline: "auto",
-						left: "50%",
+						left: drawerDockMetrics ? `${drawerDockMetrics.left}px` : "50%",
 						right: "auto",
 						bottom: "5.25rem",
-						width: "min(calc(100vw - 1.25rem), 72rem)",
+						width: drawerDockMetrics
+							? `${drawerDockMetrics.width}px`
+							: "min(calc(100vw - 1.25rem), 72rem)",
 						maxHeight: "calc(85vh - 5.25rem)",
-						transform: "translateX(-50%)",
+						transform: drawerDockMetrics ? "none" : "translateX(-50%)",
 					}}
 				>
 					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/96 backdrop-blur">
