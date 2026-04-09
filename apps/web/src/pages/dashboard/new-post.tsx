@@ -3002,6 +3002,7 @@ export function DashboardNewPost() {
 				<DrawerContent
 					className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden"
 					style={{
+						insetInline: "auto",
 						left: "50%",
 						right: "auto",
 						bottom: "5.25rem",
