@@ -2292,33 +2292,75 @@ body {
 		color-mix(in srgb, var(--dashboard-panel-highlight) 62%, transparent);
 }
 
-.customer-dashboard-shell .composer-dock-shell {
-	box-shadow: 0 24px 64px -34px
+.customer-dashboard-shell {
+	--composer-shell-radius: 26px;
+	--composer-shell-border: color-mix(
+		in srgb,
+		var(--brand-border-soft) 94%,
+		transparent
+	);
+	--composer-shell-divider: color-mix(
+		in srgb,
+		var(--brand-border-soft) 88%,
+		transparent
+	);
+	--composer-shell-highlight: color-mix(
+		in srgb,
+		var(--dashboard-panel-highlight) 70%,
+		transparent
+	);
+	--composer-shell-surface: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--dashboard-panel-bg-top) 99%, transparent) 0%,
+		color-mix(in srgb, var(--dashboard-panel-bg-bottom) 98%, transparent) 100%
+	);
+	--composer-shell-shadow: 0 24px 64px -34px
 		color-mix(in srgb, var(--dashboard-panel-shadow) 94%, transparent);
+	--composer-shell-open-shadow: 0 30px 80px -36px
+		color-mix(in srgb, var(--dashboard-panel-shadow) 96%, transparent);
+}
+
+.customer-dashboard-shell .composer-dock-shell {
+	border: 1px solid var(--composer-shell-border);
+	border-radius: var(--composer-shell-radius);
+	background: var(--composer-shell-surface);
+	background-clip: padding-box;
+	box-shadow:
+		inset 0 1px 0 var(--composer-shell-highlight),
+		var(--composer-shell-shadow);
 	transition:
 		border-radius 180ms ease,
+		border-color 180ms ease,
 		box-shadow 180ms ease,
 		background-color 180ms ease,
 		transform 180ms ease;
 }
 
 .customer-dashboard-shell .composer-dock-shell[data-state="open"] {
-	background: color-mix(in srgb, var(--dashboard-panel-bg-top) 97%, transparent);
+	border-top-color: transparent;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+	box-shadow: inset 0 1px 0 var(--composer-shell-highlight);
 }
 
 .composer-drawer-shell[data-vaul-drawer-direction="bottom"] {
-	border: 1px solid var(--brand-border-soft);
-	border-radius: 28px 28px 0 0;
-	background: linear-gradient(
-		180deg,
-		color-mix(in srgb, var(--dashboard-panel-bg-top) 99%, transparent) 0%,
-		color-mix(in srgb, var(--dashboard-panel-bg-bottom) 97%, transparent) 100%
-	);
-	box-shadow: 0 28px 72px -34px rgba(15, 23, 42, 0.48);
+	border: 1px solid var(--composer-shell-border);
+	border-bottom-width: 0;
+	border-radius: var(--composer-shell-radius) var(--composer-shell-radius) 0 0;
+	background: var(--composer-shell-surface);
+	background-clip: padding-box;
+	box-shadow:
+		inset 0 1px 0 var(--composer-shell-highlight),
+		var(--composer-shell-open-shadow);
 }
 
 .composer-drawer-shell [data-slot="drawer-handle"] {
 	display: none;
+}
+
+.customer-dashboard-shell .composer-drawer-header {
+	background: var(--composer-shell-surface);
+	border-bottom-color: var(--composer-shell-divider);
 }
 
 .customer-dashboard-shell .composer-summary-marker {

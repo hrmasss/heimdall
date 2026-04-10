@@ -2814,10 +2814,7 @@ export function DashboardNewPost() {
 					<div
 						ref={dockRef}
 						data-state={drawerOpen ? "open" : "closed"}
-						className={cn(
-							"composer-dock-shell mx-auto w-full max-w-[72rem] rounded-[26px] border border-[var(--brand-border-soft)] bg-background/95 p-3 backdrop-blur",
-							drawerOpen && "xl:rounded-t-[18px] xl:shadow-none",
-						)}
+						className="composer-dock-shell mx-auto w-full max-w-[72rem] p-3"
 					>
 						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 							<button
@@ -3056,7 +3053,7 @@ export function DashboardNewPost() {
 						transform: drawerDockMetrics ? "none" : "translateX(-50%)",
 					}}
 				>
-					<div className="sticky top-0 z-10 border-b border-[var(--brand-border-soft)] bg-background/96 backdrop-blur">
+					<div className="composer-drawer-header sticky top-0 z-10 border-b">
 						<DrawerHeader className="px-4 sm:px-6">
 							<div className="flex flex-wrap items-start justify-between gap-3">
 								<div>
