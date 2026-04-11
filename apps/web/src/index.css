@@ -2366,7 +2366,7 @@ body {
 }
 
 .composer-drawer-shell .composer-drawer-page-heading {
-	background: var(--composer-shell-surface);
+	background: transparent;
 }
 
 .composer-drawer-shell .composer-drawer-body {

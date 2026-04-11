@@ -2476,7 +2476,7 @@ export function DashboardNewPost() {
 			<div className="dashboard-page-stack space-y-5 pb-28">
 				<DashboardOperationalHeader
 					title={isEditMode ? "Refine your next post" : "Create your next post"}
-					description="Write the shared version first, validate destinations without scrolling through everything, then schedule or publish in one short pass."
+					description="Write once, validate destinations, then schedule or publish."
 					secondaryActions={
 						<span className="rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-2.5 py-1 text-xs font-medium">
 							{saveStateLabel}
@@ -3004,10 +3004,10 @@ export function DashboardNewPost() {
 								</DrawerTitle>
 								<DrawerDescription className="mt-0.5 text-xs">
 									{drawerMode === "platform-detail"
-										? "Customize only when this destination needs to diverge."
+										? "Customize this destination only."
 										: drawerMode === "schedule"
-											? "Set the shared timing, then expand metadata only if you need it."
-											: "Check readiness, inclusion, overrides, and timing without leaving the composer."}
+											? "Set shared timing."
+											: "Check readiness and timing."}
 								</DrawerDescription>
 							</div>
 							{drawerMode === "platform-detail" ? (
