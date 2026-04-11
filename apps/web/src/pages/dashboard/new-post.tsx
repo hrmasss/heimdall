@@ -2477,7 +2477,7 @@ export function DashboardNewPost() {
 				<DashboardOperationalHeader
 					title={isEditMode ? "Refine your next post" : "Create your next post"}
 					description="Write the shared version first, validate destinations without scrolling through everything, then schedule or publish in one short pass."
-					meta={
+					secondaryActions={
 						<span className="rounded-full border border-[var(--brand-border-soft)] bg-background/70 px-2.5 py-1 text-xs font-medium">
 							{saveStateLabel}
 						</span>
@@ -2507,16 +2507,10 @@ export function DashboardNewPost() {
 				) : null}
 
 				<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-background/80 p-5">
-					<div className="flex flex-wrap items-start justify-between gap-3">
-						<div className="min-w-0">
-							<div className="text-base font-semibold tracking-tight">
-								Shared draft
-							</div>
-							<div className="mt-1 text-sm text-muted-foreground">
-								Write the source version once. Platforms, overrides, and timing
-								stay in the dock drawer.
-							</div>
-						</div>
+					<div className="flex flex-wrap items-center justify-end gap-2">
+						<span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+							Post format
+						</span>
 						<Select
 							value={sharedDraft.kind}
 							onValueChange={(value) =>
@@ -2989,13 +2983,16 @@ export function DashboardNewPost() {
 					header={
 						<div className="flex flex-wrap items-start justify-between gap-3">
 							<div>
-								<DrawerTitle className="flex items-center gap-3">
+								<DrawerTitle className="flex items-center gap-2 text-sm">
 									{drawerMode === "platform-detail" && selectedDestination ? (
-										platformIcon(selectedDestination.platform)
+										platformIcon(selectedDestination.platform, {
+											containerClassName: "size-6",
+											iconClassName: "size-3.5",
+										})
 									) : drawerMode === "schedule" ? (
-										<CalendarClock className="size-5" />
+										<CalendarClock className="size-4" />
 									) : (
-										<CircleCheckBig className="size-5" />
+										<CircleCheckBig className="size-4" />
 									)}
 									<span>
 										{drawerMode === "platform-detail"
@@ -3005,7 +3002,7 @@ export function DashboardNewPost() {
 												: "Platforms"}
 									</span>
 								</DrawerTitle>
-								<DrawerDescription className="mt-1 text-sm">
+								<DrawerDescription className="mt-0.5 text-xs">
 									{drawerMode === "platform-detail"
 										? "Customize only when this destination needs to diverge."
 										: drawerMode === "schedule"

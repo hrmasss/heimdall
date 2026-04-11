@@ -87,14 +87,14 @@ export function ComposerDockDrawer({
 					}}
 				>
 					<div className="composer-drawer-header shrink-0 border-b">
-						<div className="composer-drawer-command px-3 pt-3">
+						<div className="composer-drawer-command px-3 pb-3 pt-3">
 							{chrome({ placement: "drawer" })}
 						</div>
-						<div className="composer-drawer-page-heading px-4 py-3 sm:px-6">
+					</div>
+					<div className="composer-drawer-body min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-2 sm:px-6">
+						<div className="composer-drawer-page-heading pb-3 pt-1">
 							{header}
 						</div>
-					</div>
-					<div className="composer-drawer-body min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-3 sm:px-6">
 						{children}
 					</div>
 				</DrawerContent>
