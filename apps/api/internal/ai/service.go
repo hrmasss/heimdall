@@ -531,7 +531,7 @@ func (s *Service) GetCatalog(ctx context.Context, principal *iam.Principal, work
 				Label:                     "OpenAI GPT",
 				ApprovedModels:            s.approvedModels(providerOpenAI),
 				DefaultModel:              s.defaultModel(providerOpenAI),
-				NativeAvailable:           strings.TrimSpace(s.cfg.OpenAIAPIKey) != "",
+				NativeAvailable:           s.hasNativeAPIKey(providerOpenAI),
 				ConfiguredCredentialCount: counts[providerOpenAI],
 				SupportsByok:              true,
 				SupportsImages:            true,
@@ -541,7 +541,7 @@ func (s *Service) GetCatalog(ctx context.Context, principal *iam.Principal, work
 				Label:                     "Google Gemini",
 				ApprovedModels:            s.approvedModels(providerGemini),
 				DefaultModel:              s.defaultModel(providerGemini),
-				NativeAvailable:           strings.TrimSpace(s.cfg.GeminiAPIKey) != "",
+				NativeAvailable:           s.hasNativeAPIKey(providerGemini),
 				ConfiguredCredentialCount: counts[providerGemini],
 				SupportsByok:              true,
 				SupportsImages:            true,
@@ -952,11 +952,15 @@ func (s *Service) resolveGenerationSelectionForUseCase(settings *database.Worksp
 
 func (s *Service) resolveCredentialChain(ctx context.Context, workspaceID uuid.UUID, provider, mode string, fallbackEnabled bool) ([]resolvedCredential, error) {
 	if mode == modeNative {
-		apiKey := s.nativeAPIKey(provider)
-		if apiKey == "" {
+		apiKeys := s.nativeAPIKeys(provider)
+		if len(apiKeys) == 0 {
 			return nil, fmt.Errorf("%w: no native %s key is configured", iam.ErrValidation, provider)
 		}
-		return []resolvedCredential{{apiKey: apiKey}}, nil
+		result := make([]resolvedCredential, 0, len(apiKeys))
+		for _, apiKey := range apiKeys {
+			result = append(result, resolvedCredential{apiKey: apiKey})
+		}
+		return result, nil
 	}
 	records, err := s.listCredentials(ctx, workspaceID)
 	if err != nil {
@@ -1053,7 +1057,7 @@ func (s *Service) loadCampaignObjective(ctx context.Context, workspaceID, campai
 func (s *Service) buildReadiness(business *database.WorkspaceBusinessContext, brand *database.WorkspaceBrandContext, settings *database.WorkspaceAISettings, credentials []database.WorkspaceAICredential) WorkspaceIntelligenceReadiness {
 	hasBusiness := business != nil && (strings.TrimSpace(business.Narrative) != "" || strings.TrimSpace(business.Summary) != "" || business.DecisionFacts != "[]")
 	hasBrand := brand != nil && (strings.TrimSpace(brand.Narrative) != "" || strings.TrimSpace(brand.Summary) != "" || brand.DesignTokens != "{}")
-	hasAIAccess := strings.TrimSpace(s.cfg.OpenAIAPIKey) != "" || strings.TrimSpace(s.cfg.GeminiAPIKey) != ""
+	hasAIAccess := s.hasNativeAPIKey(providerOpenAI) || s.hasNativeAPIKey(providerGemini)
 	if !hasAIAccess {
 		for _, credential := range credentials {
 			if credential.Status == "active" {

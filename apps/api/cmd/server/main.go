@@ -214,7 +214,7 @@ func openDependencies(rootDir string, cfg *config.Config) (*appDependencies, err
 	campaignService := campaigns.NewService(db, service, postService)
 	socialService := social.NewService(db, cfg.Social, service, postService, storage)
 	aiService := ai.NewService(db, cfg.AI, service, storage)
-	automationService := automations.NewService(db, service, aiService, resourceService, campaignService, postService)
+	automationService := automations.NewService(db, cfg.Automation, service, aiService, resourceService, campaignService, postService)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

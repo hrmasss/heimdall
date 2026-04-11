@@ -22,6 +22,10 @@ import {
 import { DataTable, type DataTableColumn } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import type {
 	ApiListResponse,
 	AutomationCatalogResponse,
@@ -40,6 +44,35 @@ type WorkflowRow = WorkflowDefinition & {
 	lastRunAt?: string;
 };
 
+type PostAgentTarget = {
+	label: string;
+	platform: string;
+	surface: string;
+};
+
+const postAgentTargets: PostAgentTarget[] = [
+	{ label: "LinkedIn", platform: "linkedin", surface: "feed_post" },
+	{ label: "X thread", platform: "x", surface: "thread" },
+	{ label: "Instagram", platform: "instagram", surface: "feed_post" },
+];
+
+const defaultPostAgentDraft = {
+	prompt: "",
+	persona: "",
+	useWebResearch: true,
+	deepResearch: false,
+	trendAware: true,
+	includeHookOptions: true,
+	includeTags: true,
+	includeImageBrief: true,
+	includeVideoBrief: false,
+	country: "",
+	timeRange: "week",
+	sourceUrls: "",
+	includeDomains: "",
+	excludeDomains: "",
+};
+
 function StatPill({
 	icon: Icon,
 	label,
@@ -56,6 +89,376 @@ function StatPill({
 				{label}
 			</div>
 			<div className="mt-2 text-xl font-semibold">{value}</div>
+		</div>
+	);
+}
+
+function parseCSV(value: string) {
+	return value
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+}
+
+function PostAgentLauncher({
+	automations,
+	onRunCreated,
+}: {
+	automations: AutomationDefinition[];
+	onRunCreated: () => Promise<void>;
+}) {
+	const navigate = useNavigate();
+	const { activeWorkspaceId, customerRequest } = useAuth();
+	const [draft, setDraft] = useState(defaultPostAgentDraft);
+	const [selectedTargets, setSelectedTargets] = useState(
+		() => new Set(postAgentTargets.map((target) => target.label)),
+	);
+	const [advancedOpen, setAdvancedOpen] = useState(false);
+	const [running, setRunning] = useState(false);
+
+	const selectedTargetItems = useMemo(
+		() =>
+			postAgentTargets.filter((target) => selectedTargets.has(target.label)),
+		[selectedTargets],
+	);
+
+	function updateDraft<Key extends keyof typeof defaultPostAgentDraft>(
+		key: Key,
+		value: (typeof defaultPostAgentDraft)[Key],
+	) {
+		setDraft((current) => ({ ...current, [key]: value }));
+	}
+
+	function toggleTarget(label: string) {
+		setSelectedTargets((current) => {
+			const next = new Set(current);
+			if (next.has(label)) {
+				next.delete(label);
+			} else {
+				next.add(label);
+			}
+			return next.size > 0 ? next : current;
+		});
+	}
+
+	async function ensurePostAgentAutomation() {
+		const existing = automations.find(
+			(automation) =>
+				automation.actionType === "post_generate" &&
+				automation.metadata?.source === "post_agent",
+		);
+		if (existing) {
+			return existing.id;
+		}
+		const created = await customerRequest<AutomationDefinition>(
+			`/workspaces/${activeWorkspaceId}/automations`,
+			{
+				method: "POST",
+				body: {
+					status: "active",
+					scope: "standalone",
+					name: "Post Agent",
+					description:
+						"Researches a topic, drafts a post, and prepares creative handoff briefs.",
+					actionType: "post_generate",
+					triggerType: "manual",
+					inputSchema: {},
+					defaultConfig: {
+						persist: true,
+						useWebResearch: true,
+						trendAware: true,
+						deepResearch: false,
+						includeHookOptions: true,
+						includeTags: true,
+						includeImageBrief: true,
+						includeVideoBrief: false,
+						personaMode: "workspace",
+					},
+					outputSchema: {},
+					reviewPolicy: {},
+					capabilityHints: ["text_generation", "research"],
+					metadata: {
+						source: "post_agent",
+						managed: true,
+					},
+				},
+			},
+		);
+		await onRunCreated();
+		return created.id;
+	}
+
+	async function runPostAgent() {
+		if (!activeWorkspaceId || running) {
+			return;
+		}
+		const prompt = draft.prompt.trim();
+		if (!prompt) {
+			toast.error("Add a topic or request first.");
+			return;
+		}
+		setRunning(true);
+		try {
+			const automationId = await ensurePostAgentAutomation();
+			const run = await customerRequest<{ id: string }>(
+				`/workspaces/${activeWorkspaceId}/automations/${automationId}/runs`,
+				{
+					method: "POST",
+					body: {
+						input: {
+							prompt,
+							promptScope: "automations",
+							useWebResearch: draft.useWebResearch,
+							deepResearch: draft.deepResearch,
+							trendAware: draft.trendAware,
+							includeHookOptions: draft.includeHookOptions,
+							includeTags: draft.includeTags,
+							includeImageBrief: draft.includeImageBrief,
+							includeVideoBrief: draft.includeVideoBrief,
+							personaMode: draft.persona.trim() ? "custom" : "workspace",
+							persona: draft.persona.trim(),
+							targets: selectedTargetItems.map(({ platform, surface }) => ({
+								platform,
+								surface,
+							})),
+							sourceUrls: parseCSV(draft.sourceUrls),
+							country: draft.country.trim().toLowerCase(),
+							timeRange: draft.timeRange,
+							includeDomains: parseCSV(draft.includeDomains),
+							excludeDomains: parseCSV(draft.excludeDomains),
+						},
+					},
+				},
+			);
+			toast.success("Post Agent started.");
+			await onRunCreated();
+			navigate(`/dashboard/automations/runs/${run.id}`);
+		} catch (runError) {
+			toast.error(
+				runError instanceof Error
+					? runError.message
+					: "Unable to start Post Agent.",
+			);
+		} finally {
+			setRunning(false);
+		}
+	}
+
+	return (
+		<DashboardPanel
+			title="Post Agent"
+			description="Start with a topic. The agent researches, takes a position, drafts the post, and prepares the creative handoff."
+		>
+			<SurfaceCard className="overflow-hidden border border-[var(--brand-border-soft)] bg-background/75 p-5">
+				<div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+					<div className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="post-agent-prompt">Topic or request</Label>
+							<Textarea
+								id="post-agent-prompt"
+								value={draft.prompt}
+								onChange={(event) => updateDraft("prompt", event.target.value)}
+								placeholder="Example: Write a strong LinkedIn post about why AI content workflows need a human point of view."
+								className="min-h-32 rounded-[24px]"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label>Destinations</Label>
+							<div className="flex flex-wrap gap-2">
+								{postAgentTargets.map((target) => {
+									const selected = selectedTargets.has(target.label);
+									return (
+										<Button
+											key={target.label}
+											type="button"
+											variant={selected ? "default" : "outline"}
+											className="rounded-full"
+											onClick={() => toggleTarget(target.label)}
+										>
+											{target.label}
+										</Button>
+									);
+								})}
+							</div>
+						</div>
+					</div>
+					<div className="space-y-4">
+						<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+							<PostAgentSwitch
+								label="Web research"
+								checked={draft.useWebResearch}
+								onCheckedChange={(checked) =>
+									updateDraft("useWebResearch", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Use trends"
+								checked={draft.trendAware}
+								onCheckedChange={(checked) =>
+									updateDraft("trendAware", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Deep research"
+								checked={draft.deepResearch}
+								onCheckedChange={(checked) =>
+									updateDraft("deepResearch", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Hook ideas"
+								checked={draft.includeHookOptions}
+								onCheckedChange={(checked) =>
+									updateDraft("includeHookOptions", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Effective tags"
+								checked={draft.includeTags}
+								onCheckedChange={(checked) =>
+									updateDraft("includeTags", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Image idea"
+								checked={draft.includeImageBrief}
+								onCheckedChange={(checked) =>
+									updateDraft("includeImageBrief", checked)
+								}
+							/>
+							<PostAgentSwitch
+								label="Video idea"
+								checked={draft.includeVideoBrief}
+								onCheckedChange={(checked) =>
+									updateDraft("includeVideoBrief", checked)
+								}
+							/>
+						</div>
+						<Button
+							className="w-full rounded-full border-0 bg-gradient-brand text-white"
+							onClick={() => void runPostAgent()}
+							disabled={running}
+						>
+							<Sparkles className="size-4" />
+							{running ? "Starting..." : "Generate post"}
+						</Button>
+					</div>
+				</div>
+
+				<div className="mt-5 border-t border-[var(--brand-border-soft)] pt-4">
+					<Button
+						type="button"
+						variant="ghost"
+						className="rounded-full"
+						onClick={() => setAdvancedOpen((current) => !current)}
+					>
+						{advancedOpen ? "Hide" : "Show"} advanced options
+					</Button>
+					{advancedOpen ? (
+						<div className="mt-4 grid gap-4 lg:grid-cols-2">
+							<div className="space-y-2">
+								<Label htmlFor="post-agent-persona">Personal touch</Label>
+								<Textarea
+									id="post-agent-persona"
+									value={draft.persona}
+									onChange={(event) =>
+										updateDraft("persona", event.target.value)
+									}
+									placeholder="Example: direct, founder-led, practical, a little skeptical of hype."
+									className="min-h-24 rounded-[22px]"
+								/>
+							</div>
+							<div className="space-y-3">
+								<div className="space-y-2">
+									<Label htmlFor="post-agent-country">Target country</Label>
+									<Input
+										id="post-agent-country"
+										value={draft.country}
+										onChange={(event) =>
+											updateDraft("country", event.target.value)
+										}
+										placeholder="united states"
+										className="h-11 rounded-2xl"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="post-agent-time-range">Time range</Label>
+									<select
+										id="post-agent-time-range"
+										value={draft.timeRange}
+										onChange={(event) =>
+											updateDraft("timeRange", event.target.value)
+										}
+										className="h-11 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+									>
+										<option value="day">Day</option>
+										<option value="week">Week</option>
+										<option value="month">Month</option>
+										<option value="year">Year</option>
+									</select>
+								</div>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="post-agent-sources">Source URLs</Label>
+								<Input
+									id="post-agent-sources"
+									value={draft.sourceUrls}
+									onChange={(event) =>
+										updateDraft("sourceUrls", event.target.value)
+									}
+									placeholder="https://example.com/report, https://..."
+									className="h-11 rounded-2xl"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="post-agent-include-domains">
+									Include domains
+								</Label>
+								<Input
+									id="post-agent-include-domains"
+									value={draft.includeDomains}
+									onChange={(event) =>
+										updateDraft("includeDomains", event.target.value)
+									}
+									placeholder="example.com, another.com"
+									className="h-11 rounded-2xl"
+								/>
+							</div>
+							<div className="space-y-2 lg:col-span-2">
+								<Label htmlFor="post-agent-exclude-domains">
+									Exclude domains
+								</Label>
+								<Input
+									id="post-agent-exclude-domains"
+									value={draft.excludeDomains}
+									onChange={(event) =>
+										updateDraft("excludeDomains", event.target.value)
+									}
+									placeholder="low-quality-site.com, competitor.com"
+									className="h-11 rounded-2xl"
+								/>
+							</div>
+						</div>
+					) : null}
+				</div>
+			</SurfaceCard>
+		</DashboardPanel>
+	);
+}
+
+function PostAgentSwitch({
+	label,
+	checked,
+	onCheckedChange,
+}: {
+	label: string;
+	checked: boolean;
+	onCheckedChange: (checked: boolean) => void;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/60 px-3 py-2">
+			<span className="text-sm font-medium">{label}</span>
+			<Switch checked={checked} onCheckedChange={onCheckedChange} />
 		</div>
 	);
 }
@@ -319,6 +722,8 @@ export function DashboardAutomations() {
 					value={String(pendingRuns.length)}
 				/>
 			</div>
+
+			<PostAgentLauncher automations={automations} onRunCreated={loadData} />
 
 			<DashboardPanel
 				title="Available automations"

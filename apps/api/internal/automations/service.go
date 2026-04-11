@@ -22,6 +22,7 @@ import (
 
 	"github.com/heimdall/api/internal/ai"
 	"github.com/heimdall/api/internal/campaigns"
+	"github.com/heimdall/api/internal/config"
 	"github.com/heimdall/api/internal/database"
 	"github.com/heimdall/api/internal/iam"
 	"github.com/heimdall/api/internal/posts"
@@ -82,6 +83,7 @@ const (
 	artifactPublication  = "publication_plan"
 
 	pollinationsProviderID = "pollinations"
+	tavilyProviderID       = "tavily"
 )
 
 type WorkspaceAuthorizer interface {
@@ -319,6 +321,56 @@ type researchResult struct {
 	SourceURLs    []string         `json:"sourceUrls"`
 	Facts         []map[string]any `json:"facts"`
 	EvidenceNotes []string         `json:"evidenceNotes"`
+	TrendSignals  []string         `json:"trendSignals,omitempty"`
+	Counterpoints []string         `json:"counterpoints,omitempty"`
+	Sources       []researchSource `json:"sources,omitempty"`
+	Images        []researchImage  `json:"images,omitempty"`
+}
+
+type researchSource struct {
+	Title     string  `json:"title"`
+	URL       string  `json:"url"`
+	Content   string  `json:"content"`
+	Score     float64 `json:"score,omitempty"`
+	Published string  `json:"published,omitempty"`
+}
+
+type researchImage struct {
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+}
+
+type webResearchRequest struct {
+	Query          string
+	DeepResearch   bool
+	TrendAware     bool
+	TimeRange      string
+	Country        string
+	SourceURLs     []string
+	IncludeDomains []string
+	ExcludeDomains []string
+	IncludeImages  bool
+	DefaultDepth   string
+}
+
+type postAgentOptions struct {
+	UseWebResearch     bool
+	DeepResearch       bool
+	TrendAware         bool
+	IncludeHookOptions bool
+	IncludeTags        bool
+	IncludeImageBrief  bool
+	IncludeVideoBrief  bool
+	PersonaMode        string
+	Persona            string
+	Targets            []map[string]string
+	SourceURLs         []string
+	Country            string
+	TimeRange          string
+	IncludeDomains     []string
+	ExcludeDomains     []string
+	ImageBriefDetail   string
+	VideoBriefDetail   string
 }
 
 type textGenerationRequest struct {
@@ -383,11 +435,12 @@ type executionResult struct {
 }
 
 type automationProviderRegistry struct {
-	text     map[string]textGenerationProvider
-	research map[string]researchProvider
-	image    map[string]imageGenerationProvider
-	media    map[string]mediaCompositionProvider
-	document map[string]documentRenderingProvider
+	text        map[string]textGenerationProvider
+	research    map[string]researchProvider
+	webResearch map[string]webResearchProvider
+	image       map[string]imageGenerationProvider
+	media       map[string]mediaCompositionProvider
+	document    map[string]documentRenderingProvider
 }
 
 type textGenerationProvider interface {
@@ -396,6 +449,10 @@ type textGenerationProvider interface {
 
 type researchProvider interface {
 	Research(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, request textGenerationRequest) (*researchResult, error)
+}
+
+type webResearchProvider interface {
+	Research(ctx context.Context, request webResearchRequest) (*researchResult, error)
 }
 
 type imageGenerationProvider interface {
@@ -412,6 +469,7 @@ type documentRenderingProvider interface {
 
 type Service struct {
 	db         *bun.DB
+	cfg        config.AutomationConfig
 	authorizer WorkspaceAuthorizer
 	ai         *ai.Service
 	resources  *resources.Service
@@ -423,6 +481,7 @@ type Service struct {
 
 func NewService(
 	db *bun.DB,
+	cfg config.AutomationConfig,
 	authorizer WorkspaceAuthorizer,
 	aiService *ai.Service,
 	resourceService *resources.Service,
@@ -431,6 +490,7 @@ func NewService(
 ) *Service {
 	service := &Service{
 		db:         db,
+		cfg:        cfg,
 		authorizer: authorizer,
 		ai:         aiService,
 		resources:  resourceService,
@@ -438,11 +498,12 @@ func NewService(
 		posts:      postService,
 		httpClient: &http.Client{Timeout: 45 * time.Second},
 		providers: automationProviderRegistry{
-			text:     map[string]textGenerationProvider{},
-			research: map[string]researchProvider{},
-			image:    map[string]imageGenerationProvider{},
-			media:    map[string]mediaCompositionProvider{},
-			document: map[string]documentRenderingProvider{},
+			text:        map[string]textGenerationProvider{},
+			research:    map[string]researchProvider{},
+			webResearch: map[string]webResearchProvider{},
+			image:       map[string]imageGenerationProvider{},
+			media:       map[string]mediaCompositionProvider{},
+			document:    map[string]documentRenderingProvider{},
 		},
 	}
 	service.registerDefaults()
@@ -452,6 +513,7 @@ func NewService(
 func (s *Service) registerDefaults() {
 	s.providers.text["workspace_ai"] = aiTextGenerationProvider{ai: s.ai}
 	s.providers.research["workspace_ai"] = aiResearchProvider{ai: s.ai}
+	s.providers.webResearch[tavilyProviderID] = tavilyResearchProvider{client: s.httpClient, cfg: s.cfg}
 	s.providers.image[pollinationsProviderID] = pollinationsImageProvider{client: s.httpClient}
 	s.providers.media["reel_blueprint"] = reelBlueprintProvider{resources: s.resources}
 	s.providers.document["linkedin_pdf"] = linkedInPDFProvider{}
@@ -1366,39 +1428,56 @@ func (s *Service) executePostGenerate(
 ) (*executionResult, bool, error) {
 	prompt := firstNonEmptyString(
 		stringValue(runInput["prompt"]),
+		stringValue(runInput["topic"]),
 		stringValue(stepConfig["prompt"]),
 		derivePostPrompt(currentArtifacts),
 		"Create a social post draft with a strong hook, useful body, and concise CTA.",
 	)
-	research, err := s.providers.research["workspace_ai"].Research(ctx, principal, workspaceID, textGenerationRequest{
+	options := s.normalizePostAgentOptions(runInput, stepConfig)
+	research, err := s.resolvePostAgentResearch(ctx, principal, workspaceID, prompt, options)
+	if err != nil {
+		return nil, false, err
+	}
+
+	artifact, err := s.providers.text["workspace_ai"].Generate(ctx, principal, workspaceID, textGenerationRequest{
 		UseCase:      "post_generation",
-		SystemPrompt: "Return strict JSON with summary, sourceUrls, facts, and evidenceNotes that help a social post stay relevant and credible. Use empty arrays when unsure.",
+		SystemPrompt: postAgentSystemPrompt(options),
 		PromptScope:  ai.PromptScopeAutomations,
-		Prompt:       prompt,
+		Prompt:       buildPostAgentPrompt(prompt, research, options, currentArtifacts),
+		Provider:     firstNonEmptyString(stringValue(runInput["provider"]), stringValue(stepConfig["provider"])),
+		Model:        firstNonEmptyString(stringValue(runInput["model"]), stringValue(stepConfig["model"])),
+		Mode:         firstNonEmptyString(stringValue(runInput["mode"]), stringValue(stepConfig["mode"])),
 	})
 	if err != nil {
 		return nil, false, err
 	}
-	draft, err := s.ai.GeneratePostDraft(ctx, principal, workspaceID, ai.GeneratePostDraftInput{
-		Prompt:      fmt.Sprintf("%s\n\nUse this research:\n%s", prompt, research.Summary),
-		PromptScope: ai.PromptScopeAutomations,
-	})
-	if err != nil {
-		return nil, false, err
+	payload := artifact.Payload
+	title := firstNonEmptyString(stringValue(payload["title"]), stringValue(runInput["title"]), "AI generated post")
+	body := firstNonEmptyString(stringValue(payload["body"]), stringValue(mapValue(payload["contentPayload"])["body"]))
+	if body == "" {
+		return nil, false, fmt.Errorf("%w: generated post body was empty", iam.ErrValidation)
 	}
+	tags := []string{}
+	if options.IncludeTags {
+		tags = stringSlice(payload["tags"])
+	}
+	strategy := buildPostAgentStrategy(payload, research, options)
+	warnings := stringSlice(payload["warnings"])
+
 	createPost := boolValue(stepConfig["persist"])
 	if !hasKey(stepConfig, "persist") {
 		createPost = true
 	}
 	output := map[string]any{
-		"title":          draft.Title,
-		"contentKind":    draft.ContentKind,
-		"contentPayload": draft.ContentPayload,
-		"warnings":       draft.Warnings,
+		"title":          title,
+		"contentKind":    "text",
+		"contentPayload": map[string]any{"body": body, "tags": tags},
+		"warnings":       warnings,
+		"strategy":       strategy,
 	}
 	artifactItem := RunArtifact{
 		Type:  artifactPostDraft,
-		Label: firstNonEmptyString(draft.Title, "Generated post draft"),
+		Label: firstNonEmptyString(title, "Generated post draft"),
 		Data:  cloneMap(output),
 	}
 	if createPost {
@@ -1410,14 +1489,14 @@ func (s *Service) executePostGenerate(
 			campaignID = parseUUIDPointer(stringValue(runInput["campaignId"]))
 		}
 		postRecord, err := s.posts.CreatePost(ctx, principal, workspaceID, posts.UpsertPostInput{
-			Title:            firstNonEmptyString(draft.Title, stringValue(runInput["title"]), "AI generated post"),
-			ContentKind:      draft.ContentKind,
-			ContentPayload:   draft.ContentPayload,
+			Title:            title,
+			ContentKind:      "text",
+			ContentPayload:   map[string]any{"body": body, "tags": tags},
 			OriginPlatform:   firstNonEmptyString(stringValue(stepConfig["originPlatform"]), stringValue(runInput["originPlatform"])),
 			OriginSurface:    firstNonEmptyString(stringValue(stepConfig["originSurface"]), stringValue(runInput["originSurface"])),
 			CampaignID:       campaignID,
 			RequiresApproval: boolValue(stepConfig["requiresApproval"]) || boolValue(runInput["requiresApproval"]),
-			Notes:            strings.TrimSpace(strings.Join(research.EvidenceNotes, "\n")),
+			Notes:            postAgentNotes(strategy, research),
 		})
 		if err != nil {
 			return nil, false, err
@@ -1430,12 +1509,163 @@ func (s *Service) executePostGenerate(
 		Artifacts: []RunArtifact{artifactItem},
 		Evidence: map[string]any{
 			"research": research,
+			"strategy": strategy,
 			"generator": map[string]any{
-				"provider": draft.Provider,
-				"model":    draft.Model,
+				"provider": artifact.Provider,
+				"model":    artifact.Model,
 			},
 		},
 	}, false, nil
+}
+
+func (s *Service) normalizePostAgentOptions(runInput, stepConfig map[string]any) postAgentOptions {
+	useWebResearch := false
+	if hasKey(stepConfig, "useWebResearch") || hasKey(runInput, "useWebResearch") {
+		useWebResearch = configBool(runInput, stepConfig, "useWebResearch", false)
+	}
+	targets := normalizeTargets(firstConfiguredValue(runInput, stepConfig, "targets"))
+	if len(targets) == 0 {
+		targets = []map[string]string{
+			{"platform": "linkedin", "surface": "feed_post"},
+			{"platform": "x", "surface": "thread"},
+			{"platform": "instagram", "surface": "feed_post"},
+		}
+	}
+	return postAgentOptions{
+		UseWebResearch:     useWebResearch,
+		DeepResearch:       configBool(runInput, stepConfig, "deepResearch", false),
+		TrendAware:         configBool(runInput, stepConfig, "trendAware", true),
+		IncludeHookOptions: configBool(runInput, stepConfig, "includeHookOptions", true),
+		IncludeTags:        configBool(runInput, stepConfig, "includeTags", true),
+		IncludeImageBrief:  configBool(runInput, stepConfig, "includeImageBrief", true),
+		IncludeVideoBrief:  configBool(runInput, stepConfig, "includeVideoBrief", false),
+		PersonaMode:        normalizePersonaMode(firstNonEmptyString(stringValue(runInput["personaMode"]), stringValue(stepConfig["personaMode"]), "workspace")),
+		Persona:            firstNonEmptyString(stringValue(runInput["persona"]), stringValue(stepConfig["persona"])),
+		Targets:            targets,
+		SourceURLs:         stringSlice(firstConfiguredValue(runInput, stepConfig, "sourceUrls")),
+		Country:            strings.ToLower(firstNonEmptyString(stringValue(runInput["country"]), stringValue(stepConfig["country"]))),
+		TimeRange:          normalizeTimeRange(firstNonEmptyString(stringValue(runInput["timeRange"]), stringValue(stepConfig["timeRange"]), "week")),
+		IncludeDomains:     stringSlice(firstConfiguredValue(runInput, stepConfig, "includeDomains")),
+		ExcludeDomains:     stringSlice(firstConfiguredValue(runInput, stepConfig, "excludeDomains")),
+		ImageBriefDetail:   firstNonEmptyString(stringValue(runInput["imageBriefDetail"]), stringValue(stepConfig["imageBriefDetail"]), "practical generation prompt"),
+		VideoBriefDetail:   firstNonEmptyString(stringValue(runInput["videoBriefDetail"]), stringValue(stepConfig["videoBriefDetail"]), "future short-form concept"),
+	}
+}
+
+func (s *Service) resolvePostAgentResearch(
+	ctx context.Context,
+	principal *iam.Principal,
+	workspaceID uuid.UUID,
+	prompt string,
+	options postAgentOptions,
+) (*researchResult, error) {
+	if options.UseWebResearch {
+		return s.providers.webResearch[tavilyProviderID].Research(ctx, webResearchRequest{
+			Query:          prompt,
+			DeepResearch:   options.DeepResearch,
+			TrendAware:     options.TrendAware,
+			TimeRange:      options.TimeRange,
+			Country:        options.Country,
+			SourceURLs:     options.SourceURLs,
+			IncludeDomains: options.IncludeDomains,
+			ExcludeDomains: options.ExcludeDomains,
+			IncludeImages:  options.IncludeImageBrief,
+			DefaultDepth:   s.cfg.PostAgentDefaultResearchDepth,
+		})
+	}
+	return s.providers.research["workspace_ai"].Research(ctx, principal, workspaceID, textGenerationRequest{
+		UseCase:      "post_generation",
+		SystemPrompt: "Return strict JSON with summary, sourceUrls, facts, evidenceNotes, trendSignals, and counterpoints that help a social post stay relevant and credible. Use empty arrays when unsure.",
+		PromptScope:  ai.PromptScopeAutomations,
+		Prompt:       prompt,
+	})
+}
+
+func postAgentSystemPrompt(options postAgentOptions) string {
+	requirements := []string{
+		"Return strict JSON with title, body, tags, warnings, stance, hookOptions, trendSignals, counterpoints, imageBrief, and videoBrief.",
+		"Write like a thoughtful human with a defensible point of view; do not merely summarize headlines.",
+		"Keep the post usable as-is and avoid unsupported claims, invented numbers, invented source names, or fake urgency.",
+	}
+	if !options.IncludeHookOptions {
+		requirements = append(requirements, "Return an empty hookOptions array.")
+	}
+	if !options.IncludeTags {
+		requirements = append(requirements, "Return an empty tags array.")
+	}
+	if !options.IncludeImageBrief {
+		requirements = append(requirements, "Return an empty imageBrief object.")
+	}
+	if !options.IncludeVideoBrief {
+		requirements = append(requirements, "Return an empty videoBrief object.")
+	}
+	return strings.Join(requirements, " ")
+}
+
+func buildPostAgentPrompt(prompt string, research *researchResult, options postAgentOptions, currentArtifacts []RunArtifact) string {
+	targetDescriptions := make([]string, 0, len(options.Targets))
+	for _, target := range options.Targets {
+		targetDescriptions = append(targetDescriptions, fmt.Sprintf("%s:%s", target["platform"], target["surface"]))
+	}
+	parts := []string{
+		"User request:\n" + prompt,
+		"Targets:\n" + strings.Join(targetDescriptions, ", "),
+		"Research:\n" + marshalJSON(map[string]any{
+			"summary":       research.Summary,
+			"sourceUrls":    research.SourceURLs,
+			"facts":         research.Facts,
+			"evidenceNotes": research.EvidenceNotes,
+			"trendSignals":  research.TrendSignals,
+			"counterpoints": research.Counterpoints,
+			"sources":       research.Sources,
+			"images":        research.Images,
+		}),
+		"Output requirements:\n" + marshalJSON(map[string]any{
+			"personaMode":        options.PersonaMode,
+			"persona":            options.Persona,
+			"includeHookOptions": options.IncludeHookOptions,
+			"includeTags":        options.IncludeTags,
+			"includeImageBrief":  options.IncludeImageBrief,
+			"includeVideoBrief":  options.IncludeVideoBrief,
+			"imageBriefDetail":   options.ImageBriefDetail,
+			"videoBriefDetail":   options.VideoBriefDetail,
+		}),
+	}
+	if campaignPrompt := derivePostPrompt(currentArtifacts); campaignPrompt != "" {
+		parts = append(parts, "Prior campaign context:\n"+campaignPrompt)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func buildPostAgentStrategy(payload map[string]any, research *researchResult, options postAgentOptions) map[string]any {
+	strategyPayload := mapValue(payload["strategy"])
+	imageBrief := mapValue(firstNonNil(strategyPayload["imageBrief"], payload["imageBrief"]))
+	videoBrief := mapValue(firstNonNil(strategyPayload["videoBrief"], payload["videoBrief"]))
+	return map[string]any{
+		"stance":          firstNonEmptyString(stringValue(strategyPayload["stance"]), stringValue(payload["stance"])),
+		"hookOptions":     firstNonEmptyStringSlice(stringSlice(strategyPayload["hookOptions"]), stringSlice(payload["hookOptions"])),
+		"tags":            firstNonEmptyStringSlice(stringSlice(strategyPayload["tags"]), stringSlice(payload["tags"])),
+		"researchSummary": research.Summary,
+		"sourceUrls":      research.SourceURLs,
+		"trendSignals":    firstNonEmptyStringSlice(stringSlice(strategyPayload["trendSignals"]), stringSlice(payload["trendSignals"]), research.TrendSignals),
+		"counterpoints":   firstNonEmptyStringSlice(stringSlice(strategyPayload["counterpoints"]), stringSlice(payload["counterpoints"]), research.Counterpoints),
+		"imageBrief":      maybeBrief(options.IncludeImageBrief, imageBrief),
+		"videoBrief":      maybeBrief(options.IncludeVideoBrief, videoBrief),
+	}
+}
+
+func postAgentNotes(strategy map[string]any, research *researchResult) string {
+	parts := []string{}
+	if stance := stringValue(strategy["stance"]); stance != "" {
+		parts = append(parts, "Stance: "+stance)
+	}
+	if len(research.EvidenceNotes) > 0 {
+		parts = append(parts, "Evidence:\n"+strings.Join(research.EvidenceNotes, "\n"))
+	}
+	if len(research.SourceURLs) > 0 {
+		parts = append(parts, "Sources:\n"+strings.Join(research.SourceURLs, "\n"))
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
 }
 
 func (s *Service) executeVariationGenerate(
@@ -2196,6 +2426,7 @@ func (s *Service) actionCatalog() []ActionContract {
 
 func (s *Service) templates() []AutomationTemplate {
 	return []AutomationTemplate{
+		{ID: "research-backed-post-agent", Name: "Research-backed Post Agent", Description: "Research a topic, form a point of view, draft the post, and prepare image/video handoff briefs.", Category: "workflow", EntryPoint: "/dashboard/automations", Steps: []WorkflowStepRecord{{Name: "Draft researched post", ActionType: actionPostGenerate, Config: map[string]any{"useWebResearch": true, "trendAware": true, "deepResearch": false, "includeHookOptions": true, "includeTags": true, "includeImageBrief": true, "includeVideoBrief": false, "personaMode": "workspace"}}}},
 		{ID: "campaign-content-pipeline", Name: "Campaign Content Pipeline", Description: "Plan a campaign, generate a post, repurpose it into channel variations, review it, and schedule it.", Category: "workflow", EntryPoint: "/dashboard/campaigns", Steps: []WorkflowStepRecord{{Name: "Plan campaign", ActionType: actionCampaignPlan}, {Name: "Generate post", ActionType: actionPostGenerate, ConsumesArtifactType: artifactCampaign}, {Name: "Create variations", ActionType: actionVariationsGenerate, ConsumesArtifactType: artifactPostDraft}, {Name: "Review", ActionType: actionReview, ConsumesArtifactType: artifactPostVariants, ReviewerType: reviewerTypeHuman}, {Name: "Schedule", ActionType: actionPublishOrSchedule, ConsumesArtifactType: artifactPostVariants}}},
 		{ID: "post-image-pipeline", Name: "Post + Image Flow", Description: "Generate a post and a supporting image asset in one streamlined workflow.", Category: "workflow", EntryPoint: "/dashboard/posts/new", Steps: []WorkflowStepRecord{{Name: "Generate post", ActionType: actionPostGenerate}, {Name: "Generate image", ActionType: actionImageGenerate, ConsumesArtifactType: artifactPostDraft}}},
 		{ID: "reel-studio-beta", Name: "Reel Studio Beta", Description: "Turn a looped video into a caption-ready reel blueprint and send it through review.", Category: "studio", EntryPoint: "/dashboard/studio", Beta: true, Steps: []WorkflowStepRecord{{Name: "Create reel blueprint", ActionType: actionReelGenerate}, {Name: "Review", ActionType: actionReview, ConsumesArtifactType: artifactResourceSet, ReviewerType: reviewerTypeHuman}}},
@@ -2253,6 +2484,237 @@ func (p aiResearchProvider) Research(ctx context.Context, principal *iam.Princip
 		Facts:         mapSlice(artifact.Payload["facts"]),
 		EvidenceNotes: stringSlice(artifact.Payload["evidenceNotes"]),
 	}, nil
+}
+
+type tavilyResearchProvider struct {
+	client *http.Client
+	cfg    config.AutomationConfig
+}
+
+type tavilyRequestError struct {
+	statusCode int
+	message    string
+	retryable  bool
+	cause      error
+}
+
+func (e *tavilyRequestError) Error() string {
+	return e.message
+}
+
+func (e *tavilyRequestError) Unwrap() error {
+	return e.cause
+}
+
+func (p tavilyResearchProvider) Research(ctx context.Context, request webResearchRequest) (*researchResult, error) {
+	apiKeys := p.tavilyAPIKeys()
+	if len(apiKeys) == 0 {
+		return nil, fmt.Errorf("%w: Tavily API key is required for web research", iam.ErrValidation)
+	}
+	var lastErr error
+	for index, apiKey := range apiKeys {
+		result, err := p.researchWithKey(ctx, request, apiKey)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		var tavilyErr *tavilyRequestError
+		if !errors.As(err, &tavilyErr) || !tavilyErr.retryable || index == len(apiKeys)-1 {
+			break
+		}
+	}
+	return nil, lastErr
+}
+
+func (p tavilyResearchProvider) tavilyAPIKeys() []string {
+	if result := normalizeStringSlice(p.cfg.TavilyAPIKeys); len(result) > 0 {
+		return result
+	}
+	if strings.TrimSpace(p.cfg.TavilyAPIKey) != "" {
+		return []string{strings.TrimSpace(p.cfg.TavilyAPIKey)}
+	}
+	return []string{}
+}
+
+func (p tavilyResearchProvider) researchWithKey(ctx context.Context, request webResearchRequest, apiKey string) (*researchResult, error) {
+	query := strings.TrimSpace(request.Query)
+	if len(request.SourceURLs) > 0 {
+		query = strings.TrimSpace(query + "\nPrioritize these provided sources: " + strings.Join(request.SourceURLs, ", "))
+	}
+	if query == "" {
+		return nil, fmt.Errorf("%w: research query is required", iam.ErrValidation)
+	}
+	searchDepth := tavilySearchDepth(request.DeepResearch, request.DefaultDepth)
+	body := map[string]any{
+		"query":                      query,
+		"search_depth":               searchDepth,
+		"max_results":                8,
+		"include_answer":             "basic",
+		"include_raw_content":        false,
+		"include_images":             request.IncludeImages,
+		"include_image_descriptions": request.IncludeImages,
+		"include_favicon":            true,
+		"include_usage":              true,
+	}
+	if request.DeepResearch {
+		body["max_results"] = 12
+		body["include_answer"] = "advanced"
+	}
+	if request.TrendAware {
+		body["topic"] = "news"
+		if request.TimeRange != "" {
+			body["time_range"] = tavilyTimeRange(request.TimeRange)
+		}
+	} else {
+		body["topic"] = "general"
+		if request.Country != "" {
+			body["country"] = request.Country
+		}
+	}
+	if len(request.IncludeDomains) > 0 {
+		body["include_domains"] = request.IncludeDomains
+	}
+	if len(request.ExcludeDomains) > 0 {
+		body["exclude_domains"] = request.ExcludeDomains
+	}
+	requestBody, _ := json.Marshal(body)
+	endpoint := strings.TrimRight(firstNonEmptyString(p.cfg.TavilyBaseURL, "https://api.tavily.com"), "/") + "/search"
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(requestBody))
+	if err != nil {
+		return nil, err
+	}
+	httpRequest.Header.Set("Authorization", "Bearer "+strings.TrimSpace(apiKey))
+	httpRequest.Header.Set("Content-Type", "application/json")
+	response, err := p.client.Do(httpRequest)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, err
+		}
+		return nil, &tavilyRequestError{message: err.Error(), retryable: true}
+	}
+	defer response.Body.Close()
+	raw, _ := io.ReadAll(response.Body)
+	if response.StatusCode >= http.StatusBadRequest {
+		return nil, &tavilyRequestError{
+			statusCode: response.StatusCode,
+			message:    fmt.Sprintf("%v: Tavily research failed with status %d", iam.ErrValidation, response.StatusCode),
+			retryable:  response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError,
+			cause:      iam.ErrValidation,
+		}
+	}
+
+	var parsed struct {
+		Answer  string `json:"answer"`
+		Results []struct {
+			Title         string  `json:"title"`
+			URL           string  `json:"url"`
+			Content       string  `json:"content"`
+			Score         float64 `json:"score"`
+			PublishedDate string  `json:"published_date"`
+			Images        []any   `json:"images"`
+		} `json:"results"`
+		Images []any `json:"images"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, err
+	}
+	sourceURLs := normalizeStringSlice(request.SourceURLs)
+	sources := make([]researchSource, 0, len(parsed.Results))
+	evidence := make([]string, 0, len(parsed.Results))
+	images := make([]researchImage, 0, len(parsed.Images))
+	trends := make([]string, 0, len(parsed.Results))
+	for _, result := range parsed.Results {
+		title := strings.TrimSpace(result.Title)
+		resultURL := strings.TrimSpace(result.URL)
+		content := strings.TrimSpace(result.Content)
+		if resultURL != "" {
+			sourceURLs = append(sourceURLs, resultURL)
+		}
+		sources = append(sources, researchSource{
+			Title:     title,
+			URL:       resultURL,
+			Content:   content,
+			Score:     result.Score,
+			Published: result.PublishedDate,
+		})
+		if title != "" || content != "" {
+			evidence = append(evidence, strings.TrimSpace(fmt.Sprintf("%s - %s", title, content)))
+		}
+		if request.TrendAware && title != "" {
+			trends = append(trends, title)
+		}
+		images = appendResearchImages(images, result.Images)
+	}
+	images = appendResearchImages(images, parsed.Images)
+	return &researchResult{
+		Summary:       strings.TrimSpace(parsed.Answer),
+		SourceURLs:    normalizeStringSlice(sourceURLs),
+		Facts:         researchFactsFromSources(sources),
+		EvidenceNotes: normalizeStringSlice(evidence),
+		TrendSignals:  normalizeStringSlice(trends),
+		Counterpoints: []string{},
+		Sources:       sources,
+		Images:        images,
+	}, nil
+}
+
+func tavilySearchDepth(deepResearch bool, defaultDepth string) string {
+	if deepResearch {
+		return "advanced"
+	}
+	switch strings.TrimSpace(strings.ToLower(defaultDepth)) {
+	case "fast", "ultra-fast", "basic":
+		return strings.TrimSpace(strings.ToLower(defaultDepth))
+	default:
+		return "basic"
+	}
+}
+
+func tavilyTimeRange(value string) string {
+	switch normalizeTimeRange(value) {
+	case "day":
+		return "day"
+	case "month":
+		return "month"
+	case "year":
+		return "year"
+	default:
+		return "week"
+	}
+}
+
+func researchFactsFromSources(sources []researchSource) []map[string]any {
+	facts := make([]map[string]any, 0, len(sources))
+	for _, source := range sources {
+		if strings.TrimSpace(source.Content) == "" {
+			continue
+		}
+		facts = append(facts, map[string]any{
+			"claim":  source.Content,
+			"source": source.URL,
+			"title":  source.Title,
+		})
+	}
+	return facts
+}
+
+func appendResearchImages(images []researchImage, rawImages []any) []researchImage {
+	for _, raw := range rawImages {
+		switch value := raw.(type) {
+		case string:
+			if strings.TrimSpace(value) != "" {
+				images = append(images, researchImage{URL: strings.TrimSpace(value)})
+			}
+		case map[string]any:
+			if imageURL := stringValue(value["url"]); imageURL != "" {
+				images = append(images, researchImage{
+					URL:         imageURL,
+					Description: stringValue(value["description"]),
+				})
+			}
+		}
+	}
+	return images
 }
 
 type pollinationsImageProvider struct {
@@ -2591,6 +3053,14 @@ func derivePostPrompt(currentArtifacts []RunArtifact) string {
 
 func deriveImagePrompt(currentArtifacts []RunArtifact) string {
 	if postDraft := firstArtifactOfType(currentArtifacts, artifactPostDraft); postDraft != nil {
+		strategy := mapValue(postDraft.Data["strategy"])
+		imageBrief := mapValue(strategy["imageBrief"])
+		if prompt := stringValue(imageBrief["generationPrompt"]); prompt != "" {
+			return prompt
+		}
+		if prompt := stringValue(imageBrief["prompt"]); prompt != "" {
+			return prompt
+		}
 		contentPayload := mapValue(postDraft.Data["contentPayload"])
 		return fmt.Sprintf(
 			"Create a branded social image inspired by this post title and copy. Title: %s. Body: %s.",
@@ -2810,6 +3280,46 @@ func normalizeTargets(raw any) []map[string]string {
 	return items
 }
 
+func configBool(runInput, stepConfig map[string]any, key string, fallback bool) bool {
+	if hasKey(runInput, key) {
+		return boolValue(runInput[key])
+	}
+	if hasKey(stepConfig, key) {
+		return boolValue(stepConfig[key])
+	}
+	return fallback
+}
+
+func firstConfiguredValue(runInput, stepConfig map[string]any, key string) any {
+	if value, ok := runInput[key]; ok {
+		return value
+	}
+	if value, ok := stepConfig[key]; ok {
+		return value
+	}
+	return nil
+}
+
+func normalizePersonaMode(value string) string {
+	if strings.TrimSpace(strings.ToLower(value)) == "custom" {
+		return "custom"
+	}
+	return "workspace"
+}
+
+func normalizeTimeRange(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "day", "d":
+		return "day"
+	case "month", "m":
+		return "month"
+	case "year", "y":
+		return "year"
+	default:
+		return "week"
+	}
+}
+
 func normalizeReviewerType(value string) string {
 	switch strings.TrimSpace(strings.ToLower(value)) {
 	case reviewerTypeHuman:
@@ -2952,6 +3462,15 @@ func mapValue(value any) map[string]any {
 	return map[string]any{}
 }
 
+func firstNonNil(values ...any) any {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
 func hasKey(value map[string]any, key string) bool {
 	_, ok := value[key]
 	return ok
@@ -2964,6 +3483,22 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func firstNonEmptyStringSlice(values ...[]string) []string {
+	for _, value := range values {
+		if len(value) > 0 {
+			return value
+		}
+	}
+	return []string{}
+}
+
+func maybeBrief(enabled bool, brief map[string]any) map[string]any {
+	if !enabled {
+		return map[string]any{}
+	}
+	return brief
 }
 
 func defaultString(value, fallback string) string {

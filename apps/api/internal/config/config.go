@@ -16,6 +16,7 @@ type Config struct {
 	Storage     StorageConfig
 	Social      SocialConfig
 	AI          AIConfig
+	Automation  AutomationConfig
 	Bootstrap   BootstrapConfig
 }
 
@@ -78,13 +79,23 @@ type AIConfig struct {
 	EncryptionKey        string
 	RequestTimeout       time.Duration
 	OpenAIAPIKey         string
+	OpenAIAPIKeys        []string
 	OpenAIBaseURL        string
 	OpenAIApprovedModels []string
 	OpenAIDefaultModel   string
 	GeminiAPIKey         string
+	GeminiAPIKeys        []string
 	GeminiBaseURL        string
 	GeminiApprovedModels []string
 	GeminiDefaultModel   string
+}
+
+// AutomationConfig holds automation provider integration settings.
+type AutomationConfig struct {
+	TavilyAPIKey                  string
+	TavilyAPIKeys                 []string
+	TavilyBaseURL                 string
+	PostAgentDefaultResearchDepth string
 }
 
 // BootstrapConfig holds first-admin bootstrap configuration.
@@ -146,13 +157,21 @@ func Load() *Config {
 			EncryptionKey:        getEnv("AI_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
 			RequestTimeout:       getEnvDuration("AI_REQUEST_TIMEOUT", 45*time.Second),
 			OpenAIAPIKey:         getEnv("OPENAI_API_KEY", ""),
+			OpenAIAPIKeys:        getEnvKeyList("OPENAI_API_KEYS", "OPENAI_API_KEY"),
 			OpenAIBaseURL:        strings.TrimRight(getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1"), "/"),
 			OpenAIApprovedModels: getEnvCSV("OPENAI_APPROVED_MODELS", []string{"gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini"}),
 			OpenAIDefaultModel:   getEnv("OPENAI_DEFAULT_MODEL", "gpt-4.1-mini"),
 			GeminiAPIKey:         getEnv("GEMINI_API_KEY", ""),
+			GeminiAPIKeys:        getEnvKeyList("GEMINI_API_KEYS", "GEMINI_API_KEY"),
 			GeminiBaseURL:        strings.TrimRight(getEnv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"), "/"),
 			GeminiApprovedModels: getEnvCSV("GEMINI_APPROVED_MODELS", []string{"gemini-2.0-flash", "gemini-2.0-flash-lite"}),
 			GeminiDefaultModel:   getEnv("GEMINI_DEFAULT_MODEL", "gemini-2.0-flash"),
+		},
+		Automation: AutomationConfig{
+			TavilyAPIKey:                  getEnv("TAVILY_API_KEY", ""),
+			TavilyAPIKeys:                 getEnvKeyList("TAVILY_API_KEYS", "TAVILY_API_KEY"),
+			TavilyBaseURL:                 strings.TrimRight(getEnv("TAVILY_BASE_URL", "https://api.tavily.com"), "/"),
+			PostAgentDefaultResearchDepth: getEnv("POST_AGENT_DEFAULT_RESEARCH_DEPTH", "quick"),
 		},
 		Bootstrap: BootstrapConfig{
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),
@@ -225,4 +244,14 @@ func getEnvCSV(key string, defaultValue []string) []string {
 		return defaultValue
 	}
 	return result
+}
+
+func getEnvKeyList(pluralKey, singularKey string) []string {
+	if values := getEnvCSV(pluralKey, nil); len(values) > 0 {
+		return values
+	}
+	if value := strings.TrimSpace(os.Getenv(singularKey)); value != "" {
+		return []string{value}
+	}
+	return []string{}
 }

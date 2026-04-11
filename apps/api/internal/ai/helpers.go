@@ -332,10 +332,10 @@ func (s *Service) defaultModel(provider string) string {
 }
 
 func (s *Service) defaultProvider() string {
-	if strings.TrimSpace(s.cfg.OpenAIAPIKey) != "" {
+	if s.hasNativeAPIKey(providerOpenAI) {
 		return providerOpenAI
 	}
-	if strings.TrimSpace(s.cfg.GeminiAPIKey) != "" {
+	if s.hasNativeAPIKey(providerGemini) {
 		return providerGemini
 	}
 	if len(s.cfg.OpenAIApprovedModels) > 0 {
@@ -348,7 +348,7 @@ func (s *Service) defaultProvider() string {
 }
 
 func defaultMode(cfg config.AIConfig) string {
-	if strings.TrimSpace(cfg.OpenAIAPIKey) != "" || strings.TrimSpace(cfg.GeminiAPIKey) != "" {
+	if len(nativeAPIKeysForConfig(cfg, providerOpenAI)) > 0 || len(nativeAPIKeysForConfig(cfg, providerGemini)) > 0 {
 		return modeNative
 	}
 	return modeBYOK
@@ -364,22 +364,46 @@ func (s *Service) defaultCapabilityDefaults() map[string]AIModelSelection {
 	return result
 }
 
+func (s *Service) hasNativeAPIKey(provider string) bool {
+	return len(s.nativeAPIKeys(provider)) > 0
+}
+
 func (s *Service) nativeAPIKey(provider string) string {
-	switch provider {
-	case providerOpenAI:
-		return strings.TrimSpace(s.cfg.OpenAIAPIKey)
-	case providerGemini:
-		return strings.TrimSpace(s.cfg.GeminiAPIKey)
-	default:
+	keys := s.nativeAPIKeys(provider)
+	if len(keys) == 0 {
 		return ""
 	}
+	return keys[0]
+}
+
+func (s *Service) nativeAPIKeys(provider string) []string {
+	return nativeAPIKeysForConfig(s.cfg, provider)
+}
+
+func nativeAPIKeysForConfig(cfg config.AIConfig, provider string) []string {
+	var values []string
+	var singular string
+	switch provider {
+	case providerOpenAI:
+		values = cfg.OpenAIAPIKeys
+		singular = cfg.OpenAIAPIKey
+	case providerGemini:
+		values = cfg.GeminiAPIKeys
+		singular = cfg.GeminiAPIKey
+	default:
+		return []string{}
+	}
+	if result := uniqueNonEmpty(values); len(result) > 0 {
+		return result
+	}
+	return uniqueNonEmpty([]string{singular})
 }
 
 func (s *Service) defaultNativeExtractionProvider() (string, string, string) {
-	if apiKey := strings.TrimSpace(s.cfg.OpenAIAPIKey); apiKey != "" {
+	if apiKey := s.nativeAPIKey(providerOpenAI); apiKey != "" {
 		return providerOpenAI, apiKey, s.defaultModel(providerOpenAI)
 	}
-	if apiKey := strings.TrimSpace(s.cfg.GeminiAPIKey); apiKey != "" {
+	if apiKey := s.nativeAPIKey(providerGemini); apiKey != "" {
 		return providerGemini, apiKey, s.defaultModel(providerGemini)
 	}
 	return "", "", ""
