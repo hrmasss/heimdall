@@ -56,4 +56,13 @@ func TestProviderAuthAndPermissionErrorsRetryNativeWaterfall(t *testing.T) {
 	if !providerErr.Retryable {
 		t.Fatal("expected permission failures to try the next configured native key")
 	}
+
+	err = buildProviderError(400, []byte(`{"error":{"status":"INVALID_ARGUMENT","reason":"API_KEY_INVALID","message":"API key not valid."}}`))
+	providerErr, ok = err.(*providerError)
+	if !ok {
+		t.Fatalf("expected provider error, got %T", err)
+	}
+	if !providerErr.Retryable {
+		t.Fatal("expected invalid key failures to try the next configured native key")
+	}
 }
