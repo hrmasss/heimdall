@@ -165,6 +165,8 @@ function PostAgentLauncher({
 					inputSchema: {},
 					defaultConfig: {
 						persist: true,
+						provider: "gemini",
+						mode: "native",
 						useWebResearch: true,
 						trendAware: true,
 						deepResearch: false,
@@ -208,6 +210,8 @@ function PostAgentLauncher({
 						input: {
 							prompt,
 							promptScope: "automations",
+							provider: "gemini",
+							mode: "native",
 							useWebResearch: draft.useWebResearch,
 							deepResearch: draft.deepResearch,
 							trendAware: draft.trendAware,
