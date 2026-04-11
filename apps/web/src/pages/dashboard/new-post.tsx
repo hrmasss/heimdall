@@ -15,7 +15,7 @@ import {
 	Settings2,
 	WandSparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -27,23 +27,18 @@ import {
 	adminTextareaClassName,
 } from "@/components/admin/form-page";
 import { SurfaceCard } from "@/components/app/brand";
+import { ComposerDockDrawer } from "@/components/app/composer-dock-drawer";
 import { DashboardOperationalHeader } from "@/components/app/dashboard";
 import {
-	formatResourceMeta,
 	ResourceChipList,
 	ResourceThumb,
+	formatResourceMeta,
 } from "@/components/resources/resource-display";
 import { ResourcePicker } from "@/components/resources/resource-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerHeader,
-	DrawerTitle,
-} from "@/components/ui/drawer";
+import { DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import {
 	HoverCard,
 	HoverCardContent,
@@ -69,8 +64,8 @@ import type {
 	AIGeneratedPostDraft,
 	AIProviderCatalog,
 	CampaignSummary,
-	PostDetail,
 	PostComposeBootstrapResponse,
+	PostDetail,
 	PostVariant,
 	PublicationPlan,
 	ReadinessIssue,
@@ -295,10 +290,12 @@ function deriveDraftTitle(content: DraftContent) {
 		return content.articleTitle.trim().slice(0, 80);
 	}
 	if (content.kind === "thread") {
-		return content.threadItems
-			.map((item) => item.trim())
-			.find(Boolean)
-			?.slice(0, 80) ?? "";
+		return (
+			content.threadItems
+				.map((item) => item.trim())
+				.find(Boolean)
+				?.slice(0, 80) ?? ""
+		);
 	}
 	return content.textBody.trim().slice(0, 80);
 }
@@ -1098,9 +1095,8 @@ export function DashboardNewPost() {
 	const [activeTab, setActiveTab] = useState("shared");
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [drawerMode, setDrawerMode] = useState<ComposerDrawerMode>("platforms");
-	const [lastDrawerMode, setLastDrawerMode] = useState<
-		Exclude<ComposerDrawerMode, "platform-detail">
-	>("platforms");
+	const [lastDrawerMode, setLastDrawerMode] =
+		useState<Exclude<ComposerDrawerMode, "platform-detail">>("platforms");
 	const [socialTargets, setSocialTargets] = useState<SocialTargetRecord[]>([]);
 	const [resourceLibraryLoaded, setResourceLibraryLoaded] = useState(false);
 	const [resourceLibraryLoading, setResourceLibraryLoading] = useState(false);
@@ -1119,12 +1115,6 @@ export function DashboardNewPost() {
 	const [selectedDestinationPlatform, setSelectedDestinationPlatform] =
 		useState<string | null>(null);
 	const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-	const [drawerDockMetrics, setDrawerDockMetrics] = useState<{
-		left: number;
-		width: number;
-	} | null>(null);
-	const dockRef = useRef<HTMLDivElement | null>(null);
-
 	const [title, setTitle] = useState("");
 	const [notes, setNotes] = useState("");
 	const [campaignId, setCampaignId] = useState("");
@@ -1140,42 +1130,6 @@ export function DashboardNewPost() {
 	const [excludedPlatforms, setExcludedPlatforms] = useState<string[]>([]);
 	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
 
-	useEffect(() => {
-		if (!drawerOpen) {
-			return;
-		}
-
-		const updateDrawerDockMetrics = () => {
-			const rect = dockRef.current?.getBoundingClientRect();
-			if (!rect) {
-				return;
-			}
-			setDrawerDockMetrics({
-				left: rect.left,
-				width: rect.width,
-			});
-		};
-
-		updateDrawerDockMetrics();
-
-		const resizeObserver =
-			typeof ResizeObserver !== "undefined" && dockRef.current
-				? new ResizeObserver(() => {
-						updateDrawerDockMetrics();
-					})
-				: null;
-
-		if (resizeObserver && dockRef.current) {
-			resizeObserver.observe(dockRef.current);
-		}
-
-		window.addEventListener("resize", updateDrawerDockMetrics);
-
-		return () => {
-			window.removeEventListener("resize", updateDrawerDockMetrics);
-			resizeObserver?.disconnect();
-		};
-	}, [drawerOpen]);
 	const [_aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(
 		null,
 	);
@@ -1223,7 +1177,9 @@ export function DashboardNewPost() {
 				customerRequest<{ items: ResourceRecord[] }>("/resources"),
 				customerRequest<{ items: ResourceSetSummary[] }>("/resource-sets"),
 			]);
-			setResources((current) => mergeResources(current, resourceResponse.items));
+			setResources((current) =>
+				mergeResources(current, resourceResponse.items),
+			);
 			setResourceSets(setResponse.items);
 			setResourceLibraryLoaded(true);
 		} catch (loadError) {
@@ -1235,11 +1191,7 @@ export function DashboardNewPost() {
 		} finally {
 			setResourceLibraryLoading(false);
 		}
-	}, [
-		customerRequest,
-		resourceLibraryLoaded,
-		resourceLibraryLoading,
-	]);
+	}, [customerRequest, resourceLibraryLoaded, resourceLibraryLoading]);
 	const resourcesById = useMemo(() => resourceMap(resources), [resources]);
 	const rootAssets = useMemo(
 		() =>
@@ -1378,7 +1330,8 @@ export function DashboardNewPost() {
 	);
 	const selectedVariant = selectedDestination?.variant ?? null;
 	const selectedSnapshot = selectedDestination?.snapshot ?? null;
-	const draftTitle = title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
+	const draftTitle =
+		title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
 	const hasMeaningfulDraft = useMemo(
 		() =>
 			hasMeaningfulSharedDraft(sharedDraft) ||
@@ -1448,12 +1401,11 @@ export function DashboardNewPost() {
 			setLoading(true);
 			setError(null);
 			try {
-				const bootstrap =
-					await customerRequest<PostComposeBootstrapResponse>(
-						nextId
-							? `/posts/compose/bootstrap?postId=${encodeURIComponent(nextId)}`
-							: "/posts/compose/bootstrap",
-					);
+				const bootstrap = await customerRequest<PostComposeBootstrapResponse>(
+					nextId
+						? `/posts/compose/bootstrap?postId=${encodeURIComponent(nextId)}`
+						: "/posts/compose/bootstrap",
+				);
 				const normalizedCapabilities = normalizeCapabilities(
 					bootstrap.capabilities,
 				);
@@ -1481,14 +1433,14 @@ export function DashboardNewPost() {
 								model: bootstrap.ai.defaultModel,
 							}
 						: aiCatalogResponse?.providers[0]
-						? {
-								provider: aiCatalogResponse.providers[0].provider,
-								model:
-									aiCatalogResponse.providers[0].defaultModel ??
-									aiCatalogResponse.providers[0].approvedModels[0] ??
-									"",
-							}
-						: { provider: "", model: "" });
+							? {
+									provider: aiCatalogResponse.providers[0].provider,
+									model:
+										aiCatalogResponse.providers[0].defaultModel ??
+										aiCatalogResponse.providers[0].approvedModels[0] ??
+										"",
+								}
+							: { provider: "", model: "" });
 				setAIProvider(defaultAISelection.provider);
 				setAIModel(defaultAISelection.model);
 
@@ -1507,7 +1459,12 @@ export function DashboardNewPost() {
 								? connectedPlatforms
 								: [];
 					const seededVariants = seedPlatforms.map((platform) =>
-						createAutoVariant(platform, normalizedCapabilities, emptySharedDraft, []),
+						createAutoVariant(
+							platform,
+							normalizedCapabilities,
+							emptySharedDraft,
+							[],
+						),
 					);
 					const emptyState = {
 						title: "",
@@ -1537,7 +1494,9 @@ export function DashboardNewPost() {
 					setExcludedPlatforms([]);
 					setPlannedTimeDrafts({});
 					setBulkActionSummary(null);
-					setActiveTab(requestedPlatform ?? emptyState.variants[0]?.platform ?? "shared");
+					setActiveTab(
+						requestedPlatform ?? emptyState.variants[0]?.platform ?? "shared",
+					);
 					setDrawerOpen(false);
 					setDrawerMode("platforms");
 					setLastDrawerMode("platforms");
@@ -1723,7 +1682,9 @@ export function DashboardNewPost() {
 						`/resource-sets/${resourceSetId}`,
 					);
 					idsToAdd.push(...resourceSet.items.map((item) => item.resourceId));
-					resourcesToMerge.push(...resourceSet.items.map((item) => item.resource));
+					resourcesToMerge.push(
+						...resourceSet.items.map((item) => item.resource),
+					);
 				}
 				if (!cancelled && resourcesToMerge.length > 0) {
 					setResources((current) => mergeResources(current, resourcesToMerge));
@@ -1803,7 +1764,9 @@ export function DashboardNewPost() {
 			return;
 		}
 		if (included) {
-			setExcludedPlatforms((current) => current.filter((item) => item !== platform));
+			setExcludedPlatforms((current) =>
+				current.filter((item) => item !== platform),
+			);
 			setVariants((current) => {
 				if (current.some((variant) => variant.platform === platform)) {
 					return current;
@@ -1824,8 +1787,9 @@ export function DashboardNewPost() {
 			current.includes(platform) ? current : [...current, platform],
 		);
 		if (existing.id) {
+			const existingId = existing.id;
 			setDeletedVariantIds((current) =>
-				current.includes(existing.id!) ? current : [...current, existing.id!],
+				current.includes(existingId) ? current : [...current, existingId],
 			);
 		}
 		setVariants((current) =>
@@ -1836,7 +1800,9 @@ export function DashboardNewPost() {
 		}
 	}
 
-	function applySchedulePreset(preset: "later_today" | "tomorrow_morning" | "next_best_slot") {
+	function applySchedulePreset(
+		preset: "later_today" | "tomorrow_morning" | "next_best_slot",
+	) {
 		const next = new Date();
 		if (preset === "tomorrow_morning") {
 			next.setDate(next.getDate() + 1);
@@ -1930,7 +1896,8 @@ export function DashboardNewPost() {
 		options?: { rehydrate?: boolean },
 	) {
 		const shouldRehydrate = options?.rehydrate ?? false;
-		const resolvedTitle = title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
+		const resolvedTitle =
+			title.trim() || deriveDraftTitle(sharedDraft) || "Untitled post";
 		if (!hasMeaningfulDraft) {
 			return null;
 		}
@@ -2121,6 +2088,7 @@ export function DashboardNewPost() {
 		}
 	}
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Autosave is intentionally keyed to draft state inputs; persistDraft is recreated as part of the page state closure.
 	useEffect(() => {
 		if (
 			loading ||
@@ -2320,8 +2288,9 @@ export function DashboardNewPost() {
 				? selectedVariant.content
 				: contentFromSnapshot(selectedSnapshot)
 			: null;
-	const includedDestinations = destinationViews.filter((destination) =>
-		Boolean(destination.variant),
+	const includedDestinations = destinationViews.filter(
+		(destination): destination is DestinationView & { variant: DraftVariant } =>
+			Boolean(destination.variant),
 	);
 	const bulkPlannedAt = useMemo(
 		() => buildBulkPlannedAt(bulkScheduleDate, bulkScheduleTime),
@@ -2330,7 +2299,7 @@ export function DashboardNewPost() {
 	const platformSummaries = useMemo(
 		() =>
 			includedDestinations.map((destination) => {
-				const variant = destination.variant!;
+				const variant = destination.variant;
 				const plannedAt = bulkPlannedAt ?? variant.latestPublication?.plannedAt;
 				const hasCustomOverride = isCustomOverride(
 					variant,
@@ -2355,7 +2324,13 @@ export function DashboardNewPost() {
 						destination.summary,
 				};
 			}),
-		[bulkPlannedAt, capabilities, includedDestinations, rootAssets, sharedDraft],
+		[
+			bulkPlannedAt,
+			capabilities,
+			includedDestinations,
+			rootAssets,
+			sharedDraft,
+		],
 	);
 	const scheduleSummary = useMemo(() => {
 		if (platformSummaries.length === 0) {
@@ -2563,7 +2538,9 @@ export function DashboardNewPost() {
 								{sharedDraft.kind === "article" ? (
 									<div className="space-y-4">
 										<div className="space-y-2">
-											<Label htmlFor="shared-article-title">Article title</Label>
+											<Label htmlFor="shared-article-title">
+												Article title
+											</Label>
 											<Input
 												id="shared-article-title"
 												name="sharedArticleTitle"
@@ -2598,25 +2575,28 @@ export function DashboardNewPost() {
 								) : sharedDraft.kind === "thread" ? (
 									<div className="space-y-3">
 										<Label htmlFor="shared-thread-item-0">Thread</Label>
-										{sharedDraft.threadItems.map((item, index) => (
-											<Textarea
-												key={`shared-thread-${index}`}
-												id={`shared-thread-item-${index}`}
-												name={`sharedThreadItem${index + 1}`}
-												aria-label={`Thread item ${index + 1}`}
-												value={item}
-												onChange={(event) => {
-													const next = [...sharedDraft.threadItems];
-													next[index] = event.target.value;
-													setSharedDraft({
-														...sharedDraft,
-														threadItems: next,
-													});
-												}}
-												className={compactTextareaClassName}
-												placeholder={`Thread item ${index + 1}`}
-											/>
-										))}
+										{sharedDraft.threadItems.map((item, index) => {
+											return (
+												<Textarea
+													// biome-ignore lint/suspicious/noArrayIndexKey: Thread items are ordered strings without stable ids in the draft model.
+													key={`shared-thread-${index}`}
+													id={`shared-thread-item-${index}`}
+													name={`sharedThreadItem${index + 1}`}
+													aria-label={`Thread item ${index + 1}`}
+													value={item}
+													onChange={(event) => {
+														const next = [...sharedDraft.threadItems];
+														next[index] = event.target.value;
+														setSharedDraft({
+															...sharedDraft,
+															threadItems: next,
+														});
+													}}
+													className={compactTextareaClassName}
+													placeholder={`Thread item ${index + 1}`}
+												/>
+											);
+										})}
 										<Button
 											type="button"
 											variant="outline"
@@ -2745,7 +2725,10 @@ export function DashboardNewPost() {
 								<div className="space-y-3">
 									<div className="overflow-hidden rounded-[24px] border border-[var(--brand-border-soft)] bg-background/76">
 										<div className="aspect-[4/3] overflow-hidden">
-											<ResourceThumb resource={rootAssets[0]} className="h-full w-full" />
+											<ResourceThumb
+												resource={rootAssets[0]}
+												className="h-full w-full"
+											/>
 										</div>
 										<div className="space-y-1 border-t border-[var(--brand-border-soft)] px-4 py-3">
 											<div className="truncate text-sm font-medium">
@@ -2782,7 +2765,9 @@ export function DashboardNewPost() {
 											<ImageIcon className="size-5 text-muted-foreground" />
 										</div>
 										<div>
-											<div className="text-sm font-medium">No shared assets yet</div>
+											<div className="text-sm font-medium">
+												No shared assets yet
+											</div>
 											<div className="mt-1 text-sm text-muted-foreground">
 												Add images, video, or documents once and keep them in
 												sync across the shared version.
@@ -2810,23 +2795,24 @@ export function DashboardNewPost() {
 					</div>
 				</SurfaceCard>
 
-				<div className="sticky bottom-4 z-20">
-					<div
-						ref={dockRef}
-						data-state={drawerOpen ? "open" : "closed"}
-						className="composer-dock-shell mx-auto w-full max-w-[72rem] p-3"
-					>
-						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+				<ComposerDockDrawer
+					open={drawerOpen}
+					onOpenChange={(open) => {
+						setDrawerOpen(open);
+						if (!open) {
+							setSelectedDestinationPlatform(null);
+							setDrawerMode(lastDrawerMode);
+						}
+					}}
+					chrome={({ placement }) => (
+						<div
+							data-placement={placement}
+							className="composer-dock-chrome flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"
+						>
 							<button
 								type="button"
 								onClick={openSummaryDrawer}
-								onKeyDown={(event) => {
-									if (event.key === "Enter" || event.key === " ") {
-										event.preventDefault();
-										openSummaryDrawer();
-									}
-								}}
-								className="flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/84 px-3 py-2 text-left transition hover:border-[var(--brand-border-strong)] hover:bg-background xl:max-w-[18rem]"
+								className="composer-dock-summary flex min-w-0 items-center gap-3 rounded-[18px] border border-[var(--brand-border-soft)] bg-background/84 px-3 py-2 text-left transition hover:border-[var(--brand-border-strong)] hover:bg-background xl:max-w-[18rem]"
 								aria-label="Open composer summary"
 							>
 								<div className="min-w-0">
@@ -2839,11 +2825,11 @@ export function DashboardNewPost() {
 								</div>
 							</button>
 
-							<div className="flex min-w-0 flex-wrap items-center gap-2 xl:flex-nowrap">
+							<div className="composer-dock-status flex min-w-0 flex-wrap items-center gap-2 xl:flex-nowrap">
 								{platformSummaries.length > 0 ? (
 									platformSummaries.map((platform) => (
 										<HoverCard
-											key={platform.platform}
+											key={`${placement}-${platform.platform}`}
 											openDelay={120}
 											closeDelay={90}
 										>
@@ -2889,7 +2875,7 @@ export function DashboardNewPost() {
 											</HoverCardTrigger>
 											<HoverCardContent
 												align="center"
-												side="top"
+												side={placement === "drawer" ? "bottom" : "top"}
 												className="composer-summary-hover-card w-[18rem] rounded-[22px] border border-[var(--brand-border-soft)] p-4"
 											>
 												<div className="space-y-3">
@@ -2908,7 +2894,9 @@ export function DashboardNewPost() {
 														<div>{platform.overrideLabel}</div>
 														<div className="text-muted-foreground">Surface</div>
 														<div>{platform.surface}</div>
-														<div className="text-muted-foreground">Schedule</div>
+														<div className="text-muted-foreground">
+															Schedule
+														</div>
 														<div>{platform.scheduleLabel}</div>
 													</div>
 													<div className="rounded-[16px] border border-[var(--brand-border-soft)] bg-background/76 px-3 py-2 text-xs text-muted-foreground">
@@ -2927,7 +2915,7 @@ export function DashboardNewPost() {
 								{scheduleSummary.label === "Mixed times" ? (
 									platformSummaries.map((platform) => (
 										<HoverCard
-											key={`${platform.platform}-schedule`}
+											key={`${placement}-${platform.platform}-schedule`}
 											openDelay={120}
 											closeDelay={90}
 										>
@@ -2951,7 +2939,7 @@ export function DashboardNewPost() {
 												</button>
 											</HoverCardTrigger>
 											<HoverCardContent
-												side="top"
+												side={placement === "drawer" ? "bottom" : "top"}
 												className="composer-summary-hover-card w-auto rounded-[18px] border border-[var(--brand-border-soft)] px-3 py-2 text-xs"
 											>
 												{platform.label}: {platform.scheduleLabel}
@@ -2975,479 +2963,444 @@ export function DashboardNewPost() {
 								)}
 							</div>
 
-							<div className="flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
-							<Button
-								type="button"
-								variant="outline"
-								className="rounded-full"
-								onClick={() => openDrawer("platforms")}
-							>
-								{blockedDestinations.length + attentionDestinations.length > 0 ? (
-									<CircleAlert className="size-4" />
-								) : (
-									<CircleCheckBig className="size-4" />
-								)}
-								Platforms
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								className="rounded-full"
-								onClick={() => openDrawer("schedule")}
-							>
-								<CalendarClock className="size-4" />
-								Schedule
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								className="rounded-full"
-								onClick={saveDraft}
-								disabled={saving || loading}
-							>
-								<Save className="size-4" />
-								Save draft
-							</Button>
-							<Button
-								type="button"
-								className="rounded-full"
-								onClick={() =>
-									runBulkAction(canPublish ? "publish" : "submit")
-								}
-								disabled={saving || loading || bulkEligibleCount === 0}
-							>
-								{canPublish ? (
-									<Send className="size-4" />
-								) : (
-									<CheckCircle2 className="size-4" />
-								)}
-								{primaryActionLabel}
-							</Button>
+							<div className="composer-dock-actions flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
+								<Button
+									type="button"
+									variant="outline"
+									className="rounded-full"
+									onClick={() => openDrawer("platforms")}
+								>
+									{blockedDestinations.length + attentionDestinations.length >
+									0 ? (
+										<CircleAlert className="size-4" />
+									) : (
+										<CircleCheckBig className="size-4" />
+									)}
+									Platforms
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									className="rounded-full"
+									onClick={() => openDrawer("schedule")}
+								>
+									<CalendarClock className="size-4" />
+									Schedule
+								</Button>
+								<Button
+									type="button"
+									variant="outline"
+									className="rounded-full"
+									onClick={saveDraft}
+									disabled={saving || loading}
+								>
+									<Save className="size-4" />
+									Save draft
+								</Button>
+								<Button
+									type="button"
+									className="rounded-full"
+									onClick={() =>
+										runBulkAction(canPublish ? "publish" : "submit")
+									}
+									disabled={saving || loading || bulkEligibleCount === 0}
+								>
+									{canPublish ? (
+										<Send className="size-4" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									{primaryActionLabel}
+								</Button>
 							</div>
 						</div>
-					</div>
-				</div>
-			</div>
-
-			<Drawer
-				open={drawerOpen}
-				onOpenChange={(open) => {
-					setDrawerOpen(open);
-					if (!open) {
-						setSelectedDestinationPlatform(null);
-						setDrawerMode(lastDrawerMode);
-					}
-				}}
-			>
-				<DrawerContent
-					className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden"
-					style={{
-						insetInline: "auto",
-						left: drawerDockMetrics ? `${drawerDockMetrics.left}px` : "50%",
-						right: "auto",
-						bottom: "5.25rem",
-						width: drawerDockMetrics
-							? `${drawerDockMetrics.width}px`
-							: "min(calc(100vw - 1.25rem), 72rem)",
-						maxHeight: "calc(85vh - 5.25rem)",
-						transform: drawerDockMetrics ? "none" : "translateX(-50%)",
-					}}
-				>
-					<div className="composer-drawer-header sticky top-0 z-10 border-b">
-						<DrawerHeader className="px-4 sm:px-6">
-							<div className="flex flex-wrap items-start justify-between gap-3">
-								<div>
-									<DrawerTitle className="flex items-center gap-3">
-										{drawerMode === "platform-detail" && selectedDestination ? (
-											platformIcon(selectedDestination.platform)
-										) : drawerMode === "schedule" ? (
-											<CalendarClock className="size-5" />
-										) : (
-											<CircleCheckBig className="size-5" />
-										)}
-										<span>
-											{drawerMode === "platform-detail"
-												? selectedDestination?.label ?? "Destination details"
-												: drawerMode === "schedule"
-													? "Schedule"
-													: "Platforms"}
-										</span>
-									</DrawerTitle>
-									<DrawerDescription className="mt-1 text-sm">
+					)}
+					header={
+						<div className="flex flex-wrap items-start justify-between gap-3">
+							<div>
+								<DrawerTitle className="flex items-center gap-3">
+									{drawerMode === "platform-detail" && selectedDestination ? (
+										platformIcon(selectedDestination.platform)
+									) : drawerMode === "schedule" ? (
+										<CalendarClock className="size-5" />
+									) : (
+										<CircleCheckBig className="size-5" />
+									)}
+									<span>
 										{drawerMode === "platform-detail"
-											? "Customize only when this destination needs to diverge."
+											? (selectedDestination?.label ?? "Destination details")
 											: drawerMode === "schedule"
-												? "Set the shared timing, then expand metadata only if you need it."
-												: "Check readiness, inclusion, overrides, and timing without leaving the composer."}
-									</DrawerDescription>
-								</div>
-								{drawerMode === "platform-detail" ? (
-									<Button
-										type="button"
-										variant="ghost"
-										className="rounded-full"
-										onClick={() => {
-											setDrawerMode("platforms");
-											setLastDrawerMode("platforms");
-											setSelectedDestinationPlatform(null);
-										}}
-									>
-										<ArrowLeft className="size-4" />
-										Back to platforms
-									</Button>
-								) : null}
+												? "Schedule"
+												: "Platforms"}
+									</span>
+								</DrawerTitle>
+								<DrawerDescription className="mt-1 text-sm">
+									{drawerMode === "platform-detail"
+										? "Customize only when this destination needs to diverge."
+										: drawerMode === "schedule"
+											? "Set the shared timing, then expand metadata only if you need it."
+											: "Check readiness, inclusion, overrides, and timing without leaving the composer."}
+								</DrawerDescription>
 							</div>
-						</DrawerHeader>
-					</div>
-					<div className="overflow-y-auto px-4 pb-5 pt-2 sm:px-6">
-						{drawerMode === "platforms" ? (
-							<div className="space-y-3">
-								{destinationViews.map((destination) => {
-									const included = Boolean(destination.variant);
-									const summary =
-										platformSummaries.find(
-											(entry) => entry.platform === destination.platform,
-										) ?? null;
-									const scheduleLabel =
-										summary?.scheduleLabel ??
-										formatPlannedAtLabel(
-											destination.variant?.latestPublication?.plannedAt,
-										);
-									const overrideLabel = summary?.overrideLabel ?? "Shared";
-									const issueLine =
-										destination.blockers[0]?.message ??
-										destination.warnings[0]?.message ??
-										destination.summary;
+							{drawerMode === "platform-detail" ? (
+								<Button
+									type="button"
+									variant="ghost"
+									className="rounded-full"
+									onClick={() => {
+										setDrawerMode("platforms");
+										setLastDrawerMode("platforms");
+										setSelectedDestinationPlatform(null);
+									}}
+								>
+									<ArrowLeft className="size-4" />
+									Back to platforms
+								</Button>
+							) : null}
+						</div>
+					}
+				>
+					{drawerMode === "platforms" ? (
+						<div className="space-y-3">
+							{destinationViews.map((destination) => {
+								const included = Boolean(destination.variant);
+								const summary =
+									platformSummaries.find(
+										(entry) => entry.platform === destination.platform,
+									) ?? null;
+								const scheduleLabel =
+									summary?.scheduleLabel ??
+									formatPlannedAtLabel(
+										destination.variant?.latestPublication?.plannedAt,
+									);
+								const overrideLabel = summary?.overrideLabel ?? "Shared";
+								const issueLine =
+									destination.blockers[0]?.message ??
+									destination.warnings[0]?.message ??
+									destination.summary;
 
-									return (
-										<div
-											key={destination.platform}
-											className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/82 px-3.5 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+								return (
+									<div
+										key={destination.platform}
+										className="grid gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/82 px-3.5 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+									>
+										<button
+											type="button"
+											onClick={() => {
+												if (destination.target && included) {
+													openPlatformDetail(destination.platform);
+												}
+											}}
+											disabled={!destination.target || !included}
+											className="flex min-w-0 items-start gap-3 text-left disabled:cursor-default"
 										>
-											<button
-												type="button"
-												onClick={() => {
-													if (destination.target && included) {
-														openPlatformDetail(destination.platform);
-													}
-												}}
-												disabled={!destination.target || !included}
-												className="flex min-w-0 items-start gap-3 text-left disabled:cursor-default"
-											>
-												<div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
-													{platformIcon(destination.platform, {
-														containerClassName: "size-7",
-														iconClassName: "size-4",
-													})}
+											<div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background">
+												{platformIcon(destination.platform, {
+													containerClassName: "size-7",
+													iconClassName: "size-4",
+												})}
+											</div>
+											<div className="min-w-0">
+												<div className="flex flex-wrap items-center gap-2">
+													<div className="font-medium">{destination.label}</div>
+													<span
+														className={cn(
+															"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+															destinationStatusTone(destination.status),
+														)}
+													>
+														{renderDestinationStatusIcon(destination.status)}
+														{destinationStatusLabel(destination.status)}
+													</span>
+													<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
+														{overrideLabel}
+													</span>
+													<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
+														{scheduleLabel}
+													</span>
 												</div>
-												<div className="min-w-0">
-													<div className="flex flex-wrap items-center gap-2">
-														<div className="font-medium">
-															{destination.label}
-														</div>
-														<span
-															className={cn(
-																"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-																destinationStatusTone(destination.status),
-															)}
-														>
-															{renderDestinationStatusIcon(destination.status)}
-															{destinationStatusLabel(destination.status)}
-														</span>
-														<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
-															{overrideLabel}
-														</span>
-														<span className="rounded-full border border-[var(--brand-border-soft)] px-2 py-0.5 text-[11px] text-muted-foreground">
-															{scheduleLabel}
-														</span>
-													</div>
-													<div className="mt-0.5 text-sm text-muted-foreground">
-														{destination.target?.displayName ??
-															"No healthy target selected yet."}
-													</div>
-													<div className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-														{issueLine}
-													</div>
+												<div className="mt-0.5 text-sm text-muted-foreground">
+													{destination.target?.displayName ??
+														"No healthy target selected yet."}
 												</div>
-											</button>
-											<div className="flex flex-wrap items-center gap-2 md:justify-end">
-												{destination.target ? (
-													<>
-														<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-1.5">
-															<span className="text-xs text-muted-foreground">
-																Include
-															</span>
-															<Switch
-																checked={included}
-																onCheckedChange={(checked) =>
-																	toggleDestination(
-																		destination.platform,
-																		checked,
-																	)
-																}
-																aria-label={`Include ${destination.label}`}
-															/>
-														</div>
-														<Button
-															type="button"
-															variant="outline"
-															className="rounded-full"
-															onClick={() =>
-																openPlatformDetail(destination.platform)
+												<div className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
+													{issueLine}
+												</div>
+											</div>
+										</button>
+										<div className="flex flex-wrap items-center gap-2 md:justify-end">
+											{destination.target ? (
+												<>
+													<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-1.5">
+														<span className="text-xs text-muted-foreground">
+															Include
+														</span>
+														<Switch
+															checked={included}
+															onCheckedChange={(checked) =>
+																toggleDestination(destination.platform, checked)
 															}
-															disabled={!included}
-														>
-															Customize
-														</Button>
-													</>
-												) : (
+															aria-label={`Include ${destination.label}`}
+														/>
+													</div>
 													<Button
 														type="button"
 														variant="outline"
 														className="rounded-full"
-														asChild
+														onClick={() =>
+															openPlatformDetail(destination.platform)
+														}
+														disabled={!included}
 													>
-														<Link to="/dashboard/settings/platforms">
-															Connect
-														</Link>
+														Customize
 													</Button>
-												)}
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						) : drawerMode === "schedule" ? (
-							<div className="space-y-4">
-								<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-4">
-									<div className="space-y-1">
-										<div className="text-sm font-medium">Schedule presets</div>
-										<div className="text-sm text-muted-foreground">
-											Use the fastest preset first, then fine-tune the date and
-											time only when needed.
-										</div>
-									</div>
-									<div className="grid gap-2 sm:grid-cols-3">
-										<Button
-											type="button"
-											variant="outline"
-											className="justify-start rounded-[18px]"
-											onClick={() => applySchedulePreset("later_today")}
-										>
-											Later today
-										</Button>
-										<Button
-											type="button"
-											variant="outline"
-											className="justify-start rounded-[18px]"
-											onClick={() => applySchedulePreset("tomorrow_morning")}
-										>
-											Tomorrow morning
-										</Button>
-										<Button
-											type="button"
-											variant="outline"
-											className="justify-start rounded-[18px]"
-											onClick={() => applySchedulePreset("next_best_slot")}
-										>
-											Next best slot
-										</Button>
-									</div>
-									<div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3">
-										<div>
-											<div className="text-sm font-medium">Current timing</div>
-											<div className="mt-1 text-sm text-muted-foreground">
-												{scheduleSummary.detail}
-											</div>
-										</div>
-										<div className="rounded-full border border-[var(--brand-border-soft)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-											{scheduleSummary.label}
-										</div>
-									</div>
-									<div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-										<Popover>
-											<PopoverTrigger asChild>
+												</>
+											) : (
 												<Button
 													type="button"
 													variant="outline"
 													className="rounded-full"
+													asChild
 												>
-													<CalendarDays className="size-4" />
-													{bulkScheduleDate
-														? bulkScheduleDate.toLocaleDateString()
-														: "Pick schedule date"}
+													<Link to="/dashboard/settings/platforms">
+														Connect
+													</Link>
 												</Button>
-											</PopoverTrigger>
-											<PopoverContent className="w-auto p-0" align="start">
-												<Calendar
-													mode="single"
-													selected={bulkScheduleDate ?? undefined}
-													onSelect={(date) => setBulkScheduleDate(date ?? null)}
-												/>
-											</PopoverContent>
-										</Popover>
-										<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-2">
-											<Label htmlFor="schedule-hour" className="sr-only">
-												Schedule hour
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					) : drawerMode === "schedule" ? (
+						<div className="space-y-4">
+							<SurfaceCard className="space-y-4 rounded-[24px] border-[var(--brand-border-soft)] bg-background/85 p-4">
+								<div className="space-y-1">
+									<div className="text-sm font-medium">Schedule presets</div>
+									<div className="text-sm text-muted-foreground">
+										Use the fastest preset first, then fine-tune the date and
+										time only when needed.
+									</div>
+								</div>
+								<div className="grid gap-2 sm:grid-cols-3">
+									<Button
+										type="button"
+										variant="outline"
+										className="justify-start rounded-[18px]"
+										onClick={() => applySchedulePreset("later_today")}
+									>
+										Later today
+									</Button>
+									<Button
+										type="button"
+										variant="outline"
+										className="justify-start rounded-[18px]"
+										onClick={() => applySchedulePreset("tomorrow_morning")}
+									>
+										Tomorrow morning
+									</Button>
+									<Button
+										type="button"
+										variant="outline"
+										className="justify-start rounded-[18px]"
+										onClick={() => applySchedulePreset("next_best_slot")}
+									>
+										Next best slot
+									</Button>
+								</div>
+								<div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/75 px-4 py-3">
+									<div>
+										<div className="text-sm font-medium">Current timing</div>
+										<div className="mt-1 text-sm text-muted-foreground">
+											{scheduleSummary.detail}
+										</div>
+									</div>
+									<div className="rounded-full border border-[var(--brand-border-soft)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+										{scheduleSummary.label}
+									</div>
+								</div>
+								<div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+									<Popover>
+										<PopoverTrigger asChild>
+											<Button
+												type="button"
+												variant="outline"
+												className="rounded-full"
+											>
+												<CalendarDays className="size-4" />
+												{bulkScheduleDate
+													? bulkScheduleDate.toLocaleDateString()
+													: "Pick schedule date"}
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-0" align="start">
+											<Calendar
+												mode="single"
+												selected={bulkScheduleDate ?? undefined}
+												onSelect={(date) => setBulkScheduleDate(date ?? null)}
+											/>
+										</PopoverContent>
+									</Popover>
+									<div className="flex items-center gap-2 rounded-full border border-[var(--brand-border-soft)] bg-background px-3 py-2">
+										<Label htmlFor="schedule-hour" className="sr-only">
+											Schedule hour
+										</Label>
+										<Input
+											id="schedule-hour"
+											name="scheduleHour"
+											value={bulkScheduleTime.hour}
+											onChange={(event) =>
+												updateBulkScheduleTime({
+													hour: event.target.value,
+												})
+											}
+											onBlur={commitBulkScheduleTime}
+											className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+											aria-label="Schedule hour"
+										/>
+										<span className="text-muted-foreground">:</span>
+										<Label htmlFor="schedule-minute" className="sr-only">
+											Schedule minute
+										</Label>
+										<Input
+											id="schedule-minute"
+											name="scheduleMinute"
+											value={bulkScheduleTime.minute}
+											onChange={(event) =>
+												updateBulkScheduleTime({
+													minute: event.target.value,
+												})
+											}
+											onBlur={commitBulkScheduleTime}
+											className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
+											aria-label="Schedule minute"
+										/>
+										<Label htmlFor="schedule-meridiem" className="sr-only">
+											Schedule meridiem
+										</Label>
+										<Select
+											value={bulkScheduleTime.meridiem}
+											onValueChange={(value) =>
+												setBulkScheduleTime((current) => ({
+													...current,
+													meridiem: value as "AM" | "PM",
+												}))
+											}
+										>
+											<SelectTrigger
+												id="schedule-meridiem"
+												className="h-8 w-[76px] rounded-full border-0 bg-muted/50 px-3 shadow-none"
+												aria-label="Schedule meridiem"
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="AM">AM</SelectItem>
+												<SelectItem value="PM">PM</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+							</SurfaceCard>
+
+							<details className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-4">
+								<summary className="cursor-pointer list-none text-sm font-medium">
+									Metadata
+								</summary>
+								<div className="mt-4 space-y-4">
+									<AdminFormGrid>
+										<AdminFormField>
+											<Label htmlFor="post-title">
+												Internal title (optional)
 											</Label>
 											<Input
-												id="schedule-hour"
-												name="scheduleHour"
-												value={bulkScheduleTime.hour}
-												onChange={(event) =>
-													updateBulkScheduleTime({
-														hour: event.target.value,
-													})
+												id="post-title"
+												name="postTitle"
+												value={title}
+												onChange={(event) => setTitle(event.target.value)}
+												className={adminInputClassName}
+												placeholder={
+													deriveDraftTitle(sharedDraft) ||
+													"Optional internal label"
 												}
-												onBlur={commitBulkScheduleTime}
-												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
-												aria-label="Schedule hour"
 											/>
-											<span className="text-muted-foreground">:</span>
-											<Label htmlFor="schedule-minute" className="sr-only">
-												Schedule minute
-											</Label>
-											<Input
-												id="schedule-minute"
-												name="scheduleMinute"
-												value={bulkScheduleTime.minute}
-												onChange={(event) =>
-													updateBulkScheduleTime({
-														minute: event.target.value,
-													})
-												}
-												onBlur={commitBulkScheduleTime}
-												className="h-8 w-10 border-0 bg-transparent p-0 text-center shadow-none focus-visible:ring-0"
-												aria-label="Schedule minute"
-											/>
-											<Label htmlFor="schedule-meridiem" className="sr-only">
-												Schedule meridiem
-											</Label>
+										</AdminFormField>
+										<AdminFormField>
+											<Label htmlFor="campaign-select">Campaign</Label>
 											<Select
-												value={bulkScheduleTime.meridiem}
+												value={campaignId || "none"}
 												onValueChange={(value) =>
-													setBulkScheduleTime((current) => ({
-														...current,
-														meridiem: value as "AM" | "PM",
-													}))
+													setCampaignId(value === "none" ? "" : value)
 												}
 											>
 												<SelectTrigger
-													id="schedule-meridiem"
-													className="h-8 w-[76px] rounded-full border-0 bg-muted/50 px-3 shadow-none"
-													aria-label="Schedule meridiem"
+													id="campaign-select"
+													className={adminSelectTriggerClassName}
+													aria-label="Campaign"
 												>
-													<SelectValue />
+													<SelectValue placeholder="No campaign" />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectItem value="AM">AM</SelectItem>
-													<SelectItem value="PM">PM</SelectItem>
+													<SelectItem value="none">No campaign</SelectItem>
+													{campaigns.map((campaign) => (
+														<SelectItem key={campaign.id} value={campaign.id}>
+															{campaign.name}
+														</SelectItem>
+													))}
 												</SelectContent>
 											</Select>
-										</div>
-									</div>
-								</SurfaceCard>
+										</AdminFormField>
+									</AdminFormGrid>
 
-								<details className="rounded-[24px] border border-[var(--brand-border-soft)] bg-background/85 p-4">
-									<summary className="cursor-pointer list-none text-sm font-medium">
-										Metadata
-									</summary>
-									<div className="mt-4 space-y-4">
-										<AdminFormGrid>
-											<AdminFormField>
-												<Label htmlFor="post-title">
-													Internal title (optional)
-												</Label>
-												<Input
-													id="post-title"
-													name="postTitle"
-													value={title}
-													onChange={(event) => setTitle(event.target.value)}
-													className={adminInputClassName}
-													placeholder={
-														deriveDraftTitle(sharedDraft) ||
-														"Optional internal label"
-													}
-												/>
-											</AdminFormField>
-											<AdminFormField>
-												<Label htmlFor="campaign-select">Campaign</Label>
-												<Select
-													value={campaignId || "none"}
-													onValueChange={(value) =>
-														setCampaignId(value === "none" ? "" : value)
-													}
-												>
-													<SelectTrigger
-														id="campaign-select"
-														className={adminSelectTriggerClassName}
-														aria-label="Campaign"
-													>
-														<SelectValue placeholder="No campaign" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="none">No campaign</SelectItem>
-														{campaigns.map((campaign) => (
-															<SelectItem key={campaign.id} value={campaign.id}>
-																{campaign.name}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-											</AdminFormField>
-										</AdminFormGrid>
-
-										<div className="flex items-start justify-between gap-4 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
-											<div>
-												<div className="text-sm font-medium">
-													Approval gate
-												</div>
-												<div className="text-sm text-muted-foreground">
-													Only enable this when a reviewer should stay in the
-													loop.
-												</div>
+									<div className="flex items-start justify-between gap-4 rounded-[20px] border border-[var(--brand-border-soft)] bg-background/70 p-4">
+										<div>
+											<div className="text-sm font-medium">Approval gate</div>
+											<div className="text-sm text-muted-foreground">
+												Only enable this when a reviewer should stay in the
+												loop.
 											</div>
-											<Switch
-												checked={requiresApproval}
-												onCheckedChange={setRequiresApproval}
-												aria-label="Require approval"
-											/>
 										</div>
-
-										<div className="space-y-2">
-											<Label htmlFor="post-notes">Internal notes</Label>
-											<Textarea
-												id="post-notes"
-												name="postNotes"
-												value={notes}
-												onChange={(event) => setNotes(event.target.value)}
-												className={mediumTextareaClassName}
-												placeholder="Internal notes"
-											/>
-										</div>
+										<Switch
+											checked={requiresApproval}
+											onCheckedChange={setRequiresApproval}
+											aria-label="Require approval"
+										/>
 									</div>
-								</details>
 
-								{canPublish ? (
-									<div className="flex justify-end">
-										<Button
-											type="button"
-											className="rounded-full"
-											onClick={() => runBulkAction("schedule")}
-											disabled={
-												saving ||
-												loading ||
-												!bulkScheduleDate ||
-												bulkEligibleCount === 0
-											}
-										>
-											<CalendarClock className="size-4" />
-											Schedule included destinations
-										</Button>
+									<div className="space-y-2">
+										<Label htmlFor="post-notes">Internal notes</Label>
+										<Textarea
+											id="post-notes"
+											name="postNotes"
+											value={notes}
+											onChange={(event) => setNotes(event.target.value)}
+											className={mediumTextareaClassName}
+											placeholder="Internal notes"
+										/>
 									</div>
-								) : null}
-							</div>
-						) : drawerMode === "platform-detail" && selectedDestination ? (
+								</div>
+							</details>
+
+							{canPublish ? (
+								<div className="flex justify-end">
+									<Button
+										type="button"
+										className="rounded-full"
+										onClick={() => runBulkAction("schedule")}
+										disabled={
+											saving ||
+											loading ||
+											!bulkScheduleDate ||
+											bulkEligibleCount === 0
+										}
+									>
+										<CalendarClock className="size-4" />
+										Schedule included destinations
+									</Button>
+								</div>
+							) : null}
+						</div>
+					) : drawerMode === "platform-detail" && selectedDestination ? (
 						<div className="mt-4 space-y-4">
 							<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/80 p-4">
 								<div className="flex items-center gap-2 font-medium">
@@ -3478,7 +3431,7 @@ export function DashboardNewPost() {
 							))}
 
 							{selectedVariant ? (
-									<div className="space-y-4">
+								<div className="space-y-4">
 									<div className="space-y-2">
 										<Label htmlFor={`surface-${selectedVariant.platform}`}>
 											Surface
@@ -3598,9 +3551,7 @@ export function DashboardNewPost() {
 											</div>
 										) : selectedVariant.content.kind === "thread" ? (
 											<div className="space-y-3">
-												<Label
-													htmlFor={`thread-${selectedVariant.platform}-0`}
-												>
+												<Label htmlFor={`thread-${selectedVariant.platform}-0`}>
 													Thread
 												</Label>
 												{selectedVariant.content.threadItems.map(
@@ -3754,9 +3705,8 @@ export function DashboardNewPost() {
 							</div>
 						</div>
 					) : null}
-					</div>
-				</DrawerContent>
-			</Drawer>
+				</ComposerDockDrawer>
+			</div>
 		</>
 	);
 }

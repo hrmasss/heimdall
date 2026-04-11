@@ -99,7 +99,9 @@ function QueueRow({ item }: { item: DashboardOverviewQueueItem }) {
 				</Button>
 				{item.secondaryAction ? (
 					<Button size="sm" variant="ghost" className="rounded-full" asChild>
-						<Link to={item.secondaryAction.href}>{item.secondaryAction.label}</Link>
+						<Link to={item.secondaryAction.href}>
+							{item.secondaryAction.label}
+						</Link>
 					</Button>
 				) : null}
 			</div>
@@ -121,10 +123,9 @@ export function DashboardOverview() {
 			setLoading(true);
 			setError(null);
 			try {
-				const response =
-					await customerRequest<DashboardOverviewSummary>(
-						"/dashboard/overview-summary",
-					);
+				const response = await customerRequest<DashboardOverviewSummary>(
+					"/dashboard/overview-summary",
+				);
 				if (!cancelled) {
 					setSummary(response);
 				}
@@ -167,7 +168,10 @@ export function DashboardOverview() {
 					"See the next few actions, clear what matters, and move on."
 				}
 				primaryAction={
-					<Button className="rounded-full border-0 bg-gradient-brand text-white" asChild>
+					<Button
+						className="rounded-full border-0 bg-gradient-brand text-white"
+						asChild
+					>
 						<Link to="/dashboard/posts/new">
 							<Plus className="size-4" />
 							Create post
@@ -223,7 +227,12 @@ export function DashboardOverview() {
 											Keep the list short so the next move is obvious.
 										</div>
 									</div>
-									<Button variant="ghost" size="sm" className="rounded-full" asChild>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="rounded-full"
+										asChild
+									>
 										<Link to="/dashboard/posts">
 											View all
 											<ArrowRight className="size-4" />
@@ -255,8 +264,8 @@ export function DashboardOverview() {
 										))
 									) : (
 										<div className="rounded-[20px] border border-dashed border-[var(--brand-border-soft)] bg-background/70 px-4 py-6 text-sm text-muted-foreground">
-											No live queue items are lined up yet. Create or schedule the
-											next post to make this page useful tomorrow.
+											No live queue items are lined up yet. Create or schedule
+											the next post to make this page useful tomorrow.
 										</div>
 									)}
 								</div>
@@ -310,7 +319,9 @@ export function DashboardOverview() {
 										<div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
 											Providers
 										</div>
-										<div className="mt-2 text-sm font-medium">{providerLabel}</div>
+										<div className="mt-2 text-sm font-medium">
+											{providerLabel}
+										</div>
 									</div>
 								</div>
 							</SurfaceCard>
@@ -390,7 +401,9 @@ export function DashboardOverview() {
 												className="mt-3 rounded-full px-0"
 												asChild
 											>
-												<Link to={signal.action.href}>{signal.action.label}</Link>
+												<Link to={signal.action.href}>
+													{signal.action.label}
+												</Link>
 											</Button>
 										) : null}
 									</div>
