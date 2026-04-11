@@ -768,7 +768,7 @@ func buildProviderError(statusCode int, raw []byte) error {
 	return &providerError{
 		StatusCode: statusCode,
 		Message:    message,
-		Retryable:  statusCode == 429 || strings.Contains(lower, "rate") || strings.Contains(lower, "quota") || strings.Contains(lower, "credit"),
+		Retryable:  statusCode == 401 || statusCode == 403 || statusCode == 429 || statusCode >= 500 || strings.Contains(lower, "rate") || strings.Contains(lower, "quota") || strings.Contains(lower, "credit"),
 	}
 }
 

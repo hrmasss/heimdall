@@ -45,3 +45,15 @@ func TestDefaultModeTreatsPluralKeysAsNative(t *testing.T) {
 		t.Fatalf("expected native mode, got %q", mode)
 	}
 }
+
+func TestProviderAuthAndPermissionErrorsRetryNativeWaterfall(t *testing.T) {
+	err := buildProviderError(403, []byte(`{"error":{"status":"PERMISSION_DENIED","reason":"SERVICE_DISABLED"}}`))
+
+	providerErr, ok := err.(*providerError)
+	if !ok {
+		t.Fatalf("expected provider error, got %T", err)
+	}
+	if !providerErr.Retryable {
+		t.Fatal("expected permission failures to try the next configured native key")
+	}
+}

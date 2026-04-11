@@ -2598,7 +2598,7 @@ func (p tavilyResearchProvider) researchWithKey(ctx context.Context, request web
 		return nil, &tavilyRequestError{
 			statusCode: response.StatusCode,
 			message:    fmt.Sprintf("%v: Tavily research failed with status %d", iam.ErrValidation, response.StatusCode),
-			retryable:  response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError,
+			retryable:  response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden || response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError,
 			cause:      iam.ErrValidation,
 		}
 	}
