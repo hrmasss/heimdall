@@ -71,7 +71,7 @@ export function ComposerDockDrawer({
 				</div>
 			</div>
 
-			<Drawer open={open} onOpenChange={onOpenChange}>
+			<Drawer open={open} onOpenChange={onOpenChange} autoFocus>
 				<DrawerContent
 					className="composer-drawer-shell mx-auto flex w-full flex-col overflow-hidden"
 					style={{
