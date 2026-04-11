@@ -1464,9 +1464,9 @@ func (s *Service) executePostGenerate(
 	strategy := buildPostAgentStrategy(payload, research, options)
 	warnings := stringSlice(payload["warnings"])
 
-	createPost := boolValue(stepConfig["persist"])
-	if !hasKey(stepConfig, "persist") {
-		createPost = true
+	createPost := true
+	if hasKey(stepConfig, "persist") || hasKey(runInput, "persist") {
+		createPost = configBool(runInput, stepConfig, "persist", true)
 	}
 	output := map[string]any{
 		"title":          title,

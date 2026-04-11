@@ -29,6 +29,7 @@ import {
 import { SurfaceCard } from "@/components/app/brand";
 import { ComposerDockDrawer } from "@/components/app/composer-dock-drawer";
 import { DashboardOperationalHeader } from "@/components/app/dashboard";
+import { PostAgentGuide } from "@/components/app/post-agent-guide";
 import {
 	ResourceChipList,
 	ResourceThumb,
@@ -63,6 +64,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type {
 	AIGeneratedPostDraft,
 	AIProviderCatalog,
+	ApiListResponse,
+	AutomationDefinition,
 	CampaignSummary,
 	PostComposeBootstrapResponse,
 	PostDetail,
@@ -1129,6 +1132,9 @@ export function DashboardNewPost() {
 	const [deletedVariantIds, setDeletedVariantIds] = useState<string[]>([]);
 	const [excludedPlatforms, setExcludedPlatforms] = useState<string[]>([]);
 	const [aiCatalog, setAICatalog] = useState<AIProviderCatalog | null>(null);
+	const [postAgentAutomations, setPostAgentAutomations] = useState<
+		AutomationDefinition[]
+	>([]);
 
 	const [_aiSettings, setAISettings] = useState<WorkspaceAISettings | null>(
 		null,
@@ -1167,6 +1173,19 @@ export function DashboardNewPost() {
 			aiProviders.find((provider) => provider.provider === aiProvider) ?? null,
 		[aiProvider, aiProviders],
 	);
+	const loadPostAgentAutomations = useCallback(async () => {
+		if (!activeWorkspaceId) {
+			return;
+		}
+		try {
+			const response = await customerRequest<
+				ApiListResponse<AutomationDefinition>
+			>(`/workspaces/${activeWorkspaceId}/automations`);
+			setPostAgentAutomations(response.items);
+		} catch {
+			setPostAgentAutomations([]);
+		}
+	}, [activeWorkspaceId, customerRequest]);
 	const loadResourceLibrary = useCallback(async () => {
 		if (resourceLibraryLoaded || resourceLibraryLoading) {
 			return;
@@ -1649,6 +1668,10 @@ export function DashboardNewPost() {
 				: new URLSearchParams(window.location.search).get("tab");
 		void loadEditor(id ?? null, requestedTab);
 	}, [id, loadEditor]);
+
+	useEffect(() => {
+		void loadPostAgentAutomations();
+	}, [loadPostAgentAutomations]);
 
 	useEffect(() => {
 		if (loading) {
@@ -2505,6 +2528,12 @@ export function DashboardNewPost() {
 						<div>{dataWarning}</div>
 					</SurfaceCard>
 				) : null}
+
+				<PostAgentGuide
+					automations={postAgentAutomations}
+					onRunCreated={loadPostAgentAutomations}
+					surface="composer"
+				/>
 
 				<SurfaceCard className="space-y-5 border-[var(--brand-border-soft)] bg-background/80 p-5">
 					<div className="flex flex-wrap items-center justify-end gap-2">
