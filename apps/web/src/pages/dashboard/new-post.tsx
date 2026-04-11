@@ -2374,6 +2374,11 @@ export function DashboardNewPost() {
 			detail: "Included destinations already have different planned times.",
 		};
 	}, [bulkPlannedAt, platformSummaries]);
+	const scheduleActionDetail = scheduleSummary.hasSchedule
+		? scheduleSummary.label === "Mixed times"
+			? "Mixed"
+			: scheduleSummary.label
+		: null;
 
 	function renderDestinationStatusIcon(status: DestinationStatus) {
 		if (status === "ready") {
@@ -2911,56 +2916,6 @@ export function DashboardNewPost() {
 										No platforms included
 									</span>
 								)}
-
-								{scheduleSummary.label === "Mixed times" ? (
-									platformSummaries.map((platform) => (
-										<HoverCard
-											key={`${placement}-${platform.platform}-schedule`}
-											openDelay={120}
-											closeDelay={90}
-										>
-											<HoverCardTrigger asChild>
-												<button
-													type="button"
-													onClick={() => openDrawer("schedule")}
-													className="relative inline-flex size-9 items-center justify-center rounded-full border border-[var(--brand-border-soft)] bg-background/82 text-muted-foreground transition hover:border-[var(--brand-border-strong)] hover:bg-background"
-													aria-label={`${platform.label}: ${platform.scheduleLabel}`}
-												>
-													{platformIcon(platform.platform, {
-														containerClassName:
-															"size-6 border-0 bg-transparent shadow-none",
-														iconClassName: "size-3.5",
-														backgroundAlpha: 0,
-														borderAlpha: 0,
-													})}
-													<span className="absolute -bottom-0.5 -right-0.5 inline-flex size-4 items-center justify-center rounded-full border border-background bg-background shadow-sm">
-														<CalendarClock className="size-2.5 text-muted-foreground" />
-													</span>
-												</button>
-											</HoverCardTrigger>
-											<HoverCardContent
-												side={placement === "drawer" ? "bottom" : "top"}
-												className="composer-summary-hover-card w-auto rounded-[18px] border border-[var(--brand-border-soft)] px-3 py-2 text-xs"
-											>
-												{platform.label}: {platform.scheduleLabel}
-											</HoverCardContent>
-										</HoverCard>
-									))
-								) : (
-									<button
-										type="button"
-										onClick={() => openDrawer("schedule")}
-										className={cn(
-											"inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition",
-											scheduleSummary.hasSchedule
-												? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-												: "border-[var(--brand-border-soft)] bg-background/84 text-muted-foreground hover:border-[var(--brand-border-strong)] hover:bg-background",
-										)}
-									>
-										<CalendarClock className="size-3.5" />
-										{scheduleSummary.label}
-									</button>
-								)}
 							</div>
 
 							<div className="composer-dock-actions flex shrink-0 flex-wrap items-center gap-2 xl:justify-end">
@@ -2981,11 +2936,27 @@ export function DashboardNewPost() {
 								<Button
 									type="button"
 									variant="outline"
-									className="rounded-full"
+									className={cn(
+										"rounded-full",
+										scheduleActionDetail &&
+											"border-emerald-500/20 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-200",
+									)}
 									onClick={() => openDrawer("schedule")}
+									aria-label={
+										scheduleActionDetail
+											? `Schedule: ${scheduleActionDetail}`
+											: "Schedule"
+									}
 								>
 									<CalendarClock className="size-4" />
-									Schedule
+									<span className="flex min-w-0 flex-col items-start leading-none">
+										<span>Schedule</span>
+										{scheduleActionDetail ? (
+											<span className="mt-0.5 max-w-28 truncate text-[10px] font-normal opacity-75">
+												{scheduleActionDetail}
+											</span>
+										) : null}
+									</span>
 								</Button>
 								<Button
 									type="button"

@@ -2366,15 +2366,11 @@ body {
 
 .customer-dashboard-shell .composer-drawer-page-heading {
 	border-top: 1px solid color-mix(in srgb, var(--composer-shell-divider) 64%, transparent);
-	background: linear-gradient(
-		180deg,
-		color-mix(in srgb, var(--dashboard-panel-bg-top) 86%, transparent) 0%,
-		color-mix(in srgb, var(--dashboard-panel-bg-bottom) 80%, transparent) 100%
-	);
+	background: var(--composer-shell-surface);
 }
 
 .customer-dashboard-shell .composer-drawer-body {
-	background: color-mix(in srgb, var(--dashboard-panel-bg-bottom) 34%, transparent);
+	background: var(--composer-shell-surface);
 }
 
 .customer-dashboard-shell .composer-summary-marker {
