@@ -6,6 +6,7 @@
 .env.local
 .env.*.local
 !.env.example
+!.env.production.example
 
 # ==============================================================================
 # Dependencies
@@ -64,6 +65,15 @@ temp/
 .cache/
 *.tmp
 *.temp
+
+# ==============================================================================
+# Debug screenshots (root-level accidental captures)
+# ==============================================================================
+/echobyt-*.png
+/facebook-*-live.png
+/instagram-*.png
+/linkedin-*-live.png
+/prod-*.png
 
 # ==============================================================================
 # Go

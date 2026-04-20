@@ -55,6 +55,10 @@ Heimdall is a SaaS platform for centralizing and automating social media managem
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
+
+   # For production secret sync/deploy workflows
+   cp .env.production.example .env.production
+   # Edit .env.production with real production values
    ```
 
 3. **Install dependencies**
@@ -110,6 +114,7 @@ heimdall/
 │
 ├── .env                        # Environment variables
 ├── .env.example                # Example environment
+├── .env.production.example     # Production env template (no secrets)
 ├── package.json                # Root package (monorepo scripts)
 └── README.md
 ```
@@ -150,7 +155,7 @@ curl http://localhost:8080/api/v1/health
 | `VITE_API_URL` | API URL for frontend | `http://localhost:8080` |
 | `VITE_APP_NAME` | Application name | `Heimdall` |
 
-See `.env.example` for all available variables.
+See `.env.example` for local/dev variables and `.env.production.example` for production template values used by `scripts/sync-production-secrets.mjs`.
 
 ## Contributing
 
