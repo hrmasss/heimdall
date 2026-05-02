@@ -76,18 +76,23 @@ type SocialConfig struct {
 
 // AIConfig holds AI provider integration settings.
 type AIConfig struct {
-	EncryptionKey        string
-	RequestTimeout       time.Duration
-	OpenAIAPIKey         string
-	OpenAIAPIKeys        []string
-	OpenAIBaseURL        string
-	OpenAIApprovedModels []string
-	OpenAIDefaultModel   string
-	GeminiAPIKey         string
-	GeminiAPIKeys        []string
-	GeminiBaseURL        string
-	GeminiApprovedModels []string
-	GeminiDefaultModel   string
+	EncryptionKey         string
+	RequestTimeout        time.Duration
+	OpenAIAPIKey          string
+	OpenAIAPIKeys         []string
+	OpenAIBaseURL         string
+	OpenAIApprovedModels  []string
+	OpenAIDefaultModel    string
+	GeminiAPIKey          string
+	GeminiAPIKeys         []string
+	GeminiBaseURL         string
+	GeminiApprovedModels  []string
+	GeminiDefaultModel    string
+	CopilotAPIKey         string
+	CopilotAPIKeys        []string
+	CopilotBaseURL        string
+	CopilotApprovedModels []string
+	CopilotDefaultModel   string
 }
 
 // AutomationConfig holds automation provider integration settings.
@@ -154,18 +159,23 @@ func Load() *Config {
 			TikTokClientSecret:   getEnv("TIKTOK_CLIENT_SECRET", ""),
 		},
 		AI: AIConfig{
-			EncryptionKey:        getEnv("AI_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
-			RequestTimeout:       getEnvDuration("AI_REQUEST_TIMEOUT", 45*time.Second),
-			OpenAIAPIKey:         getEnv("OPENAI_API_KEY", ""),
-			OpenAIAPIKeys:        getEnvKeyList("OPENAI_API_KEYS", "OPENAI_API_KEY"),
-			OpenAIBaseURL:        strings.TrimRight(getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1"), "/"),
-			OpenAIApprovedModels: getEnvCSV("OPENAI_APPROVED_MODELS", []string{"gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini"}),
-			OpenAIDefaultModel:   getEnv("OPENAI_DEFAULT_MODEL", "gpt-4.1-mini"),
-			GeminiAPIKey:         getEnv("GEMINI_API_KEY", ""),
-			GeminiAPIKeys:        getEnvKeyList("GEMINI_API_KEYS", "GEMINI_API_KEY"),
-			GeminiBaseURL:        strings.TrimRight(getEnv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"), "/"),
-			GeminiApprovedModels: getEnvCSV("GEMINI_APPROVED_MODELS", []string{"gemini-2.0-flash", "gemini-2.0-flash-lite"}),
-			GeminiDefaultModel:   getEnv("GEMINI_DEFAULT_MODEL", "gemini-2.0-flash"),
+			EncryptionKey:         getEnv("AI_ENCRYPTION_KEY", getEnv("JWT_SECRET", "heimdall-local-dev-secret")),
+			RequestTimeout:        getEnvDuration("AI_REQUEST_TIMEOUT", 45*time.Second),
+			OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
+			OpenAIAPIKeys:         getEnvKeyList("OPENAI_API_KEYS", "OPENAI_API_KEY"),
+			OpenAIBaseURL:         strings.TrimRight(getEnv("OPENAI_BASE_URL", "https://api.openai.com/v1"), "/"),
+			OpenAIApprovedModels:  getEnvCSV("OPENAI_APPROVED_MODELS", []string{"gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini"}),
+			OpenAIDefaultModel:    getEnv("OPENAI_DEFAULT_MODEL", "gpt-4.1-mini"),
+			GeminiAPIKey:          getEnv("GEMINI_API_KEY", ""),
+			GeminiAPIKeys:         getEnvKeyList("GEMINI_API_KEYS", "GEMINI_API_KEY"),
+			GeminiBaseURL:         strings.TrimRight(getEnv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"), "/"),
+			GeminiApprovedModels:  getEnvCSV("GEMINI_APPROVED_MODELS", []string{"gemini-2.0-flash", "gemini-2.0-flash-lite"}),
+			GeminiDefaultModel:    getEnv("GEMINI_DEFAULT_MODEL", "gemini-2.0-flash"),
+			CopilotAPIKey:         getEnv("COPILOT_GITHUB_TOKEN", getEnv("GH_TOKEN", getEnv("GITHUB_TOKEN", ""))),
+			CopilotAPIKeys:        getEnvKeyList("COPILOT_GITHUB_TOKENS", "COPILOT_GITHUB_TOKEN"),
+			CopilotBaseURL:        strings.TrimRight(getEnv("COPILOT_API_BASE_URL", "https://api.githubcopilot.com"), "/"),
+			CopilotApprovedModels: getEnvCSV("COPILOT_APPROVED_MODELS", []string{"gpt-4.1", "gpt-5", "claude-sonnet-4.5"}),
+			CopilotDefaultModel:   getEnv("COPILOT_DEFAULT_MODEL", "gpt-4.1"),
 		},
 		Automation: AutomationConfig{
 			TavilyAPIKey:                  getEnv("TAVILY_API_KEY", ""),

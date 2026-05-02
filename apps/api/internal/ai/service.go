@@ -21,11 +21,22 @@ import (
 )
 
 const (
-	providerOpenAI = "openai"
-	providerGemini = "gemini"
+	providerOpenAI  = "openai"
+	providerGemini  = "gemini"
+	providerCopilot = "copilot"
 
 	modeNative = "native"
 	modeBYOK   = "byok"
+
+	strategyFirstHealthy = "first_healthy"
+	strategyRoundRobin   = "round_robin"
+
+	credentialStatusActive   = "active"
+	credentialStatusDisabled = "disabled"
+
+	healthStatusHealthy    = "healthy"
+	healthStatusCooling    = "cooling_down"
+	healthStatusAuthFailed = "auth_failed"
 
 	useCasePostGeneration      = "post_generation"
 	useCaseCampaignPlanning    = "campaign_planning"
@@ -115,6 +126,51 @@ type AIProviderCredentialRecord struct {
 	KeyHint       string   `json:"keyHint"`
 	AllowedModels []string `json:"allowedModels"`
 	UpdatedAt     string   `json:"updatedAt,omitempty"`
+}
+
+type PlatformAIProvider struct {
+	Provider        string   `json:"provider"`
+	Label           string   `json:"label"`
+	BaseURL         string   `json:"baseUrl"`
+	DefaultModel    string   `json:"defaultModel"`
+	ApprovedModels  []string `json:"approvedModels"`
+	CredentialCount int      `json:"credentialCount"`
+	HealthyCount    int      `json:"healthyCount"`
+	Strategy        string   `json:"strategy"`
+}
+
+type PlatformAICredentialRecord struct {
+	ID            string   `json:"id"`
+	Provider      string   `json:"provider"`
+	Label         string   `json:"label"`
+	Position      int      `json:"position"`
+	Status        string   `json:"status"`
+	KeyHint       string   `json:"keyHint"`
+	AllowedModels []string `json:"allowedModels"`
+	HealthStatus  string   `json:"healthStatus"`
+	CooldownUntil string   `json:"cooldownUntil,omitempty"`
+	RequestCount  int      `json:"requestCount"`
+	LastUsedAt    string   `json:"lastUsedAt,omitempty"`
+	LastError     string   `json:"lastError,omitempty"`
+	UpdatedAt     string   `json:"updatedAt,omitempty"`
+}
+
+type PlatformAIFallbackRouteRecord struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Position int    `json:"position"`
+	Enabled  bool   `json:"enabled"`
+}
+
+type PlatformAICatalog struct {
+	Providers []PlatformAIProvider `json:"providers"`
+}
+
+type PlatformAISettings struct {
+	Providers      []PlatformAIProvider            `json:"providers"`
+	Credentials    []PlatformAICredentialRecord    `json:"credentials"`
+	FallbackRoutes []PlatformAIFallbackRouteRecord `json:"fallbackRoutes"`
 }
 
 type WorkspaceSystemPrompts struct {
@@ -231,6 +287,44 @@ type UpdatePlatformWorkspaceAISettingsInput struct {
 	FallbackPoolEnabled *bool `json:"fallbackPoolEnabled"`
 }
 
+type PlatformAIProviderSettingInput struct {
+	Provider       string   `json:"provider"`
+	DefaultModel   string   `json:"defaultModel"`
+	ApprovedModels []string `json:"approvedModels"`
+	BaseURL        string   `json:"baseUrl"`
+	Strategy       string   `json:"strategy"`
+}
+
+type PlatformAIFallbackRouteInput struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Position int    `json:"position"`
+	Enabled  bool   `json:"enabled"`
+}
+
+type UpdatePlatformAIRoutingInput struct {
+	Providers      []PlatformAIProviderSettingInput `json:"providers"`
+	FallbackRoutes []PlatformAIFallbackRouteInput   `json:"fallbackRoutes"`
+}
+
+type CreatePlatformAICredentialInput struct {
+	Provider      string   `json:"provider"`
+	Label         string   `json:"label"`
+	APIKey        string   `json:"apiKey"`
+	Position      int      `json:"position"`
+	AllowedModels []string `json:"allowedModels"`
+	Status        string   `json:"status"`
+}
+
+type UpdatePlatformAICredentialInput struct {
+	Label         string   `json:"label"`
+	APIKey        string   `json:"apiKey"`
+	Position      int      `json:"position"`
+	AllowedModels []string `json:"allowedModels"`
+	Status        string   `json:"status"`
+}
+
 type GeneratePostDraftInput struct {
 	Prompt      string     `json:"prompt"`
 	PromptScope string     `json:"promptScope"`
@@ -304,7 +398,7 @@ func (s *Service) UpdateBusinessContext(ctx context.Context, principal *iam.Prin
 	}
 
 	narrative := strings.TrimSpace(input.Narrative)
-	extracted, err := s.extractBusinessContext(ctx, narrative)
+	extracted, err := s.extractBusinessContext(ctx, workspaceID, narrative)
 	if err != nil {
 		extracted = heuristicBusinessExtraction(narrative)
 	}
@@ -369,7 +463,7 @@ func (s *Service) UpdateBrandContext(ctx context.Context, principal *iam.Princip
 	}
 	narrative := strings.TrimSpace(input.Narrative)
 	image, resourceRecord, _ := s.loadReferenceImage(ctx, workspaceID, referenceResourceID)
-	extracted, err := s.extractBrandContext(ctx, narrative, image)
+	extracted, err := s.extractBrandContext(ctx, workspaceID, narrative, image)
 	if err != nil {
 		extracted = heuristicBrandExtraction(narrative, resourceRecord)
 	}
@@ -475,7 +569,7 @@ func (s *Service) UpdateSettings(ctx context.Context, principal *iam.Principal, 
 		}
 	}
 	if input.CapabilityDefaults != nil {
-		if err := s.validateCapabilityDefaults(input.CapabilityDefaults); err != nil {
+		if err := s.validateCapabilityDefaults(ctx, input.CapabilityDefaults); err != nil {
 			return nil, err
 		}
 		settings.CapabilityDefaults = marshalMustJSON(s.normalizeCapabilityDefaults(input.CapabilityDefaults))
@@ -524,30 +618,21 @@ func (s *Service) GetCatalog(ctx context.Context, principal *iam.Principal, work
 	for _, credential := range credentials {
 		counts[credential.Provider]++
 	}
-	return &AIProviderCatalog{
-		Providers: []AIProviderCatalogEntry{
-			{
-				Provider:                  providerOpenAI,
-				Label:                     "OpenAI GPT",
-				ApprovedModels:            s.approvedModels(providerOpenAI),
-				DefaultModel:              s.defaultModel(providerOpenAI),
-				NativeAvailable:           s.hasNativeAPIKey(providerOpenAI),
-				ConfiguredCredentialCount: counts[providerOpenAI],
-				SupportsByok:              true,
-				SupportsImages:            true,
-			},
-			{
-				Provider:                  providerGemini,
-				Label:                     "Google Gemini",
-				ApprovedModels:            s.approvedModels(providerGemini),
-				DefaultModel:              s.defaultModel(providerGemini),
-				NativeAvailable:           s.hasNativeAPIKey(providerGemini),
-				ConfiguredCredentialCount: counts[providerGemini],
-				SupportsByok:              true,
-				SupportsImages:            true,
-			},
-		},
-	}, nil
+	entries := make([]AIProviderCatalogEntry, 0, len(allProviders()))
+	for _, provider := range allProviders() {
+		setting := s.platformProviderSetting(ctx, provider)
+		entries = append(entries, AIProviderCatalogEntry{
+			Provider:                  provider,
+			Label:                     s.providerLabel(provider),
+			ApprovedModels:            parseStringSlice(setting.ApprovedModels),
+			DefaultModel:              defaultString(setting.DefaultModel, s.defaultModel(provider)),
+			NativeAvailable:           s.hasNativeAccess(ctx, provider),
+			ConfiguredCredentialCount: counts[provider],
+			SupportsByok:              true,
+			SupportsImages:            provider != providerCopilot,
+		})
+	}
+	return &AIProviderCatalog{Providers: entries}, nil
 }
 
 func (s *Service) UpdatePlatformWorkspaceSettings(ctx context.Context, principal *iam.Principal, workspaceID uuid.UUID, input UpdatePlatformWorkspaceAISettingsInput) (*WorkspaceAISettings, error) {
@@ -654,15 +739,11 @@ func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam
 	if err != nil {
 		return nil, err
 	}
-	provider, model, mode, err := s.resolveGenerationSelectionForUseCase(settings, useCase, input.Provider, input.Model, input.Mode)
+	provider, model, mode, err := s.resolveGenerationSelectionForUseCase(ctx, settings, useCase, input.Provider, input.Model, input.Mode)
 	if err != nil {
 		return nil, err
 	}
 	contextPack, contextFingerprint, err := s.resolveContextPack(ctx, workspaceID, useCase, input.CampaignID)
-	if err != nil {
-		return nil, err
-	}
-	credentials, err := s.resolveCredentialChain(ctx, workspaceID, provider, mode, settings.FallbackPoolEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -671,29 +752,18 @@ func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam
 
 	var (
 		payload      map[string]any
-		usage        aiUsage
 		responseText string
-		usedCred     *database.WorkspaceAICredential
 		lastErr      error
 	)
-	for _, credential := range credentials {
-		responseText, usage, lastErr = s.generateJSON(ctx, provider, model, credential.apiKey, systemPrompt, userPrompt, nil)
-		if lastErr == nil {
-			usedCred = credential.record
-			break
-		}
-		var providerErr *providerError
-		if errors.As(lastErr, &providerErr) && providerErr.Retryable {
-			continue
-		}
-		break
-	}
+	route := s.routedGenerateJSON(ctx, workspaceID, provider, model, mode, systemPrompt, userPrompt, nil, settings.FallbackPoolEnabled)
+	responseText = route.text
+	lastErr = route.lastErr
 	if lastErr != nil {
-		event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "failed", usage, map[string]any{"brief": input.Prompt}, map[string]any{}, lastErr.Error())
+		event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, route.credential, mode, defaultString(route.provider, provider), defaultString(route.model, model), contextFingerprint, input.CampaignID, "failed", route.usage, map[string]any{"brief": input.Prompt}, map[string]any{}, lastErr.Error())
 		return &GeneratedStructuredArtifact{
 			Payload:            map[string]any{},
-			Provider:           provider,
-			Model:              model,
+			Provider:           defaultString(route.provider, provider),
+			Model:              defaultString(route.model, model),
 			CredentialMode:     mode,
 			ContextFingerprint: contextFingerprint,
 			Warnings:           []string{lastErr.Error()},
@@ -703,11 +773,11 @@ func (s *Service) GenerateStructuredArtifact(ctx context.Context, principal *iam
 	if err := json.Unmarshal([]byte(cleanJSONText(responseText)), &payload); err != nil {
 		return nil, fmt.Errorf("%w: invalid provider payload", iam.ErrValidation)
 	}
-	event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, usedCred, mode, provider, model, contextFingerprint, input.CampaignID, "success", usage, map[string]any{"brief": input.Prompt}, payload, "")
+	event, _ := s.recordRunEvent(ctx, principal, workspaceID, useCase, route.credential, mode, defaultString(route.provider, provider), defaultString(route.model, model), contextFingerprint, input.CampaignID, "success", route.usage, map[string]any{"brief": input.Prompt}, payload, "")
 	return &GeneratedStructuredArtifact{
 		Payload:            payload,
-		Provider:           provider,
-		Model:              model,
+		Provider:           defaultString(route.provider, provider),
+		Model:              defaultString(route.model, model),
 		CredentialMode:     mode,
 		ContextFingerprint: contextFingerprint,
 		Warnings:           toStringSlice(payload["warnings"]),
@@ -734,7 +804,7 @@ func (s *Service) loadBrandContext(ctx context.Context, workspaceID uuid.UUID) (
 func (s *Service) loadSettings(ctx context.Context, workspaceID uuid.UUID) (*database.WorkspaceAISettings, bool, error) {
 	record := &database.WorkspaceAISettings{
 		WorkspaceID:         workspaceID,
-		DefaultMode:         defaultMode(s.cfg),
+		DefaultMode:         s.defaultMode(ctx),
 		CapabilityDefaults:  marshalMustJSON(s.defaultCapabilityDefaults()),
 		FallbackPoolEnabled: false,
 		UsagePolicy:         marshalMustJSON(s.defaultUsagePolicy()),
@@ -786,7 +856,7 @@ func (s *Service) upsertCredentials(ctx context.Context, principal *iam.Principa
 	now := time.Now().UTC()
 	for _, input := range inputs {
 		provider := strings.TrimSpace(input.Provider)
-		if !slices.Contains([]string{providerOpenAI, providerGemini}, provider) {
+		if err := s.validateProvider(provider); err != nil {
 			return fmt.Errorf("%w: unsupported provider", iam.ErrValidation)
 		}
 		allowedModels := input.AllowedModels
@@ -914,11 +984,11 @@ func (s *Service) resolveContextPack(ctx context.Context, workspaceID uuid.UUID,
 	return payload, sourceFingerprint, nil
 }
 
-func (s *Service) resolveGenerationSelection(settings *database.WorkspaceAISettings, input GeneratePostDraftInput) (string, string, string, error) {
-	return s.resolveGenerationSelectionForUseCase(settings, useCasePostGeneration, input.Provider, input.Model, input.Mode)
+func (s *Service) resolveGenerationSelection(ctx context.Context, settings *database.WorkspaceAISettings, input GeneratePostDraftInput) (string, string, string, error) {
+	return s.resolveGenerationSelectionForUseCase(ctx, settings, useCasePostGeneration, input.Provider, input.Model, input.Mode)
 }
 
-func (s *Service) resolveGenerationSelectionForUseCase(settings *database.WorkspaceAISettings, useCase, providerInput, modelInput, modeInput string) (string, string, string, error) {
+func (s *Service) resolveGenerationSelectionForUseCase(ctx context.Context, settings *database.WorkspaceAISettings, useCase, providerInput, modelInput, modeInput string) (string, string, string, error) {
 	mode := defaultString(strings.TrimSpace(modeInput), settings.DefaultMode)
 	if mode != modeNative && mode != modeBYOK {
 		return "", "", "", fmt.Errorf("%w: invalid ai mode", iam.ErrValidation)
@@ -939,12 +1009,12 @@ func (s *Service) resolveGenerationSelectionForUseCase(settings *database.Worksp
 		provider = s.defaultProvider()
 	}
 	if model == "" {
-		model = s.defaultModel(provider)
+		model = s.platformDefaultModel(ctx, provider)
 	}
 	if provider == "" || model == "" {
 		return "", "", "", fmt.Errorf("%w: ai provider is not configured", iam.ErrValidation)
 	}
-	if !slices.Contains(s.approvedModels(provider), model) {
+	if !slices.Contains(s.approvedModelsFor(ctx, provider), model) {
 		return "", "", "", fmt.Errorf("%w: model is not approved", iam.ErrValidation)
 	}
 	return provider, model, mode, nil

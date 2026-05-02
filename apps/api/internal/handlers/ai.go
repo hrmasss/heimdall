@@ -171,3 +171,110 @@ func (h *AppHandler) updatePlatformWorkspaceAISettings(c fiber.Ctx) error {
 	}
 	return c.JSON(record)
 }
+
+func (h *AppHandler) getPlatformAICatalog(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.aiService.GetPlatformCatalog(c.Context(), principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) getPlatformAISettings(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, err := h.aiService.GetPlatformSettings(c.Context(), principal)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) updatePlatformAISettings(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	var body ai.UpdatePlatformAIRoutingInput
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.aiService.UpdatePlatformRouting(c.Context(), principal, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) createPlatformAICredential(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	var body ai.CreatePlatformAICredentialInput
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.aiService.CreatePlatformCredential(c.Context(), principal, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) updatePlatformAICredential(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	credentialID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	var body ai.UpdatePlatformAICredentialInput
+	if err := c.Bind().JSON(&body); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.aiService.UpdatePlatformCredential(c.Context(), principal, credentialID, body)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) deletePlatformAICredential(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	credentialID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.aiService.DeletePlatformCredential(c.Context(), principal, credentialID); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) testPlatformAICredential(c fiber.Ctx) error {
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	credentialID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	record, err := h.aiService.TestPlatformCredential(c.Context(), principal, credentialID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}

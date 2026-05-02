@@ -782,6 +782,47 @@ export type AIProviderCatalog = {
 	providers: AIProviderCatalogEntry[];
 };
 
+export type PlatformAIProvider = {
+	provider: string;
+	label: string;
+	baseUrl: string;
+	defaultModel: string;
+	approvedModels: string[];
+	credentialCount: number;
+	healthyCount: number;
+	strategy: "first_healthy" | "round_robin";
+};
+
+export type PlatformAICredential = {
+	id: string;
+	provider: string;
+	label: string;
+	position: number;
+	status: string;
+	keyHint: string;
+	allowedModels: string[];
+	healthStatus: string;
+	cooldownUntil?: string;
+	requestCount: number;
+	lastUsedAt?: string;
+	lastError?: string;
+	updatedAt?: string;
+};
+
+export type PlatformAIFallbackRoute = {
+	id: string;
+	provider: string;
+	model: string;
+	position: number;
+	enabled: boolean;
+};
+
+export type PlatformAISettings = {
+	providers: PlatformAIProvider[];
+	credentials: PlatformAICredential[];
+	fallbackRoutes: PlatformAIFallbackRoute[];
+};
+
 export type AIRunEventSummary = {
 	id: string;
 	useCase: string;

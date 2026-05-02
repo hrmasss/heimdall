@@ -47,6 +47,8 @@ tags:
     description: Performance analytics and insights
   - name: Integrations
     description: Social platform integrations
+  - name: Platform AI
+    description: Platform-admin AI inference credentials and routing
 
 paths:
   /api/v1/health:
@@ -76,6 +78,144 @@ paths:
                   goroutines: 8
                 checks:
                   api: "ok"
+  /api/v1/platform/ai/catalog:
+    get:
+      operationId: getPlatformAICatalog
+      summary: Get Platform AI Catalog
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Platform AI provider catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAICatalog"
+  /api/v1/platform/ai/settings:
+    get:
+      operationId: getPlatformAISettings
+      summary: Get Platform AI Settings
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Platform AI settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAISettings"
+    patch:
+      operationId: updatePlatformAISettings
+      summary: Update Platform AI Routing
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformAIRoutingInput"
+      responses:
+        "200":
+          description: Updated Platform AI settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAISettings"
+  /api/v1/platform/ai/credentials:
+    post:
+      operationId: createPlatformAICredential
+      summary: Create Platform AI Credential
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlatformAICredentialInput"
+      responses:
+        "201":
+          description: Created Platform AI credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAICredential"
+  /api/v1/platform/ai/credentials/{id}:
+    patch:
+      operationId: updatePlatformAICredential
+      summary: Update Platform AI Credential
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformAICredentialInput"
+      responses:
+        "200":
+          description: Updated Platform AI credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAICredential"
+    delete:
+      operationId: deletePlatformAICredential
+      summary: Delete Platform AI Credential
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted Platform AI credential
+  /api/v1/platform/ai/credentials/{id}/test:
+    post:
+      operationId: testPlatformAICredential
+      summary: Test Platform AI Credential
+      tags:
+        - Platform AI
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Tested Platform AI credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformAICredential"
   /api/v1/resources/capabilities:
     get:
       operationId: getResourceCapabilities
@@ -938,6 +1078,157 @@ components:
           type: object
           additionalProperties: true
           description: Additional error details
+    PlatformAICatalog:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformAIProvider"
+    PlatformAISettings:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformAIProvider"
+        credentials:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformAICredential"
+        fallbackRoutes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformAIFallbackRoute"
+    PlatformAIProvider:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [openai, gemini, copilot]
+        label:
+          type: string
+        baseUrl:
+          type: string
+        defaultModel:
+          type: string
+        approvedModels:
+          type: array
+          items:
+            type: string
+        credentialCount:
+          type: integer
+        healthyCount:
+          type: integer
+        strategy:
+          type: string
+          enum: [first_healthy, round_robin]
+    PlatformAICredential:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        label:
+          type: string
+        position:
+          type: integer
+        status:
+          type: string
+        keyHint:
+          type: string
+        allowedModels:
+          type: array
+          items:
+            type: string
+        healthStatus:
+          type: string
+        cooldownUntil:
+          type: string
+          format: date-time
+        requestCount:
+          type: integer
+        lastUsedAt:
+          type: string
+          format: date-time
+        lastError:
+          type: string
+    PlatformAIFallbackRoute:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        position:
+          type: integer
+        enabled:
+          type: boolean
+    UpdatePlatformAIRoutingInput:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+              defaultModel:
+                type: string
+              approvedModels:
+                type: array
+                items:
+                  type: string
+              baseUrl:
+                type: string
+              strategy:
+                type: string
+                enum: [first_healthy, round_robin]
+        fallbackRoutes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformAIFallbackRoute"
+    CreatePlatformAICredentialInput:
+      type: object
+      required:
+        - provider
+        - apiKey
+      properties:
+        provider:
+          type: string
+          enum: [openai, gemini, copilot]
+        label:
+          type: string
+        apiKey:
+          type: string
+        position:
+          type: integer
+        allowedModels:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+    UpdatePlatformAICredentialInput:
+      type: object
+      properties:
+        label:
+          type: string
+        apiKey:
+          type: string
+        position:
+          type: integer
+        allowedModels:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
     ResourceCapabilityMatrix:
       type: object
       properties:

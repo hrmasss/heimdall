@@ -19,17 +19,23 @@ import (
 const maxReferenceImageBytes = 4 * 1024 * 1024
 
 func (s *Service) generateJSON(ctx context.Context, provider, model, apiKey, systemPrompt, userPrompt string, image *providerImage) (string, aiUsage, error) {
+	return s.generateJSONWithBaseURL(ctx, provider, model, apiKey, s.providerBaseURL(provider), systemPrompt, userPrompt, image)
+}
+
+func (s *Service) generateJSONWithBaseURL(ctx context.Context, provider, model, apiKey, baseURL, systemPrompt, userPrompt string, image *providerImage) (string, aiUsage, error) {
 	switch provider {
 	case providerOpenAI:
-		return s.generateOpenAI(ctx, model, apiKey, systemPrompt, userPrompt, image, true)
+		return s.generateOpenAI(ctx, model, apiKey, baseURL, systemPrompt, userPrompt, image, true, false)
+	case providerCopilot:
+		return s.generateCopilot(ctx, model, apiKey, baseURL, systemPrompt, userPrompt, image, true)
 	case providerGemini:
-		return s.generateGemini(ctx, model, apiKey, systemPrompt, userPrompt, image, true)
+		return s.generateGemini(ctx, model, apiKey, baseURL, systemPrompt, userPrompt, image, true)
 	default:
 		return "", aiUsage{}, fmt.Errorf("%w: unsupported ai provider", iam.ErrValidation)
 	}
 }
 
-func (s *Service) generateOpenAI(ctx context.Context, model, apiKey, systemPrompt, userPrompt string, image *providerImage, jsonMode bool) (string, aiUsage, error) {
+func (s *Service) generateOpenAI(ctx context.Context, model, apiKey, baseURL, systemPrompt, userPrompt string, image *providerImage, jsonMode, githubTokenHeader bool) (string, aiUsage, error) {
 	type openAIMessage struct {
 		Role    string `json:"role"`
 		Content any    `json:"content"`
@@ -63,11 +69,14 @@ func (s *Service) generateOpenAI(ctx context.Context, model, apiKey, systemPromp
 	}
 	requestBody, _ := json.Marshal(body)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.OpenAIBaseURL+"/chat/completions", bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/chat/completions", bytes.NewReader(requestBody))
 	if err != nil {
 		return "", aiUsage{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
+	if githubTokenHeader {
+		req.Header.Set("X-GitHub-Token", apiKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.httpClient.Do(req)
@@ -106,7 +115,12 @@ func (s *Service) generateOpenAI(ctx context.Context, model, apiKey, systemPromp
 	}, nil
 }
 
-func (s *Service) generateGemini(ctx context.Context, model, apiKey, systemPrompt, userPrompt string, image *providerImage, jsonMode bool) (string, aiUsage, error) {
+func (s *Service) generateCopilot(ctx context.Context, model, apiKey, baseURL, systemPrompt, userPrompt string, image *providerImage, jsonMode bool) (string, aiUsage, error) {
+	text, usage, err := s.generateOpenAI(ctx, model, apiKey, baseURL, systemPrompt, userPrompt, image, jsonMode, true)
+	return text, usage, err
+}
+
+func (s *Service) generateGemini(ctx context.Context, model, apiKey, baseURL, systemPrompt, userPrompt string, image *providerImage, jsonMode bool) (string, aiUsage, error) {
 	parts := []map[string]any{{"text": systemPrompt + "\n\n" + userPrompt}}
 	if image != nil && len(image.Data) > 0 {
 		parts = append(parts, map[string]any{
@@ -132,7 +146,7 @@ func (s *Service) generateGemini(ctx context.Context, model, apiKey, systemPromp
 	}
 	requestBody, _ := json.Marshal(body)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/models/%s:generateContent?key=%s", s.cfg.GeminiBaseURL, model, apiKey), bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/models/%s:generateContent?key=%s", strings.TrimRight(baseURL, "/"), model, apiKey), bytes.NewReader(requestBody))
 	if err != nil {
 		return "", aiUsage{}, err
 	}

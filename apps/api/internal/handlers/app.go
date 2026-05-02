@@ -58,6 +58,13 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/platform/roles", h.requireAuth, h.listPlatformRoles)
 	api.Get("/platform/workspace-roles", h.requireAuth, h.listPlatformWorkspaceRoles)
 	api.Post("/platform/customer-access", h.requireAuth, h.startPlatformCustomerAccess)
+	api.Get("/platform/ai/catalog", h.requireAuth, h.getPlatformAICatalog)
+	api.Get("/platform/ai/settings", h.requireAuth, h.getPlatformAISettings)
+	api.Patch("/platform/ai/settings", h.requireAuth, h.updatePlatformAISettings)
+	api.Post("/platform/ai/credentials", h.requireAuth, h.createPlatformAICredential)
+	api.Patch("/platform/ai/credentials/:id", h.requireAuth, h.updatePlatformAICredential)
+	api.Delete("/platform/ai/credentials/:id", h.requireAuth, h.deletePlatformAICredential)
+	api.Post("/platform/ai/credentials/:id/test", h.requireAuth, h.testPlatformAICredential)
 
 	api.Get("/workspaces", h.requireAuth, h.listWorkspaces)
 	api.Post("/workspaces", h.requireAuth, h.createWorkspace)

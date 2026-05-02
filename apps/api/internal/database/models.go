@@ -575,6 +575,54 @@ type WorkspaceAICredential struct {
 	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
 }
 
+type PlatformAIProviderSetting struct {
+	bun.BaseModel `bun:"table:platform_ai_provider_settings"`
+
+	Provider         string    `bun:"provider,pk"`
+	DefaultModel     string    `bun:"default_model,notnull"`
+	ApprovedModels   string    `bun:"approved_models,notnull"`
+	BaseURL          string    `bun:"base_url,notnull"`
+	Strategy         string    `bun:"strategy,notnull"`
+	RoundRobinCursor int       `bun:"round_robin_cursor,notnull"`
+	CreatedAt        time.Time `bun:"created_at,notnull"`
+	UpdatedAt        time.Time `bun:"updated_at,notnull"`
+}
+
+type PlatformAICredential struct {
+	bun.BaseModel `bun:"table:platform_ai_credentials"`
+
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	Provider         string     `bun:"provider,notnull"`
+	Label            string     `bun:"label,notnull"`
+	Position         int        `bun:"position,notnull"`
+	Status           string     `bun:"status,notnull"`
+	APIKeyCiphertext string     `bun:"api_key_ciphertext,notnull"`
+	APIKeyHint       string     `bun:"api_key_hint,notnull"`
+	AllowedModels    string     `bun:"allowed_models,notnull"`
+	HealthStatus     string     `bun:"health_status,notnull"`
+	CooldownUntil    *time.Time `bun:"cooldown_until"`
+	RequestCount     int        `bun:"request_count,notnull"`
+	LastUsedAt       *time.Time `bun:"last_used_at"`
+	LastError        *string    `bun:"last_error"`
+	Metadata         string     `bun:"metadata,notnull"`
+	CreatedByUserID  *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID  *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
+}
+
+type PlatformAIFallbackRoute struct {
+	bun.BaseModel `bun:"table:platform_ai_fallback_routes"`
+
+	ID        uuid.UUID `bun:"id,pk,type:uuid"`
+	Provider  string    `bun:"provider,notnull"`
+	Model     string    `bun:"model,notnull"`
+	Position  int       `bun:"position,notnull"`
+	Enabled   bool      `bun:"enabled,notnull"`
+	CreatedAt time.Time `bun:"created_at,notnull"`
+	UpdatedAt time.Time `bun:"updated_at,notnull"`
+}
+
 type AIRunEvent struct {
 	bun.BaseModel `bun:"table:ai_run_events"`
 
@@ -667,64 +715,64 @@ type WorkflowStep struct {
 type AutomationRun struct {
 	bun.BaseModel `bun:"table:automation_runs"`
 
-	ID                   uuid.UUID  `bun:"id,pk,type:uuid"`
-	WorkspaceID          uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
-	SourceType           string     `bun:"source_type,notnull"`
-	AutomationID         *uuid.UUID `bun:"automation_id,type:uuid"`
-	WorkflowID           *uuid.UUID `bun:"workflow_id,type:uuid"`
-	Status               string     `bun:"status,notnull"`
-	CurrentStepPosition  *int       `bun:"current_step_position"`
-	TriggerType          string     `bun:"trigger_type,notnull"`
-	ReviewRequired       bool       `bun:"review_required,notnull"`
-	ReviewerType         string     `bun:"reviewer_type,notnull"`
-	InputPayload         string     `bun:"input_payload,notnull"`
-	OutputPayload        string     `bun:"output_payload,notnull"`
-	LastError            *string    `bun:"last_error"`
-	ContextFingerprint   string     `bun:"context_fingerprint,notnull"`
-	EvidencePayload      string     `bun:"evidence_payload,notnull"`
-	CreatedByUserID      *uuid.UUID `bun:"created_by_user_id,type:uuid"`
-	UpdatedByUserID      *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
-	CompletedAt          *time.Time `bun:"completed_at"`
-	CreatedAt            time.Time  `bun:"created_at,notnull"`
-	UpdatedAt            time.Time  `bun:"updated_at,notnull"`
-}
-
-type AutomationRunStep struct {
-	bun.BaseModel `bun:"table:automation_run_steps"`
-
 	ID                  uuid.UUID  `bun:"id,pk,type:uuid"`
-	RunID               uuid.UUID  `bun:"run_id,notnull,type:uuid"`
-	WorkflowStepID      *uuid.UUID `bun:"workflow_step_id,type:uuid"`
-	Position            int        `bun:"position,notnull"`
-	Name                string     `bun:"name,notnull"`
-	StepKind            string     `bun:"step_kind,notnull"`
-	ActionType          string     `bun:"action_type,notnull"`
-	State               string     `bun:"state,notnull"`
+	WorkspaceID         uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	SourceType          string     `bun:"source_type,notnull"`
+	AutomationID        *uuid.UUID `bun:"automation_id,type:uuid"`
+	WorkflowID          *uuid.UUID `bun:"workflow_id,type:uuid"`
+	Status              string     `bun:"status,notnull"`
+	CurrentStepPosition *int       `bun:"current_step_position"`
+	TriggerType         string     `bun:"trigger_type,notnull"`
+	ReviewRequired      bool       `bun:"review_required,notnull"`
 	ReviewerType        string     `bun:"reviewer_type,notnull"`
 	InputPayload        string     `bun:"input_payload,notnull"`
 	OutputPayload       string     `bun:"output_payload,notnull"`
-	ArtifactPayload     string     `bun:"artifact_payload,notnull"`
-	EvidencePayload     string     `bun:"evidence_payload,notnull"`
 	LastError           *string    `bun:"last_error"`
-	StartedAt           *time.Time `bun:"started_at"`
+	ContextFingerprint  string     `bun:"context_fingerprint,notnull"`
+	EvidencePayload     string     `bun:"evidence_payload,notnull"`
+	CreatedByUserID     *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	UpdatedByUserID     *uuid.UUID `bun:"updated_by_user_id,type:uuid"`
 	CompletedAt         *time.Time `bun:"completed_at"`
 	CreatedAt           time.Time  `bun:"created_at,notnull"`
 	UpdatedAt           time.Time  `bun:"updated_at,notnull"`
 }
 
+type AutomationRunStep struct {
+	bun.BaseModel `bun:"table:automation_run_steps"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	RunID           uuid.UUID  `bun:"run_id,notnull,type:uuid"`
+	WorkflowStepID  *uuid.UUID `bun:"workflow_step_id,type:uuid"`
+	Position        int        `bun:"position,notnull"`
+	Name            string     `bun:"name,notnull"`
+	StepKind        string     `bun:"step_kind,notnull"`
+	ActionType      string     `bun:"action_type,notnull"`
+	State           string     `bun:"state,notnull"`
+	ReviewerType    string     `bun:"reviewer_type,notnull"`
+	InputPayload    string     `bun:"input_payload,notnull"`
+	OutputPayload   string     `bun:"output_payload,notnull"`
+	ArtifactPayload string     `bun:"artifact_payload,notnull"`
+	EvidencePayload string     `bun:"evidence_payload,notnull"`
+	LastError       *string    `bun:"last_error"`
+	StartedAt       *time.Time `bun:"started_at"`
+	CompletedAt     *time.Time `bun:"completed_at"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
 type AutomationRunReview struct {
 	bun.BaseModel `bun:"table:automation_run_reviews"`
 
-	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
-	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
-	RunID            uuid.UUID  `bun:"run_id,notnull,type:uuid"`
-	RunStepID        *uuid.UUID `bun:"run_step_id,type:uuid"`
-	ReviewerType     string     `bun:"reviewer_type,notnull"`
-	Decision         string     `bun:"decision,notnull"`
-	Status           string     `bun:"status,notnull"`
-	Comment          string     `bun:"comment,notnull"`
-	Findings         string     `bun:"findings,notnull"`
-	ActorUserID      *uuid.UUID `bun:"actor_user_id,type:uuid"`
-	AutomationAgent  string     `bun:"automation_agent,notnull"`
-	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	RunID           uuid.UUID  `bun:"run_id,notnull,type:uuid"`
+	RunStepID       *uuid.UUID `bun:"run_step_id,type:uuid"`
+	ReviewerType    string     `bun:"reviewer_type,notnull"`
+	Decision        string     `bun:"decision,notnull"`
+	Status          string     `bun:"status,notnull"`
+	Comment         string     `bun:"comment,notnull"`
+	Findings        string     `bun:"findings,notnull"`
+	ActorUserID     *uuid.UUID `bun:"actor_user_id,type:uuid"`
+	AutomationAgent string     `bun:"automation_agent,notnull"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
 }

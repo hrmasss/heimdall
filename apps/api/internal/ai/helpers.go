@@ -18,16 +18,17 @@ import (
 
 var hexColorPattern = regexp.MustCompile(`(?i)#(?:[0-9a-f]{6}|[0-9a-f]{3})\b`)
 
-func (s *Service) extractBusinessContext(ctx context.Context, narrative string) (*WorkspaceBusinessContext, error) {
-	provider, apiKey, model := s.defaultNativeExtractionProvider()
-	if provider == "" || apiKey == "" || strings.TrimSpace(narrative) == "" {
+func (s *Service) extractBusinessContext(ctx context.Context, workspaceID uuid.UUID, narrative string) (*WorkspaceBusinessContext, error) {
+	provider := s.defaultProvider()
+	model := s.defaultModel(provider)
+	if provider == "" || model == "" || strings.TrimSpace(narrative) == "" {
 		return heuristicBusinessExtraction(narrative), nil
 	}
 	systemPrompt := "Extract only decision-affecting business context for AI content generation. Reject fluff like friendly tone. Return strict JSON with keys: summary, understandingScore, missingGaps, facts. facts must be an array of objects with key, label, value, appliesTo, importance. appliesTo must use these values only: post_generation, campaign_planning, image_generation, reel_generation. importance must be low, medium, or high."
 	userPrompt := fmt.Sprintf("Business description:\n%s", narrative)
-	text, _, err := s.generateJSON(ctx, provider, model, apiKey, systemPrompt, userPrompt, nil)
-	if err != nil {
-		return nil, err
+	route := s.routedGenerateJSON(ctx, workspaceID, provider, model, modeNative, systemPrompt, userPrompt, nil, false)
+	if route.lastErr != nil {
+		return nil, route.lastErr
 	}
 	var parsed struct {
 		Summary            string        `json:"summary"`
@@ -35,7 +36,7 @@ func (s *Service) extractBusinessContext(ctx context.Context, narrative string) 
 		MissingGaps        []string      `json:"missingGaps"`
 		Facts              []ContextFact `json:"facts"`
 	}
-	if err := json.Unmarshal([]byte(cleanJSONText(text)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSONText(route.text)), &parsed); err != nil {
 		return nil, err
 	}
 	return &WorkspaceBusinessContext{
@@ -49,16 +50,17 @@ func (s *Service) extractBusinessContext(ctx context.Context, narrative string) 
 	}, nil
 }
 
-func (s *Service) extractBrandContext(ctx context.Context, narrative string, image *providerImage) (*WorkspaceBrandContext, error) {
-	provider, apiKey, model := s.defaultNativeExtractionProvider()
-	if provider == "" || apiKey == "" {
+func (s *Service) extractBrandContext(ctx context.Context, workspaceID uuid.UUID, narrative string, image *providerImage) (*WorkspaceBrandContext, error) {
+	provider := s.defaultProvider()
+	model := s.defaultModel(provider)
+	if provider == "" || model == "" {
 		return heuristicBrandExtraction(narrative, nil), nil
 	}
 	systemPrompt := "Extract concrete brand identity and design tokens. Return strict JSON with keys: summary, designTokens, visualGuardrails, missingGaps. designTokens should prefer keys like primaryColor, secondaryColor, accentColor, typography, visualStyle, compositionCues, prohibitedMotifs."
 	userPrompt := fmt.Sprintf("Brand description:\n%s", defaultString(strings.TrimSpace(narrative), "No narrative provided. Use the reference image if available."))
-	text, _, err := s.generateJSON(ctx, provider, model, apiKey, systemPrompt, userPrompt, image)
-	if err != nil {
-		return nil, err
+	route := s.routedGenerateJSON(ctx, workspaceID, provider, model, modeNative, systemPrompt, userPrompt, image, false)
+	if route.lastErr != nil {
+		return nil, route.lastErr
 	}
 	var parsed struct {
 		Summary          string         `json:"summary"`
@@ -66,7 +68,7 @@ func (s *Service) extractBrandContext(ctx context.Context, narrative string, ima
 		VisualGuardrails []string       `json:"visualGuardrails"`
 		MissingGaps      []string       `json:"missingGaps"`
 	}
-	if err := json.Unmarshal([]byte(cleanJSONText(text)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSONText(route.text)), &parsed); err != nil {
 		return nil, err
 	}
 	return &WorkspaceBrandContext{
@@ -315,9 +317,22 @@ func (s *Service) approvedModels(provider string) []string {
 		return uniqueNonEmpty(s.cfg.OpenAIApprovedModels)
 	case providerGemini:
 		return uniqueNonEmpty(s.cfg.GeminiApprovedModels)
+	case providerCopilot:
+		return uniqueNonEmpty(s.cfg.CopilotApprovedModels)
 	default:
 		return nil
 	}
+}
+
+func (s *Service) approvedModelsFor(ctx context.Context, provider string) []string {
+	if s.db == nil {
+		return s.approvedModels(provider)
+	}
+	setting := s.platformProviderSetting(ctx, provider)
+	if models := parseStringSlice(setting.ApprovedModels); len(models) > 0 {
+		return models
+	}
+	return s.approvedModels(provider)
 }
 
 func (s *Service) defaultModel(provider string) string {
@@ -326,9 +341,41 @@ func (s *Service) defaultModel(provider string) string {
 		return strings.TrimSpace(s.cfg.OpenAIDefaultModel)
 	case providerGemini:
 		return strings.TrimSpace(s.cfg.GeminiDefaultModel)
+	case providerCopilot:
+		return strings.TrimSpace(s.cfg.CopilotDefaultModel)
 	default:
 		return ""
 	}
+}
+
+func (s *Service) providerBaseURL(provider string) string {
+	switch provider {
+	case providerOpenAI:
+		return strings.TrimRight(s.cfg.OpenAIBaseURL, "/")
+	case providerGemini:
+		return strings.TrimRight(s.cfg.GeminiBaseURL, "/")
+	case providerCopilot:
+		return strings.TrimRight(s.cfg.CopilotBaseURL, "/")
+	default:
+		return ""
+	}
+}
+
+func (s *Service) providerLabel(provider string) string {
+	switch provider {
+	case providerOpenAI:
+		return "OpenAI GPT"
+	case providerGemini:
+		return "Google Gemini"
+	case providerCopilot:
+		return "GitHub Copilot"
+	default:
+		return provider
+	}
+}
+
+func allProviders() []string {
+	return []string{providerOpenAI, providerGemini, providerCopilot}
 }
 
 func (s *Service) defaultProvider() string {
@@ -338,17 +385,23 @@ func (s *Service) defaultProvider() string {
 	if s.hasNativeAPIKey(providerGemini) {
 		return providerGemini
 	}
+	if s.hasNativeAPIKey(providerCopilot) {
+		return providerCopilot
+	}
 	if len(s.cfg.OpenAIApprovedModels) > 0 {
 		return providerOpenAI
 	}
 	if len(s.cfg.GeminiApprovedModels) > 0 {
 		return providerGemini
 	}
+	if len(s.cfg.CopilotApprovedModels) > 0 {
+		return providerCopilot
+	}
 	return ""
 }
 
 func defaultMode(cfg config.AIConfig) string {
-	if len(nativeAPIKeysForConfig(cfg, providerOpenAI)) > 0 || len(nativeAPIKeysForConfig(cfg, providerGemini)) > 0 {
+	if len(nativeAPIKeysForConfig(cfg, providerOpenAI)) > 0 || len(nativeAPIKeysForConfig(cfg, providerGemini)) > 0 || len(nativeAPIKeysForConfig(cfg, providerCopilot)) > 0 {
 		return modeNative
 	}
 	return modeBYOK
@@ -368,14 +421,6 @@ func (s *Service) hasNativeAPIKey(provider string) bool {
 	return len(s.nativeAPIKeys(provider)) > 0
 }
 
-func (s *Service) nativeAPIKey(provider string) string {
-	keys := s.nativeAPIKeys(provider)
-	if len(keys) == 0 {
-		return ""
-	}
-	return keys[0]
-}
-
 func (s *Service) nativeAPIKeys(provider string) []string {
 	return nativeAPIKeysForConfig(s.cfg, provider)
 }
@@ -390,6 +435,9 @@ func nativeAPIKeysForConfig(cfg config.AIConfig, provider string) []string {
 	case providerGemini:
 		values = cfg.GeminiAPIKeys
 		singular = cfg.GeminiAPIKey
+	case providerCopilot:
+		values = append(values, cfg.CopilotAPIKeys...)
+		values = append(values, cfg.CopilotAPIKey)
 	default:
 		return []string{}
 	}
@@ -399,17 +447,7 @@ func nativeAPIKeysForConfig(cfg config.AIConfig, provider string) []string {
 	return uniqueNonEmpty([]string{singular})
 }
 
-func (s *Service) defaultNativeExtractionProvider() (string, string, string) {
-	if apiKey := s.nativeAPIKey(providerOpenAI); apiKey != "" {
-		return providerOpenAI, apiKey, s.defaultModel(providerOpenAI)
-	}
-	if apiKey := s.nativeAPIKey(providerGemini); apiKey != "" {
-		return providerGemini, apiKey, s.defaultModel(providerGemini)
-	}
-	return "", "", ""
-}
-
-func (s *Service) validateCapabilityDefaults(defaults map[string]AIModelSelection) error {
+func (s *Service) validateCapabilityDefaults(ctx context.Context, defaults map[string]AIModelSelection) error {
 	for useCase, selection := range defaults {
 		if !slices.Contains([]string{useCasePostGeneration, useCaseCampaignPlanning, useCaseImageGeneration, useCaseReelGeneration}, useCase) {
 			return fmt.Errorf("%w: unsupported ai capability %s", iam.ErrValidation, useCase)
@@ -417,7 +455,7 @@ func (s *Service) validateCapabilityDefaults(defaults map[string]AIModelSelectio
 		if selection.Provider == "" || selection.Model == "" {
 			return fmt.Errorf("%w: provider and model are required for %s", iam.ErrValidation, useCase)
 		}
-		if !slices.Contains(s.approvedModels(selection.Provider), selection.Model) {
+		if !slices.Contains(s.approvedModelsFor(ctx, selection.Provider), selection.Model) {
 			return fmt.Errorf("%w: model %s is not approved for %s", iam.ErrValidation, selection.Model, selection.Provider)
 		}
 	}
@@ -768,7 +806,7 @@ func buildProviderError(statusCode int, raw []byte) error {
 	return &providerError{
 		StatusCode: statusCode,
 		Message:    message,
-		Retryable:  statusCode == 401 || statusCode == 403 || statusCode == 429 || statusCode >= 500 || strings.Contains(lower, "api_key_invalid") || strings.Contains(lower, "api key not valid") || strings.Contains(lower, "rate") || strings.Contains(lower, "quota") || strings.Contains(lower, "credit"),
+		Retryable:  statusCode == 401 || statusCode == 402 || statusCode == 403 || statusCode == 404 || statusCode == 429 || statusCode >= 500 || strings.Contains(lower, "api_key_invalid") || strings.Contains(lower, "api key not valid") || strings.Contains(lower, "rate") || strings.Contains(lower, "quota") || strings.Contains(lower, "billing") || strings.Contains(lower, "credit"),
 	}
 }
 
